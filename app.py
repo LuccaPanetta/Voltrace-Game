@@ -25,8 +25,9 @@
 # --- 1. IMPORTACIONES Y CONFIGURACIÓN INICIAL ---
 # ===================================================================
 
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify, session, flash, url_for
 from flask_socketio import SocketIO, emit, join_room, leave_room
+from flask_mail import Mail, Message
 import uuid                    # Para generar IDs únicos de salas
 from datetime import datetime  # Para timestamps
 from threading import Timer
@@ -49,17 +50,43 @@ from models import User, db              # Modelos de base de datos
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
 
+# --- Configuración de Flask-Mail ---
+app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER')
+app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
+app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'true').lower() in ['true', 'on', '1']
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME') 
+
+mail = Mail(app)
+
+def send_reset_email(user):
+    token = user.get_reset_token()
+    msg = Message('VoltRace - Restablecimiento de Contraseña',
+                  sender=current_app.config['MAIL_USERNAME'],
+                  recipients=[user.email])
+    msg.body = f'''Para restablecer tu contraseña, visitá el siguiente enlace:
+{url_for('reset_token', token=token, _external=True)}
+
+Si no solicitaste este cambio, simplemente ignorá este email.
+'''
+    try:
+        mail.send(msg)
+        return True
+    except Exception as e:
+        print(f"Error al enviar email: {e}") #
+        return False
+    
 # --- Configuración de la Base de Datos (SQLAlchemy) ---
 basedir = os.path.abspath(os.path.dirname(__file__))
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL:
-    # Si estamos en producción (en Render)
+    # Si estamos en producción
     print("INFO: Usando base de datos de producción (PostgreSQL).")
     if DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 else:
-    # Si no la encuentra (estamos en local), usa sqlite como antes
     print("ADVERTENCIA: DATABASE_URL no encontrada. Usando 'voltrace.db' (SQLite) local.")
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'voltrace.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -199,6 +226,51 @@ def login():
     # Inicia la sesión del usuario con flask_login
     login_user(user)
     return jsonify({"success": True, "username": user.username})
+
+@app.route("/forgot-password", methods=['GET', 'POST'])
+def forgot_password():
+    if current_user.is_authenticated:
+        return redirect(url_for('lobby')) # Si ya está logueado, al lobby
+
+    if request.method == 'POST':
+        email = request.form.get('email')
+        user = User.query.filter_by(email=email).first()
+        if user:
+            if send_reset_email(user):
+                flash('Se ha enviado un email con instrucciones para restablecer tu contraseña.', 'info')
+            else:
+                flash('Error al enviar el email. Por favor, intentá de nuevo más tarde.', 'danger')
+            return redirect(url_for('login'))
+        else:
+            flash('No existe una cuenta asociada a ese email.', 'warning')
+
+    return render_template('forgot_password.html') 
+
+
+@app.route("/reset-password/<token>", methods=['GET', 'POST'])
+def reset_token(token):
+    if current_user.is_authenticated:
+        return redirect(url_for('lobby'))
+
+    user = User.verify_reset_token(token)
+    if user is None:
+        flash('El token es inválido o ha expirado.', 'warning')
+        return redirect(url_for('forgot_password'))
+
+    if request.method == 'POST':
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+
+        if password != confirm_password:
+            flash('Las contraseñas no coinciden.', 'danger')
+            return render_template('reset_password.html', token=token)
+
+        user.set_password(password) # Usamos tu método existente
+        db.session.commit()
+        flash('Tu contraseña ha sido actualizada. Ya podés iniciar sesión.', 'success')
+        return redirect(url_for('login'))
+
+    return render_template('reset_password.html', token=token) 
 
 @app.route('/logout', methods=['POST'])
 @login_required # Requiere que el usuario esté logueado

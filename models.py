@@ -18,6 +18,8 @@
 # ===================================================================
 
 from flask_login import UserMixin
+from itsdangerous import URLSafeTimedSerializer as Serializer
+from flask import current_app
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -148,6 +150,19 @@ class User(db.Model, UserMixin):
     def get_unlocked_achievements(self):
         return [ua.achievement for ua in self.unlocked_achievements_assoc]
 
+    def get_reset_token(self, expires_sec=1800):
+        s = Serializer(current_app.config['SECRET_KEY'])
+        return s.serialize({'user_id': self.id})
+
+    @staticmethod
+    def verify_reset_token(token, expires_sec=1800):
+        s = Serializer(current_app.config['SECRET_KEY'])
+        try:
+            data = s.loads(token, max_age=expires_sec)
+            user_id = data.get('user_id')
+        except:
+            return None 
+        return User.query.get(user_id)
 
 class PrivateMessage(db.Model):
     __tablename__ = 'private_message'
