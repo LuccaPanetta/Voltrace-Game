@@ -114,12 +114,15 @@
 -   Define las clases (`User`, `PrivateMessage`, `Achievement`, `UserAchievement`) que mapean a tablas de la base de datos SQLite.
 -   Incluye métodos helper en `User` para manejar relaciones sociales (`add_friend`, `send_friend_request`, etc.).
 
-### 6. **Cliente JavaScript (`script.js`)**
--   **Inicialización**: Conexión SocketIO, caché de elementos DOM.
--   **Listeners SocketIO**: Define cómo reacciona el cliente a eventos del servidor (`juego_iniciado`, `turno_ejecutado`, `nuevo_mensaje`, etc.).
--   **Funciones de Renderizado**: `renderTablero`, `renderJugadoresEstado`, `renderEventos`, etc.
--   **Manejo de UI**: Funciones `show`, `setLoading`, `showNotification`, modales, etc.
--   **Lógica de Interacción**: Handlers para clics en botones (lanzar dado, usar habilidad, comprar perk, chat, social).
+### 6. Lógica de Cliente (JavaScript Modular)
+El frontend utiliza **módulos de JavaScript (ES6+)** para organizar la lógica, importados en un archivo principal (ej. `main.js`).
+
+-   **Módulos Principales**: (Ej. `gameUI.js`, `socketHandlers.js`, `social.js`, `animationController.js`) que manejan la inicialización y la delegación de eventos.
+-   **Inicialización**: Conexión SocketIO, caché de elementos DOM, y asignación de *event listeners*.
+-   **Listeners SocketIO**: Define cómo reacciona el cliente a eventos del servidor (`juego_iniciado`, `turno_ejecutado`, `nuevo_mensaje`).
+-   **Funciones de Renderizado**: (Ej. `renderTablero`, `renderJugadoresEstado`) para actualizar el DOM de forma eficiente.
+-   **Manejo de UI**: Funciones para controlar modales, notificaciones (`showNotification`) y estados de carga.
+-   **Sistema de Animaciones**: Un módulo dedicado (ej. `animationController.js`) aplica/remueve clases de CSS (definidas en `animations.css` o similar) para crear efectos visuales.
 
 ### 7. **AnimationSystem (`animations.js`)**
 -   **Clase `AnimationSystem`**: Provee métodos para activar efectos visuales (ej. `shakeBoard`, `celebrateVictory`).
