@@ -1,34 +1,35 @@
-# 🎲 VoltRace - DOCUMENTACIÓN COMPLETA
+# 🎲 VoltRace - Documentación Completa
+
+![Versión de Python](https://img.shields.io/badge/python-3.8+-blue.svg)
+![Framework](https://img.shields.io/badge/Flask-2.x-black.svg)
+![Real-time](https://img.shields.io/badge/Socket.IO-brightgreen.svg)
+![Database](https://img.shields.io/badge/Database-SQLite-blue.svg)
+
+**VoltRace** es una implementación web moderna del clásico juego de mesa, diseñada para múltiples jugadores en tiempo real. Cuenta con un sistema completo de usuarios, persistencia en base de datos, logros, perks (mejoras), funciones sociales, animaciones y elementos de juego modernos.
 
 ## 📋 Índice
 1.  [Descripción General](#-descripción-general)
-2.  [Arquitectura del Sistema](#️-arquitectura-del-sistema)
-3.  [Estructura de Archivos](#-estructura-de-archivos)
-4.  [Características Principales](#-características-principales)
-5.  [Sistemas Implementados](#️-sistemas-implementados)
-6.  [Tecnologías Utilizadas](#-tecnologías-utilizadas)
-7.  [Instalación y Configuración](#-instalación-y-configuración)
-8.  [Guía de Código](#-guía-de-código)
-9.  [Características Técnicas](#️-características-técnicas)
+2.  [Características Principales](#-características-principales)
+3.  [Sistemas Implementados (Clases Principales)](#️-sistemas-implementados-clases-principales)
+4.  [Tecnologías Utilizadas](#-tecnologías-utilizadas)
+5.  [Instalación y Configuración](#-instalación-y-configuración)
 
 ---
 
 ## 📖 Descripción General
 
-**VoltRace** is a modern web implementation of the classic board game, designed for multiple players in real-time. It features a complete user system, database persistence, achievements, perks, social features, animations, and modern gaming elements.
-
-### 🎮 Game Features
--   **2-4 players** per match
--   **75-square board** with special tiles and energy packs
--   **Unique abilities** per player (assigned randomly from pools)
--   **Energy system** (health points) and **Command Points (PM)** for perks
--   **Player collisions** with energy loss/stealing
--   **Real-time chat** (in-lobby and in-game)
--   **Perk system** (passive upgrades)
--   **Achievement system** with XP rewards
--   **Leveling system** (1-100)
--   **Global ranking**
--   **Social features** (friends, private chat, presence, invites)
+### 🎮 Características del Juego
+-   **2-4 jugadores** por partida.
+-   **Tablero de 75 casillas** con casillas especiales y paquetes de energía.
+-   **Habilidades únicas** por jugador (asignadas aleatoriamente de un pool).
+-   **Sistema de Energía** (puntos de vida) y **Puntos de Mando (PM)** para perks.
+-   **Colisiones entre jugadores** con pérdida/robo de energía.
+-   **Chat en tiempo real** (en sala y en partida).
+-   **Sistema de Perks** (mejoras pasivas).
+-   **Sistema de Logros** con recompensas de XP.
+-   **Sistema de Niveles** (1-100).
+-   **Ranking global**.
+-   **Funciones sociales** (amigos, chat privado, presencia, invitaciones).
 
 ---
 ## ⭐ Características Principales
@@ -36,9 +37,9 @@
 ### 🔐 **Sistema de Usuarios (Flask-Login + SQLAlchemy)**
 -   **Registro** con email/username/password (validado).
 -   **Login** persistente basado en sesiones seguras.
--   **Hashing seguro** de contraseñas (via Werkzeug).
--   **Persistencia** en base de datos SQLite (`User` model).
--   **Perfil de usuario** con nivel, XP, y estadísticas de juego.
+-   **Hashing seguro** de contraseñas (vía Werkzeug).
+-   **Persistencia** en base de datos SQLite (modelo `User`).
+-   **Perfil de usuario** con nivel, XP y estadísticas de juego.
 
 ### ✨ **Sistema de Perks (Mejoras Pasivas)**
 -   Compra de **Packs de Perks** (Básico, Intermedio, Avanzado) usando Puntos de Mando (PM).
@@ -58,7 +59,7 @@
 -   **Amplia variedad de logros** (>40) cubriendo gameplay, social, persistencia, etc.
 -   **Desbloqueo automático** basado en eventos del juego (`check_achievement`).
 -   **Recompensas de XP** por cada logro.
--   **Persistencia** en base de datos (`Achievement`, `UserAchievement` models).
+-   **Persistencia** en base de datos (modelos `Achievement`, `UserAchievement`).
 -   **Modal de Logros** con visualización de progreso y fecha de desbloqueo.
 
 ### 📈 **Sistema de Niveles y XP**
@@ -144,7 +145,7 @@
 -   **CSS3** - Estilos modernos y animaciones.
     -   Arquitectura Modular (múltiples archivos CSS).
     -   Custom Properties (variables CSS).
-    -   Grid + Flexbox layouts.
+    -   Layouts con Grid + Flexbox.
     -   Responsive Design (mobile-first, `clamp()`, media queries).
     -   Keyframe Animations.
 -   **JavaScript (ES6+)** - Lógica del cliente.
@@ -162,11 +163,15 @@
 ## 🚀 Instalación y Configuración
 
 ### **Prerrequisitos**
--   Python 3.8 o superior instalado.
+-   Python 3.8 o superior.
 -   `pip` (gestor de paquetes de Python).
 -   Un navegador web moderno.
+-   (Opcional) Docker y Docker Compose.
 
-### **Instalación**
+---
+
+### **Método 1: Entorno Local de Python (Manual)**
+
 ```bash
 # 1. Clona o descarga el repositorio del proyecto
 # git clone <url-del-repositorio>
@@ -185,4 +190,4 @@ pip install -r requirements.txt
 python app.py
 
 # 5. Abre tu navegador web y ve a:
-#    [http://127.0.0.1:5000](http://127.0.0.1:5000)  
+#    [http://127.0.0.1:5000](http://127.0.0.1:5000)
