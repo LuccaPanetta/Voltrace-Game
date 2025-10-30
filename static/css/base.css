@@ -1,0 +1,50 @@
+/* ===================================================================
+   MODULO: BASE
+   - Variables CSS customizadas (:root)
+   - Reset básico y estilos fundamentales (html, body, *)
+   =================================================================== */
+
+:root {
+  /* Colores del tema oscuro */
+  --bg: #0f172a;        /* Fondo principal (azul muy oscuro) */
+  --panel: #111827;     /* Fondo de paneles y tarjetas */
+  --text: #e5e7eb;      /* Texto principal (blanco suave) */
+  --muted: #9ca3af;     /* Texto secundario (gris) */
+
+  /* Colores de acción */
+  --primary: #6366f1;   /* Color principal (azul-morado) */
+  --success: #22c55e;   /* Verde para éxito */
+  --danger: #ef4444;    /* Rojo para peligro/errores */
+  --warning: #f59e0b;   /* Amarillo para advertencias */
+
+  /* Tamaños responsive - Optimizado para evitar scroll horizontal */
+  --container-max: 1440px;                    /* Ancho máximo del contenedor */
+  --container-padding: clamp(8px, 2vw, 24px); /* Padding adaptativo del contenedor */
+  --cell: clamp(30px, 4.5vw, 75px);           /* Tamaño de celdas del tablero */
+  --gap-small: clamp(4px, 1vw, 8px);          /* Espaciado pequeño */
+  --gap-medium: clamp(8px, 2vw, 16px);        /* Espaciado mediano */
+}
+
+/* ===================================================================
+   RESET Y ESTILOS BASE
+   ===================================================================
+   Reset básico y estilos fundamentales para todos los elementos */
+
+* {
+  box-sizing: border-box;  /* Incluir padding y border en el ancho total */
+  max-width: 100%;         /* Prevenir que elementos excedan el contenedor */
+}
+
+html, body {
+  margin: 0;               /* Eliminar márgenes por defecto del navegador */
+  padding: 0;              /* Eliminar padding por defecto del navegador */
+  width: 100%;             /* Ocupar todo el ancho disponible */
+  overflow-x: hidden;      /* IMPORTANTE: Prevenir scroll horizontal */
+
+  /* Tipografía moderna con fallbacks */
+  font-family: 'Roboto', system-ui, -apple-system, Segoe UI, Arial, sans-serif;
+
+  /* Aplicar tema oscuro */
+  background: var(--bg);   /* Fondo oscuro */
+  color: var(--text);      /* Texto claro */
+}

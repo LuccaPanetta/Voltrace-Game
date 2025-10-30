@@ -1,0 +1,23 @@
+/* ===================================================================
+   MODULO: AUTH (Autenticación)
+   - Estilos específicos para la pantalla de login y registro.
+   =================================================================== */
+
+/* Layout específico del contenido de autenticación */
+.auth-content {
+  max-width: 400px;
+  margin: 40px auto; /* Añadir margen superior */
+}
+
+/* Estructura en columnas para el formulario de registro */
+.auth-form-column {
+    display: flex;
+    flex-direction: column;
+    gap: 15px; /* Espacio entre grupos de input */
+}
+
+/* Ajustar el botón dentro del formulario apilado */
+.auth-form-column button {
+     margin-top: 10px; /* Espacio sobre el botón */
+     width: 100%;
+}

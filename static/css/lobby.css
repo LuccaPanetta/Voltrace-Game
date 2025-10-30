@@ -1,0 +1,132 @@
+/* ===================================================================
+   MODULO: LOBBY
+   - Estilos para la pantalla de Lobby (selección de sala)
+   - Estilos para la pantalla de Espera (lista de jugadores, chat)
+   =================================================================== */
+
+/* --- Pantalla de Lobby --- */
+
+.info-section {
+  background: var(--panel);
+  padding: 16px;
+  border-radius: 8px;
+}
+.info-section ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  color: var(--muted);
+  font-size: 0.9em; /* Ligeramente más pequeño */
+  line-height: 1.5; /* Mejor espaciado vertical */
+}
+.info-section li { margin-bottom: 5px; } /* Espacio entre items de lista */
+
+#rules-content h3, #ranking-content h3 { margin-top: 0; }
+
+/* --- Pantalla de Espera --- */
+
+.jugadores-lista, .chat-waiting, .eventos-sala, .controles-sala {
+  background: var(--panel);
+  padding: 16px; /* Un poco más de padding */
+  border-radius: 8px;
+  width: 100%;
+  min-width: 0;
+  box-shadow: 0 0 0 1px #1f2937 inset; /* Borde interior sutil */
+}
+.jugadores-lista h3, .chat-waiting h3, .eventos-sala h4 { margin-top: 0; margin-bottom: 12px; }
+
+#lista-jugadores {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+#lista-jugadores li {
+  padding: 8px 10px;
+  border-bottom: 1px solid #1f2937;
+  word-wrap: break-word;
+  transition: background-color 0.2s ease; /* Efecto hover */
+}
+#lista-jugadores li:last-child { border-bottom: none; }
+#lista-jugadores li:hover { background-color: #1f2937; }
+
+/* Contenedores de scroll para chat y eventos */
+.chat-mensajes, #log-eventos { /* Aplicar a ambos */
+  background: #0b1220;
+  height: clamp(150px, 25vh, 200px); /* Ajustar altura */
+  overflow-y: auto; /* Cambiado a auto */
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #1f2937;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  font-size: 0.9em;
+  color: var(--muted);
+}
+#log-eventos { list-style: none; padding: 10px; margin: 0; } /* Resetear lista de log */
+#log-eventos li { margin-bottom: 4px; }
+
+.chat-input {
+  display: flex;
+  gap: var(--gap-small);
+  margin-top: 12px; /* Más espacio */
+  flex-wrap: wrap;
+}
+
+@media (min-width: 480px) {
+  .chat-input {
+    flex-wrap: nowrap;
+  }
+}
+
+/* Controles de la sala (Iniciar/Salir) */
+.controles-sala {
+    display: flex;
+    flex-direction: column; /* Apilados en móvil */
+    gap: var(--gap-medium);
+}
+@media (min-width: 768px) {
+    .waiting-content {
+        /* Usamos áreas para el layout: players/chat arriba, controles/log abajo */
+        grid-template-columns: 1fr 1fr; 
+        grid-template-rows: auto 1fr;
+        grid-template-areas:
+            "players chat"
+            "controls log";
+        align-items: stretch;
+        gap: var(--gap-medium);
+    }
+
+    /* Asignación de áreas */
+    .jugadores-lista { grid-area: players; }
+    .chat-waiting { grid-area: chat; }
+    .eventos-sala {
+         grid-area: log; 
+         display: flex;
+         flex-direction: column;
+         height: 100%;
+         padding: 16px; 
+         background: var(--panel); 
+    }
+
+    /* Controles (botones de Iniciar/Salir) */
+    .controles-sala {
+        grid-area: controls;
+        display: flex; 
+        flex-direction: column; 
+        justify-content: flex-start; 
+        gap: 10px;
+        
+        background: none; 
+        box-shadow: none;
+        padding: 0;
+        border: none;
+        margin: 0;
+    }
+
+    /* Estilos del botón: compactar */
+    .controles-sala button {
+         width: 100%; 
+         max-width: 200px; 
+         padding: 10px 15px; 
+         margin: 0 auto; 
+    }
+}

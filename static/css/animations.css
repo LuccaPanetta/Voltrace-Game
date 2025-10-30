@@ -1,0 +1,126 @@
+/* ===================================================================
+   MODULO: ANIMATIONS
+   - Definiciones de @keyframes
+   - Clases de utilidad .animate-*
+   =================================================================== */
+
+/* --- Definiciones de @keyframes --- */
+
+/* Movimiento visual simple (bounce) para ficha */
+@keyframes piece-bounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-3px) scale(1.1); }
+}
+
+/* Entrada con rebote (para modales, elementos UI) */
+@keyframes bounce-in {
+  0% { transform: scale(0.8); opacity: 0; }
+  60% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Salida deslizándose (para notificaciones) */
+@keyframes slide-out-right {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(100%); opacity: 0; }
+}
+
+/* Sacudida suave */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25%, 75% { transform: translateX(-2px); }
+  50% { transform: translateX(2px); }
+}
+
+/* Sacudida intensa */
+@keyframes intense-shake {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  10%, 90% { transform: translate(-2px, -1px) rotate(-1deg); }
+  20%, 80% { transform: translate(1px, 1px) rotate(1deg); }
+  30%, 70% { transform: translate(-1px, 1px) rotate(-1deg); }
+  40%, 60% { transform: translate(2px, -1px) rotate(1deg); }
+  50% { transform: translate(0, 0) rotate(0deg); }
+}
+
+/* Pulso/Glow para habilidad usada */
+@keyframes ability-cast-glow {
+  0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+  100% { box-shadow: 0 0 0 15px rgba(99, 102, 241, 0); }
+}
+
+/* Pulso de energía (verde) */
+@keyframes energy-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.1); opacity: 1; }
+}
+
+/* Flash de daño (rojo) */
+@keyframes damage-flash {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.5); }
+}
+
+/* Caída de confeti */
+@keyframes confetti-fall {
+  0% { transform: translateY(-100%) rotateZ(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotateZ(720deg); opacity: 0; }
+}
+
+/* Entrada de logro (desde derecha) */
+@keyframes achievement-slide-in {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* Brillo recurrente para notificación de logro */
+@keyframes achievement-glow {
+  0%, 100% { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); }
+  50% { box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5), 0 0 25px rgba(139, 92, 246, 0.3); }
+}
+
+/* Transiciones de pantalla (fade) */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-10px); }
+}
+
+/* Spinner de carga */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Partículas flotantes (para loading) */
+@keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-8px); }
+}
+
+
+/* --- Clases de utilidad .animate-* (Para usar con JS) --- */
+
+.animate-piece-bounce { animation: piece-bounce 0.4s ease-in-out; }
+.animate-bounce-in { animation: bounce-in 0.4s ease-out forwards; }
+.animate-slide-out-right { animation: slide-out-right 0.3s ease-in forwards; }
+.animate-shake { animation: shake 0.4s ease-in-out; }
+.animate-intense-shake { animation: intense-shake 0.5s ease-in-out; }
+.animate-ability-cast { animation: ability-cast-glow 0.8s ease-out; }
+.animate-energy-pulse { animation: energy-pulse 0.6s ease-in-out 2; } /* Repetir 2 veces */
+.animate-damage-flash { animation: damage-flash 0.3s ease-in-out 2; } /* Repetir 2 veces */
+/* .animate-victory - Podría ser una combinación de clases o un keyframe más complejo */
+/* .animate-confetti - La aplica directamente el JS al crear el elemento */
+/* .animate-achievement-enter - Controlado por JS con clases .show/.hide */
+.animate-fade-in { animation: fade-in 0.5s ease-out forwards; }
+.animate-fade-out { animation: fade-out 0.4s ease-in forwards; }
+/* .animate-float - Usado directamente en el spinner */
+
+/* Colores variados para confeti (aplicar a .confetti-piece) */
+.confetti-piece:nth-child(5n+1) { background: #6366f1; animation-delay: 0s; }
+.confetti-piece:nth-child(5n+2) { background: #fbbf24; animation-delay: -0.8s; }
+.confetti-piece:nth-child(5n+3) { background: #22c55e; animation-delay: -1.6s; }
+.confetti-piece:nth-child(5n+4) { background: #ec4899; animation-delay: -2.4s; }
+.confetti-piece:nth-child(5n+5) { background: #8b5cf6; animation-delay: -3.2s; }

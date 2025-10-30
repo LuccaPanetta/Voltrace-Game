@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎲 VoltRace Online</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Estilos para el nuevo Modal Social */
+        .social-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #374151;
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+        }
+        .social-tabs {
+            display: flex;
+            border-bottom: 1px solid #374151;
+            margin-bottom: 12px;
+        }
+        .social-tab-button {
+            padding: 8px 12px;
+            border: none;
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .social-tab-button.active {
+            color: var(--primary);
+            border-bottom: 2px solid var(--primary);
+            font-weight: 500;
+        }
+        .social-content {
+            display: none; /* Se muestra con .active */
+            max-height: 400px;
+            overflow-y: auto;
+            padding-right: 5px; /* Espacio para scrollbar */
+        }
+        .social-content.active {
+            display: block;
+        }
+        .social-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            border-radius: 6px;
+            margin-bottom: 4px; /* Espacio entre items */
+        }
+        .social-list-item:hover {
+            background: #1f2937;
+        }
+        .social-user-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .social-status { /* Círculo de estado (online/offline/in_game) */
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--muted); /* Gris por defecto (offline) */
+            flex-shrink: 0; /* Evitar que se encoja */
+        }
+        .social-status.online { background: var(--success); } /* Verde */
+        .social-status.in_game { background: var(--warning); } /* Amarillo */
+        
+        .social-actions button { /* Botones pequeños para acciones (chat, invitar, etc.) */
+            padding: 4px 8px;
+            font-size: 12px;
+            margin-left: 4px;
+        }
+        
+        .social-search-bar { /* Barra de búsqueda de usuarios */
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        #social-search-input {
+            flex-grow: 1; /* Ocupa el espacio disponible */
+        }
+        
+        /* Estilos para el Modal de Chat Privado */
+        #private-chat-messages { /* Contenedor de mensajes */
+            height: 300px;
+            overflow-y: auto;
+            background: #0b1220;
+            border: 1px solid #374151;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .private-message { /* Estilo de cada burbuja de mensaje */
+            padding: 6px 10px;
+            border-radius: 12px;
+            max-width: 80%;
+            word-wrap: break-word; /* Evitar que textos largos rompan el layout */
+        }
+        .private-message.sent { /* Mensajes enviados por mí */
+            background: var(--primary);
+            color: white;
+            align-self: flex-end; /* Alineado a la derecha */
+            border-bottom-right-radius: 4px; /* Pequeño detalle visual */
+        }
+        .private-message.received { /* Mensajes recibidos */
+            background: #374151;
+            color: var(--text);
+            align-self: flex-start; /* Alineado a la izquierda */
+            border-bottom-left-radius: 4px;
+        }
+        .private-message small { /* Timestamp del mensaje */
+            font-size: 10px;
+            opacity: 0.7;
+            display: block;
+            margin-top: 2px;
+            text-align: right; /* Alineación del timestamp */
+        }
+        #private-chat-input-group { /* Input y botón de enviar */
+            display: flex;
+            gap: 8px;
+        }
+        #private-chat-input {
+            flex-grow: 1;
+        }
+        #modal-perks .modal-content { max-width: 600px; } /* Un poco más ancho */
+    .perks-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #374151;
+        font-size: 0.9em;
+    }
+    #pm-actual { font-weight: bold; color: var(--success); }
+    #perks-activos-list { color: var(--muted); }
+    .perk-packs {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* Responsive */
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+    .pack-button { /* Estilo para los botones de pack */
+        background: #1f2937;
+        border: 1px solid #374151;
+        padding: 12px;
+        border-radius: 6px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .pack-button:hover:not(:disabled) { background: #374151; border-color: var(--primary); }
+    .pack-button h4 { margin: 0 0 4px 0; color: var(--primary); }
+    .pack-button small { color: var(--muted); display: block; }
+    .pack-button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    #perk-offer-container { /* Donde aparecen los perks a elegir */
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid #374151;
+    }
+    #perk-offer-container h4 { margin-top: 0; }
+    .perk-offer-item { /* Botón para elegir un perk de la oferta */
+        display: block; /* Botones anchos */
+        width: 100%;
+        background: #0b1220;
+        border: 1px solid #374151;
+        padding: 10px;
+        border-radius: 6px;
+        margin-bottom: 8px;
+        text-align: left;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .perk-offer-item:hover { background: #1f2937; border-color: var(--primary); }
+    .perk-offer-item strong { color: var(--primary); }
+    .perk-offer-item small { color: var(--muted); display: block; margin-top: 4px; }
+    .perk-offer-item .perk-tier { 
+        font-size: 0.8em;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: #374151;
+        margin-left: 8px;
+        text-transform: capitalize;
+    }
+    .auth-form-column {
+        display: flex;
+        flex-direction: column;
+        gap: 15px; 
+    }
+
+    /* Grupo de Label + Input */
+    .input-group {
+        display: flex;
+        flex-direction: column; 
+        gap: 5px; 
+    }
+
+    .input-group label {
+        color: var(--muted); 
+        font-size: 0.9em; 
+        text-align: left;
+    }
+
+    /* Estilo para los campos de texto (input email, usuario, password) */
+    .text-input {
+        background-color: #0b1220; 
+        border: 1px solid #374151; 
+        padding: 10px 12px; 
+        border-radius: 5px;
+        color: var(--text);
+        font-size: 1em; 
+        width: 100%; 
+        box-sizing: border-box; /* Padding y borde no añaden al ancho total */
+    }
+
+    .text-input::placeholder { /* Estilo del texto placeholder */
+        color: #4b5563; 
+    }
+
+    .text-input:focus { /* Estilo cuando el campo está seleccionado */
+        border-color: var(--primary);
+        outline: none; 
+        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3); 
+    }
+
+    /* Ajustar el botón dentro del formulario apilado */
+    .auth-form-column button {
+         margin-top: 10px; 
+         width: 100%; 
+    }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="auth-screen" class="screen active">
+            <div class="header">
+                <h1>🎲 VoltRace Online</h1>
+                <p>¡Crea tu cuenta o inicia sesión para jugar!</p>
+            </div>
+
+            <div class="auth-content">
+                <div class="auth-tabs">
+                    <button id="tab-login" class="tab-button active">Iniciar Sesión</button>
+                    <button id="tab-register" class="tab-button">Registrarse</button>
+                </div>
+
+                <div id="login-form" class="auth-form active">
+                    <div class="card">
+                        <h3>🔐 Iniciar Sesión</h3>
+                        <div class="form-group">
+                            <input type="email" id="login-email" placeholder="tu@email.com" required>
+                            <input type="password" id="login-password" placeholder="Contraseña" required>
+                            <button id="btn-login" class="btn-primary">Entrar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="register-form" class="auth-form">
+                <div class="card">
+                    <h3>📝 Crear Cuenta</h3>
+                    <div class="form-group auth-form-column">
+                        <div class="input-group">
+                            <label for="register-email">Email:</label>
+                            <input type="email" id="register-email" placeholder="tu@email.com" required autocomplete="email" class="text-input">
+                        </div>
+                        <div class="input-group">
+                            <label for="register-username">Nombre de Usuario:</label>
+                            <input type="text" id="register-username" placeholder="min. 3 caracteres" required minlength="3" autocomplete="username" class="text-input">
+                        </div>
+                        <div class="input-group">
+                            <label for="register-password">Contraseña:</label>
+                            <input type="password" id="register-password" placeholder="min. 6 caracteres" required minlength="6" autocomplete="new-password" class="text-input">
+                        </div>
+                        <button id="btn-register" class="btn-success">Crear Cuenta</button>
+                    </div>
+                </div>
+            </div>
+            </div>
+        </div>
+
+        <div id="lobby-screen" class="screen">
+            <div class="header">
+                <div>
+                    <h1>🎲 VoltRace Online</h1>
+                    <p>¡Juega con amigos desde cualquier parte del mundo!</p>
+                </div>
+                <div class="user-info">
+                    <div class="user-profile">
+                        <span id="user-username">👤 Usuario</span>
+                        <span id="user-level">⭐ Nivel 1</span>
+                        <span id="user-xp">0 XP</span>
+                        <button id="btn-social" class="btn-secondary" title="Amigos y Chat">👥 Social</button>
+                        <button id="btn-show-achievements" class="btn-secondary" title="Ver Logros">🏆 Logros</button>
+                        <button id="btn-toggle-animations" class="btn-secondary" title="Activar/Desactivar animaciones">🎬</button>
+                        <button id="btn-logout" class="btn-secondary">🚪 Cerrar Sesión</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lobby-content">
+                <div class="action-cards">
+                    <div class="card">
+                        <h3>🆕 Crear Sala Nueva</h3>
+                        <div class="form-group">
+                            <button id="btn-crear-sala" class="btn-primary">Crear Sala</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3>🚪 Unirse a Sala</h3>
+                        <div class="form-group">
+                            <input type="text" id="codigo-sala" placeholder="Código de sala" maxlength="8">
+                            <button id="btn-unirse-sala" class="btn-primary">Unirse</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-section">
+                    <div class="info-tabs">
+                        <button id="btn-abrir-reglas" class="info-tab-button">📖 Cómo Jugar</button>
+                        <button id="tab-ranking" class="info-tab-button">Top 5</button>
+                    </div>
+                    
+                    <div id="rules-content" class="info-content active">
+                        <h3>📋 Cómo Jugar - VoltRace</h3>
+                        <ul>
+                            <li><strong>Objetivo:</strong> Sé el primer jugador en llegar a la casilla 75 o el último en pie con energía.</li>
+                            <li><strong>Jugadores:</strong> 2 a 4 personas por partida.</li>
+                            <li><strong>Energía:</strong> Empiezas con 600 puntos. Si llegas a 0, ¡quedás eliminado! Recoge packs 🔋 para ganar o perder energía.</li>
+                            <li><strong>Tablero:</strong> Avanza según el dado 🎲. ¡Cuidado con las casillas especiales (Trampas 💀, Tesoros 💰, Portales 🌀)!</li>
+                            <li><strong>Colisiones:</strong> Si caes en la misma casilla que otro jugador, ¡ambos pierden energía! 💥</li>
+                            <li><strong>Habilidades:</strong> Cada jugador recibe 4 habilidades únicas al inicio. Úsalas estratégicamente, ¡tienen un cooldown antes de poder volver a usarlas! ⏱️</li>
+                            <li><strong>Puntos de Mejora (PM):</strong> Gana Puntos de Mejora (PM) ✨ durante la partida al recoger energía o usar habilidades.</li>
+                            <li><strong>Perks:</strong> ¡Usa tus PM al inicio de tu turno para comprar Perks! Son ventajas pasivas que duran toda la partida. ⭐</li>
+                            <li><strong>Ganador:</strong> Al llegar a la meta, el jugador vivo con más Energía al final de la partida gana!. 🏆</li>
+                        </ul>
+                    </div>
+                    <div id="ranking-content" class="info-content">
+                        <h3>🏆 Top 5 Jugadores</h3>
+                        <div id="top-players" class="top-players">
+                            <div class="loading-rankings">Cargando rankings...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="waiting-screen" class="screen">
+            <div class="header">
+                <h2>🚪 Sala: <span id="codigo-sala-actual"></span></h2>
+                <button id="btn-copiar-codigo" class="btn-secondary">📋 Copiar Código</button>
+                <button id="btn-social-waiting" class="btn-secondary" title="Amigos y Chat">👥 Social</button>
+            </div>
+
+            <div class="waiting-content">
+                <div class="jugadores-lista">
+                    <h3>👥 Jugadores (<span id="contador-jugadores">0</span>/4)</h3>
+                    <ul id="lista-jugadores"></ul>
+                </div>
+
+                <div class="chat-waiting">
+                    <h3>💬 Chat de Sala</h3>
+                    <div id="chat-mensajes" class="chat-mensajes"></div>
+                    <div class="chat-input">
+                        <input type="text" id="mensaje-input" placeholder="Escribe un mensaje...">
+                        <button id="btn-enviar-mensaje">Enviar</button>
+                    </div>
+                </div>
+
+                <div class="controles-sala">
+                    <button id="btn-iniciar-juego" class="btn-success" disabled>🎮 Iniciar Juego</button>
+                    <button id="btn-salir-sala" class="btn-danger">🚪 Salir de la Sala</button>
+                </div>
+
+                <div class="eventos-sala">
+                    <h4>📝 Eventos</h4>
+                    <ul id="log-eventos"></ul>
+                </div>
+            </div>
+        </div>
+
+        <div id="game-screen" class="screen">
+            <div class="game-header">
+                <div class="game-info">
+                    <h2>🎲 VoltRace</h2>
+                    <div class="game-stats">
+                        <span>Ronda: <span id="ronda-actual">1</span></span>
+                        <span>Turno: <span id="turno-jugador">-</span></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="game-content">
+                <div class="panel-jugadores">
+                    <h3>👥 Jugadores</h3>
+                    <div id="jugadores-estado"></div>
+                </div>
+
+                <div class="tablero-container">
+                    <div id="tablero" class="tablero"></div>
+                    
+                    <div class="controles-turno">
+                        <button id="btn-mostrar-habilidades" class="btn-secondary">⚡ Habilidades</button>
+                        <button id="btn-lanzar-dado" class="btn-primary" disabled>🎲 Lanzar Dado</button>
+                        <div id="resultado-dado" class="resultado-dado"></div>
+                    </div>
+
+                    <div id="guia-partida-drawer" class="guia-drawer">
+                        <button id="guia-partida-toggle" class="guia-toggle-btn">
+                            📖 Guía Rápida de Símbolos (Click para expandir)
+                        </button>
+                        <div id="guia-partida-contenido" class="guia-contenido">
+                            <h4>Símbolos de Casilla</h4>
+                            <ul>
+                                <li><strong>💰 Tesoro ($):</strong> Ganas 50 de Energía.</li>
+                                <li><strong>❌ Trampa (X):</strong> Pierdes 75 de Energía.</li>
+                                <li><strong>🌀 Teletransporte (T):</strong> Te envía a una casilla aleatoria.</li>
+                                <li><strong>Multiplicador (*2):</strong> Duplica la energía ganada/perdida en la siguiente casilla.</li>
+                                <li><strong>🔄 Intercambio (S):</strong> Intercambias posición con un oponente al azar.</li>
+                                <li><strong>⏸️ Pausa (P):</strong> Pierdes tu próximo turno.</li>
+                                <li><strong>⚡ Turbo (!):</strong> Avanzas 3 casillas extra.</li>
+                                <li><strong>🧛 Vampiro (V):</strong> Robas 25 E a todos los oponentes en un rango de 3 casillas.</li>
+                                <li><strong>↩️ Rebote (R):</strong> Retrocedes 2 casillas.</li>
+                                <li><strong>⚫ Agujero Negro:</strong> Eres enviado a la posición del jugador más atrasado.</li>
+                                <li><strong>⭐ Recurso (⭐):</strong> Ganas Puntos de Mando (PM).</li>
+                                <li><strong>🧲 Imán (🧲):</strong> Atraes a los demás jugadores 2 casillas hacia ti.</li>
+                                <li><strong>⚙️ Chatarrería:</strong> Intercambias Energía por Puntos de Mando.</li>
+                            </ul>
+                            <h4>Iconos de Efectos (Jugador)</h4>
+                            <ul>
+                                <li><strong>⏸️ Pausado:</strong> No puedes jugar tu turno.</li>
+                                <li><strong>🛡️ Escudo:</strong> Bloquea el próximo efecto negativo (trampa, colisión, habilidad).</li>
+                                <li><strong>⚡ Turbo:</strong> Tu próximo dado avanza el DOBLE (x2).</li>
+                                <li><strong>👻 Invisible:</strong> Evita colisiones y ser objetivo de habilidades.</li>
+                                <li><strong>🔮 Barrera:</strong> Refleja la próxima habilidad negativa (ej. Robo, Sabotaje).</li>
+                            </ul>
+                        </div>
+                    </div> </div> <div class="panel-eventos">
+                    <div class="eventos-juego">
+                        <h4>📋 Eventos del Juego</h4>
+                        <div id="eventos-lista" class="eventos-scroll"></div>
+                    </div>
+                    <div class="chat-juego">
+                        <h4>💬 Chat</h4>
+                        <div id="chat-juego-mensajes" class="chat-mensajes"></div>
+                        <div class="chat-input">
+                            <input type="text" id="mensaje-juego-input" placeholder="Mensaje...">
+                            <button id="btn-enviar-mensaje-juego">📤</button>
+                        </div>
+                    </div>
+                </div> </div> </div>
+
+        <div id="modal-habilidades" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>⚡ Tus Habilidades</h3>
+                    <button id="btn-cerrar-habilidades" class="btn-close">×</button>
+                </div>
+                <div id="habilidades-lista" class="habilidades-container"></div>
+            </div>
+        </div>
+        <div id="modal-perks" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>⭐ Compra de Perks</h3>
+                <button id="btn-cerrar-perks" class="btn-close">×</button>
+            </div>
+            <div class="perks-info">
+                <span>Puntos de Mejora (PM): <strong id="pm-actual">0</strong></span>
+                <span>Perks Activos: <span id="perks-activos-list">-</span></span>
+            </div>
+            <h4>Selecciona un Pack:</h4>
+            <div class="perk-packs">
+                <button id="btn-pack-basico" class="pack-button" data-pack-type="basico" data-cost="4">
+                    <h4>Pack Básico</h4>
+                    <small>Coste: 4 PM</small>
+                    <small>(Ofrece 2 Básicos)</small>
+                </button>
+
+                <button id="btn-pack-intermedio" class="pack-button" data-pack-type="intermedio" data-cost="8">
+                    <h4>Pack Intermedio</h4>
+                    <small>Coste: 8 PM</small>
+                    <small>(Ofrece 2 Medios, 1 Básico)</small>
+                </button>
+
+                <button id="btn-pack-avanzado" class="pack-button" data-pack-type="avanzado" data-cost="12">
+                    <h4>Pack Avanzado</h4>
+                    <small>Coste: 12 PM</small>
+                    <small>(Ofrece 1 Alto, 2 Medios)</small>
+                </button>
+                            </div>
+            <div id="perk-offer-container">
+                </div>
+        </div>
+    </div>
+        <div id="modal-final" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>🏆 ¡Juego Terminado!</h3>
+                </div>
+                <div id="resultados-finales" class="resultados-container"></div>
+                <div class="modal-footer">
+                    <button id="btn-nueva-partida" class="btn-primary">🎮 Nueva Partida</button>
+                    <button id="btn-volver-lobby" class="btn-secondary">🏠 Volver al Lobby</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="modal-private-chat" class="modal">
+            <div class="modal-content">
+                <div class="social-header">
+                    <h3>💬 Chat con <span id="chat-with-username"></span></h3>
+                    <button id="btn-cerrar-private-chat" class="btn-close">×</button>
+                </div>
+                <div id="private-chat-messages"></div>
+                <div id="private-chat-input-group" class="chat-input">
+                    <input type="text" id="private-chat-input" placeholder="Escribe un mensaje...">
+                    <button id="private-chat-send" class="btn-primary">Enviar</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="modal-social" class="modal">
+            <div class="modal-content">
+                <div class="social-header">
+                    <h3>👥 Social</h3>
+                    <button id="btn-cerrar-social" class="btn-close">×</button>
+                </div>
+                <div class="social-tabs">
+                    <button id="social-tab-friends" class="social-tab-button active">Amigos</button>
+                    <button id="social-tab-requests" class="social-tab-button">Solicitudes</button>
+                    <button id="social-tab-search" class="social-tab-button">Buscar</button>
+                </div>
+                <div id="social-content-friends" class="social-content active">
+                    <div id="social-friends-list">Cargando amigos...</div>
+                </div>
+                <div id="social-content-requests" class="social-content">
+                    <div id="social-requests-list">Cargando solicitudes...</div>
+                </div>
+                <div id="social-content-search" class="social-content">
+                    <div class="social-search-bar">
+                        <input type="text" id="social-search-input" placeholder="Buscar usuario...">
+                        <button id="social-search-button" class="btn-primary">Buscar</button>
+                    </div>
+                    <div id="social-search-results"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="modal-achievements" class="modal">
+        <div class="modal-content" style="max-height: 80vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h3>🏆 Mis Logros</h3>
+                <button id="btn-cerrar-achievements" class="btn-close">×</button>
+            </div>
+            <div id="achievements-summary" style="text-align: center; margin-bottom: 15px; color: var(--muted);">
+                Cargando progreso...
+            </div>
+            <div id="achievements-list" style="display: flex; flex-direction: column; gap: 10px;">
+                </div>
+        </div>
+        </div>
+        <div id="notificaciones" class="notificaciones-container"></div>
+
+        <div id="loading" class="loading-overlay">
+            <div class="loading-spinner">🎲</div>
+            <p>Conectando...</p>
+        </div>
+    </div> <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}" type="module"></script>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}" type="module"></script>
+</body>
+</html>

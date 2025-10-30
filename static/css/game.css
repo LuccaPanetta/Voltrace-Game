@@ -1,0 +1,245 @@
+/* ===================================================================
+   MODULO: GAME
+   - Estilos para la pantalla de juego activa:
+   - Tablero y Casillas
+   - Fichas de jugador
+   - Panel de jugadores, Panel de eventos (Log y Chat)
+   - Habilidades
+   =================================================================== */
+
+/* --- Encabezado del Juego --- */
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--gap-medium);
+    flex-wrap: wrap; /* Permitir envolver */
+    gap: var(--gap-small);
+}
+.game-info h2 { margin: 0 0 5px 0; }
+.game-stats { display: flex; gap: 15px; color: var(--muted); }
+
+/* --- Panel de Jugadores (En partida) --- */
+/* Estilos base en layout.css */
+.player-status-item { /* Estilo para cada jugador en la lista */
+    padding: 8px 4px;
+    margin-bottom: 5px;
+    border-bottom: 1px solid #1f2937;
+    transition: background-color 0.2s ease;
+}
+.player-status-item:last-child { border-bottom: none; }
+/* Resaltar turno actual (requiere JS para añadir clase 'current-turn') */
+.player-status-item.current-turn {
+    background-color: rgba(99, 102, 241, 0.1); /* Fondo sutil primario */
+    border-left: 3px solid var(--primary);
+    padding-left: 8px;
+}
+
+.player-status-item div:first-child { /* Contenedor Nombre + Efectos */
+    display: flex;
+    align-items: center;
+    margin-bottom: 3px;
+}
+.player-status-item strong { margin-right: 5px; }
+
+/* Círculo de color */
+.color-swatch {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    margin-right: 8px;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+/* Iconos de efectos activos */
+.efectos-icons span { margin-right: 3px; }
+
+
+/* --- Tablero y Casillas --- */
+#tablero {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, var(--cell)));
+  gap: var(--gap-small);
+  margin: 0 auto;
+  width: 100%;
+  max-width: calc(12 * var(--cell) + 11 * var(--gap-small));
+  position: relative; /* Para fichas */
+  background-color: #0b1220; /* Fondo sutil para el tablero */
+  padding: var(--gap-small); /* Pequeño padding alrededor */
+  border-radius: 8px;
+}
+
+.casilla {
+  background: var(--panel); /* Fondo más oscuro que el tablero */
+  border: 1px solid #1f2937;
+  min-height: var(--cell);
+  aspect-ratio: 1;
+  padding: clamp(2px, 0.5vw, 4px);
+  border-radius: 4px; /* Menos redondeado */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between; /* Espacio entre número y contenido */
+  font-size: clamp(9px, 1.5vw, 13px); /* Ligeramente más pequeño */
+  text-align: center;
+  position: relative;
+  transition: all 0.2s ease;
+  overflow: hidden; /* Ocultar contenido que se desborde */
+}
+.casilla small { /* Número de casilla */
+  color: var(--muted);
+  font-size: clamp(8px, 1.2vw, 11px);
+  width: 100%;
+  text-align: right;
+  padding-right: 3px;
+}
+/* Iconos/Texto de casilla especial y energía */
+.c-esp, .c-ene {
+    font-size: clamp(12px, 2vw, 18px); /* Iconos más grandes */
+    font-weight: 500;
+    line-height: 1;
+}
+.c-esp { color: #fca5a5; } /* Rojo suave */
+.c-ene { color: #86efac; } /* Verde suave */
+.c-ene.negative { color: #ef4444; } /* Rojo para energía negativa */
+
+/* Efectos hover/focus en casillas */
+.casilla:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+  border-color: var(--primary);
+}
+/* Estilo para casilla especial con borde degradado */
+.casilla.special-tile::before {
+  content: ''; 
+  position: absolute;
+  top: -2px;     
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, #6366f1, #8b5cf6, #ec4899); 
+  border-radius: 8px; 
+  z-index: -1;     
+  opacity: 0;      
+  transition: opacity 0.3s ease; 
+}
+
+.casilla.special-tile:hover::before {
+    opacity: 0.5; 
+}
+
+/* --- Fichas de Jugador (Sobre el tablero) --- */
+.fichas-container {
+    position: absolute;
+    top: 2px; bottom: 2px; /* Centrar verticalmente */
+    left: 2px; right: 2px;
+    display: flex;
+    flex-wrap: wrap; /* Permitir que las fichas se envuelvan */
+    justify-content: center;
+    align-items: center;
+    gap: 2px;
+    pointer-events: none;
+}
+.ficha-jugador {
+    width: clamp(12px, 2vw, 18px); /* Tamaño adaptable */
+    height: clamp(12px, 2vw, 18px);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(8px, 1.2vw, 10px); /* Tamaño fuente adaptable */
+    font-weight: bold;
+    color: #FFFFFF;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s;
+    flex-shrink: 0; /* Evitar que se encojan */
+}
+/* Ficha del jugador actual */
+.mi-ficha {
+    border: 2px solid #fff;
+    box-shadow: 0 0 8px 2px var(--primary), 0 1px 2px rgba(0, 0, 0, 0.2);
+    transform: scale(1.15); /* Resaltar más */
+    z-index: 5; /* Poner encima de otras fichas */
+}
+
+
+/* --- Controles del Turno (Debajo del tablero) --- */
+.controles-turno {
+    margin-top: var(--gap-medium);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--gap-medium);
+    flex-wrap: wrap; /* Envolver si no caben */
+}
+.resultado-dado {
+  font-size: 1.2em;
+  font-weight: 600;
+  min-width: 40px; /* Espacio para el dado */
+  text-align: center;
+}
+
+
+/* --- Guía Rápida (Drawer - Estilos base en ui.css) --- */
+/* (Añadir overrides específicos si es necesario) */
+
+
+/* --- Panel de Eventos (Log) --- */
+/* Estilos base del panel en layout.css */
+#eventos-lista { /* Contenedor scrollable */
+    padding: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px; /* Espacio entre logs */
+}
+.log-item {
+    padding: 4px 8px; /* Ligeramente menos padding */
+    border-radius: 4px;
+    font-size: 0.85em; /* Más pequeño */
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 1.4;
+    border-left: 3px solid transparent; /* Borde izquierdo para tipo */
+}
+.log-item span { /* Icono */
+    font-size: 0.9em;
+    flex-shrink: 0;
+}
+/* Colores de borde para tipos de log */
+.log-turno { border-left-color: var(--primary); background-color: rgba(99, 102, 241, 0.05); }
+.log-habilidad { border-left-color: #a78bfa; background-color: rgba(167, 139, 250, 0.05); color: #ddd; } /* Morado suave */
+.log-movimiento { border-left-color: var(--muted); color: var(--muted); }
+.log-peligro { border-left-color: var(--danger); background-color: rgba(239, 68, 68, 0.05); color: #fca5a5; } /* Rojo suave */
+.log-positivo { border-left-color: var(--success); background-color: rgba(34, 197, 94, 0.05); color: #a7f3d0; } /* Verde suave */
+.log-sistema { border-left-color: #4b5563; color: #6b7280; font-style: italic; } /* Gris más oscuro */
+
+
+/* --- Habilidades (Modal) --- */
+/* Estilos base del modal en ui.css */
+.habilidades-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Columnas adaptables */
+  gap: 10px;
+  margin-top: 10px;
+}
+.habilidad-item {
+  background: #0b1220;
+  border: 1px solid #1f2937;
+  border-radius: 6px;
+  padding: 12px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  transition: background-color 0.2s ease;
+}
+.habilidad-item:hover { background-color: #1f2937; }
+.habilidad-item > div { flex-grow: 1; } /* Info ocupa espacio */
+.habilidad-item strong { color: var(--text); }
+.habilidad-item small { color: var(--muted); display: block; margin-top: 2px; font-size: 0.85em; }
+.habilidad-item button { flex-shrink: 0; padding: 6px 10px; font-size: 0.9em; } /* Botón más pequeño */

@@ -1,0 +1,39 @@
+/* ===================================================================
+   HOJA DE ESTILOS PRINCIPAL - VOLTRACE
+   ===================================================================
+   
+   Este archivo es el "índice" principal de CSS.
+   Su única función es importar los módulos (parciales)
+   en el orden correcto para construir los estilos del juego.
+   
+   NO AGREGAR ESTILOS CSS DIRECTAMENTE EN ESTE ARCHIVO.
+   
+   Arquitectura Modular:
+   1. base.css       - Variables (:root), reset y estilos base.
+   2. layout.css     - Grillas principales, .container, .screen.
+   3. components.css - Botones, cards, inputs, tabs reutilizables.
+   4. ui.css         - Modales, notificaciones (toasts), loading.
+   5. auth.css       - Estilos de Login/Registro.
+   6. lobby.css      - Sala de espera y chat de lobby.
+   7. game.css       - Tablero, casillas, fichas, log de juego.
+   8. features.css   - Ranking, logros, perks, perfil de usuario.
+   9. animations.css - Todos los @keyframes y clases .animate-*.
+   
+   =================================================================== */
+
+/* ===================================================================
+   HOJA DE ESTILOS PRINCIPAL - VOLTRACE
+   ===================================================================
+   Este archivo solo importa los módulos de CSS.
+   No agregues estilos directamente aquí.
+   =================================================================== */
+
+@import url('base.css');
+@import url('layout.css');
+@import url('components.css');
+@import url('ui.css');
+@import url('auth.css');
+@import url('lobby.css');
+@import url('game.css');
+@import url('features.css');
+@import url('animations.css');
