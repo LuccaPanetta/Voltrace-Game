@@ -25,7 +25,7 @@
 # --- 1. IMPORTACIONES Y CONFIGURACIÓN INICIAL ---
 # ===================================================================
 
-from flask import Flask, render_template, request, jsonify, session, flash, url_for
+from flask import Flask, render_template, request, jsonify, session, flash, url_for, redirect
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_mail import Mail, Message
 import uuid                    # Para generar IDs únicos de salas
