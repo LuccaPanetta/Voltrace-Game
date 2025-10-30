@@ -47,7 +47,7 @@ from models import User, db              # Modelos de base de datos
 
 # --- Configuración de Flask ---
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'tu-clave-secreta-aqui'  
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
 
 # --- Configuración de la Base de Datos (SQLAlchemy) ---
 basedir = os.path.abspath(os.path.dirname(__file__))
