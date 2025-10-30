@@ -230,7 +230,7 @@ def login():
 @app.route("/forgot-password", methods=['GET', 'POST'])
 def forgot_password():
     if current_user.is_authenticated:
-        return redirect(url_for('lobby')) # Si ya está logueado, al lobby
+        return redirect(url_for('index')) # Si ya está logueado, al lobby
 
     if request.method == 'POST':
         email = request.form.get('email')
@@ -240,7 +240,7 @@ def forgot_password():
                 flash('Se ha enviado un email con instrucciones para restablecer tu contraseña.', 'info')
             else:
                 flash('Error al enviar el email. Por favor, intentá de nuevo más tarde.', 'danger')
-            return redirect(url_for('login'))
+            return redirect(url_for('index'))
         else:
             flash('No existe una cuenta asociada a ese email.', 'warning')
 
@@ -250,7 +250,7 @@ def forgot_password():
 @app.route("/reset-password/<token>", methods=['GET', 'POST'])
 def reset_token(token):
     if current_user.is_authenticated:
-        return redirect(url_for('lobby'))
+        return redirect(url_for('index'))
 
     user = User.verify_reset_token(token)
     if user is None:
