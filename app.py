@@ -1,3 +1,5 @@
+import eventlet
+eventlet.monkey_patch()
 # ===================================================================
 # APLICACIÓN PRINCIPAL DEL SERVIDOR - VOLTRACE (app.py)
 # ===================================================================

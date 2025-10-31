@@ -10,3 +10,4 @@ eventlet
 psycopg2-binary
 Flask-Mail
 sendgrid
+eventlet
