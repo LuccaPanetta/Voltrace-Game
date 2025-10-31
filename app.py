@@ -28,6 +28,8 @@
 from flask import Flask, render_template, request, jsonify, session, flash, url_for, redirect, current_app
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_mail import Mail, Message
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail as SendGridMail
 import uuid                    # Para generar IDs únicos de salas
 from datetime import datetime  # Para timestamps
 from threading import Timer
@@ -64,23 +66,50 @@ mail = Mail(app)
 def send_reset_email(user):
     try:
         token = user.get_reset_token()
-        msg = Message('VoltRace - Restablecimiento de Contraseña',
-                      sender=current_app.config['MAIL_DEFAULT_SENDER'],
-                      recipients=[user.email])
-        msg.body = f'''Para restablecer tu contraseña, visitá el siguiente enlace:
-{url_for('reset_token', token=token, _external=True)}
+        # Generamos la URL que irá en el email
+        reset_url = url_for('reset_token', token=token, _external=True)
+        
+        # 1. Obtenemos la API Key y el email remitente de las variables de entorno
+        sendgrid_api_key = os.environ.get('MAIL_PASSWORD') 
+        from_email = os.environ.get('MAIL_DEFAULT_SENDER', 'voltrace.bot@gmail.com')
+        
+        if not sendgrid_api_key:
+            print("!!! ERROR FATAL: SENDGRID_API_KEY (MAIL_PASSWORD) no está configurada.")
+            return False
+
+        # 2. Creamos el contenido del email 
+        content = f'''Para restablecer tu contraseña, visitá el siguiente enlace:
+{reset_url}
 
 Si no solicitaste este cambio, simplemente ignorá este email.
 '''
-        
-        print(f"--- DEBUG: Intentando enviar email a {user.email}...")
-        mail.send(msg)
-        print("--- DEBUG: Email enviado exitosamente ---")
-        return True
+
+        # 3. Creamos el objeto Mail de SendGrid 
+        message = SendGridMail(
+            from_email=from_email,
+            to_emails=user.email,
+            subject='VoltRace - Restablecimiento de Contraseña',
+            plain_text_content=content) 
+
+        print(f"--- DEBUG: Intentando enviar email a {user.email} (vía SendGrid API)...")
+
+        # 4. Inicializamos el cliente y enviamos el email por la API WEB
+        sg = SendGridAPIClient(sendgrid_api_key)
+        response = sg.send(message)
+
+        # 5. Verificamos la respuesta de SendGrid 
+        if response.status_code >= 200 and response.status_code < 300:
+            print(f"--- DEBUG: Email enviado exitosamente (Status: {response.status_code}) ---")
+            return True
+        else:
+            # Si SendGrid da un error, lo veremos en los logs de Render
+            print("!!! ERROR FATAL AL ENVIAR EMAIL (Respuesta de SendGrid) !!!")
+            print(f"Status Code: {response.status_code}")
+            print(f"Body: {response.body}")
+            return False
         
     except Exception as e:
-        # ¡ESTO IMPRIMIRÁ EL ERROR REAL EN LOS LOGS DE RENDER!
-        print("!!! ERROR FATAL AL ENVIAR EMAIL !!!")
+        print("!!! ERROR FATAL AL ENVIAR EMAIL (Excepción de Python) !!!")
         print(f"Error: {e}")
         traceback.print_exc() # Imprime el traceback completo
         return False
