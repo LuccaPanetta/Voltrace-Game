@@ -18,7 +18,7 @@
 # ===================================================================
 
 from flask_login import UserMixin
-from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
+from itsdangerous import URLSafeTimedSerializer
 from flask import current_app
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
@@ -151,17 +151,18 @@ class User(db.Model, UserMixin):
         return [ua.achievement for ua in self.unlocked_achievements_assoc]
 
     def get_reset_token(self, expires_sec=1800):
-        s = Serializer(current_app.config['SECRET_KEY'], expires_sec)
-        # El método es .dumps()
-        return s.dumps({'user_id': self.id}).decode('utf-8')
+        # Usamos la nueva clase
+        s = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+        return s.dumps({'user_id': self.id}, salt='password-reset-salt')
 
     @staticmethod
-    def verify_reset_token(token):
-        s = Serializer(current_app.config['SECRET_KEY'])
+    def verify_reset_token(token, expires_sec=1800):
+        s = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
         try:
-            user_id = s.loads(token)['user_id']
+            data = s.loads(token, salt='password-reset-salt', max_age=expires_sec)
+            user_id = data['user_id']
         except Exception:
-            # Token inválido o expirado
+            # Token inválido, expirado o con salt incorrecto
             return None
         # Devuelve el usuario si el ID es válido
         return User.query.get(user_id)
