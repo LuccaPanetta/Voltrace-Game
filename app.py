@@ -89,6 +89,7 @@ if DATABASE_URL:
 else:
     print("ADVERTENCIA: DATABASE_URL no encontrada. Usando 'voltrace.db' (SQLite) local.")
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'voltrace.db')
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'connect_args': {'check_same_thread': False}}
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app) # Conectar DB a la App
 
@@ -240,7 +241,7 @@ def forgot_password():
                 flash('Se ha enviado un email con instrucciones para restablecer tu contraseña.', 'info')
             else:
                 flash('Error al enviar el email. Por favor, intentá de nuevo más tarde.', 'danger')
-            return redirect(url_for('index'))
+            return redirect(url_for('login'))
         else:
             flash('No existe una cuenta asociada a ese email.', 'warning')
 
