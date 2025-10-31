@@ -52,7 +52,7 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
 
 # --- Configuración de Flask-Mail ---
 app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER')
-app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 465))
+app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
 app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'true').lower() in ['true', 'on', '1']
 app.config['MAIL_USE_SSL'] = os.environ.get('MAIL_USE_SSL', 'false').lower() in ['true', 'on', '1']
 app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
@@ -251,6 +251,7 @@ def forgot_password():
                 flash('Error al enviar el email. Por favor, intentá de nuevo más tarde.', 'danger')
             return redirect(url_for('login'))
         else:
+            print(f"--- DEBUG: Intento de reseteo para email NO ENCONTRADO: {email} ---")
             flash('No existe una cuenta asociada a ese email.', 'warning')
 
     return render_template('forgot_password.html') 
