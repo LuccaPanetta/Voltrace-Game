@@ -57,7 +57,7 @@ app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'true').lower() in [
 app.config['MAIL_USE_SSL'] = os.environ.get('MAIL_USE_SSL', 'false').lower() in ['true', 'on', '1']
 app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
-app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', 'voltrace.bot@gmail.com')
 
 mail = Mail(app)
 
@@ -65,7 +65,7 @@ def send_reset_email(user):
     try:
         token = user.get_reset_token()
         msg = Message('VoltRace - Restablecimiento de Contraseña',
-                      sender=current_app.config['MAIL_USERNAME'],
+                      sender=current_app.config['MAIL_DEFAULT_SENDER'],
                       recipients=[user.email])
         msg.body = f'''Para restablecer tu contraseña, visitá el siguiente enlace:
 {url_for('reset_token', token=token, _external=True)}
