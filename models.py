@@ -18,7 +18,7 @@
 # ===================================================================
 
 from flask_login import UserMixin
-from itsdangerous import URLSafeTimedSerializer as Serializer
+from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
 from flask import current_app
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
@@ -151,17 +151,19 @@ class User(db.Model, UserMixin):
         return [ua.achievement for ua in self.unlocked_achievements_assoc]
 
     def get_reset_token(self, expires_sec=1800):
-        s = Serializer(current_app.config['SECRET_KEY'])
-        return s.serialize({'user_id': self.id})
+        s = Serializer(current_app.config['SECRET_KEY'], expires_sec)
+        # El método es .dumps()
+        return s.dumps({'user_id': self.id}).decode('utf-8')
 
     @staticmethod
-    def verify_reset_token(token, expires_sec=1800):
+    def verify_reset_token(token):
         s = Serializer(current_app.config['SECRET_KEY'])
         try:
-            data = s.loads(token, max_age=expires_sec)
-            user_id = data.get('user_id')
-        except:
-            return None 
+            user_id = s.loads(token)['user_id']
+        except Exception:
+            # Token inválido o expirado
+            return None
+        # Devuelve el usuario si el ID es válido
         return User.query.get(user_id)
 
 class PrivateMessage(db.Model):
