@@ -232,6 +232,7 @@ def login():
     if not user or not user.check_password(password):
         return jsonify({"success": False, "message": "Email o contraseña incorrectos."}), 401
 
+    session.permanent = False
     # Inicia la sesión del usuario con flask_login
     login_user(user)
     return jsonify({"success": True, "username": user.username})
