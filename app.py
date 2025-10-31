@@ -61,20 +61,27 @@ app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME')
 mail = Mail(app)
 
 def send_reset_email(user):
-    token = user.get_reset_token()
-    msg = Message('VoltRace - Restablecimiento de Contraseña',
-                  sender=current_app.config['MAIL_USERNAME'],
-                  recipients=[user.email])
-    msg.body = f'''Para restablecer tu contraseña, visitá el siguiente enlace:
+    try:
+        token = user.get_reset_token()
+        msg = Message('VoltRace - Restablecimiento de Contraseña',
+                      sender=current_app.config['MAIL_USERNAME'],
+                      recipients=[user.email])
+        msg.body = f'''Para restablecer tu contraseña, visitá el siguiente enlace:
 {url_for('reset_token', token=token, _external=True)}
 
 Si no solicitaste este cambio, simplemente ignorá este email.
 '''
-    try:
+        
+        print(f"--- DEBUG: Intentando enviar email a {user.email}...")
         mail.send(msg)
+        print("--- DEBUG: Email enviado exitosamente ---")
         return True
+        
     except Exception as e:
-        print(f"Error al enviar email: {e}") #
+        # ¡ESTO IMPRIMIRÁ EL ERROR REAL EN LOS LOGS DE RENDER!
+        print("!!! ERROR FATAL AL ENVIAR EMAIL !!!")
+        print(f"Error: {e}")
+        traceback.print_exc() # Imprime el traceback completo
         return False
     
 # --- Configuración de la Base de Datos (SQLAlchemy) ---
