@@ -218,7 +218,19 @@ class SalaJuego:
 @app.route('/')
 def index():
     # Ruta principal que sirve el archivo HTML del juego
-    return render_template('index.html', game_name="VoltRace")
+    if current_user.is_authenticated:
+        is_auth = True
+        username = current_user.username
+    else:
+        is_auth = False
+        username = None
+
+    return render_template(
+        'index.html', 
+        game_name="VoltRace",
+        is_authenticated=is_auth,
+        username=username
+    )
 
 # --- Rutas de Autenticación ---
 @app.route('/register', methods=['POST'])

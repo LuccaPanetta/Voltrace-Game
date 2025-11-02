@@ -84,9 +84,9 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
     _socket.on("connect", () => {
         setLoading(false, _loadingElement);
         console.log("Socket conectado.");
-        if (_currentUser && _currentUser.value) {
-            console.log(`Reconectado como ${_currentUser.value.username}. Re-autenticando socket...`);
-            _socket.emit('authenticate', { username: _currentUser.value.username });
+        if (_state.currentUser && _state.currentUser.username) { 
+            console.log(`Reconectado como ${_state.currentUser.username}. Re-autenticando socket...`); 
+            _socket.emit('authenticate', { username: _state.currentUser.username });
         } else {
             console.log("Conectado, esperando autenticación (login).");
         }
@@ -230,9 +230,9 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
         }
     });
 
-     _socket.on("habilidad_usada_privada", (data) => { // Ej: Invisibilidad
+     _socket.on("habilidad_usada_privada", (data) => { 
         if (data.resultado?.exito) {
-            _habilidadUsadaTurno.value = (data.jugador === _currentUser.value?.username);
+            _habilidadUsadaTurno.value = (data.jugador === _state.currentUser?.username);
         }
         actualizarEstadoJuego(data.estado_juego);
         renderEventos(data.resultado?.eventos); // Muestra el evento solo a mí

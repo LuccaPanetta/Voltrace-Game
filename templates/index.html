@@ -240,7 +240,10 @@
     }
     </style>
 </head>
-<body>
+<body
+    data-is-authenticated="{{ is_authenticated | string | lower }}" 
+    data-username="{{ username | default('', true) }}"
+>
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             <div class="flashes" style="width: 450px; margin: 15px auto; padding: 10px; border-radius: 5px; font-size: 0.9em; box-sizing: border-box;">

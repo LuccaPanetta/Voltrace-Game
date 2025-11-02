@@ -173,9 +173,31 @@ import { AnimationSystem } from './animations.js';
     };
     loadPerksConfig(simulatedPerksConfig);
 
-    // Mostrar pantalla inicial y ocultar loading
-    show('auth', screens);
+    // =======================================================
+    // --- LÓGICA DE INICIO BASADA EN AUTENTICACIÓN ---
+    // =======================================================
+
+    // 1. Leer el estado de autenticación inyectado desde el servidor
+    const bodyData = document.body.dataset;
+    const isAuthenticated = bodyData.isAuthenticated === 'true';
+    const username = bodyData.username;
+
+    if (isAuthenticated && username) {
+        // 2. Si el servidor dice que SÍ estamos logueados:
+        console.log(`Usuario ya autenticado como: ${username}. Saltando al lobby.`);
+        if (_onLoginSuccessCallback) {
+            // Pasamos los datos que tenemos a la función de callback de auth
+            _onLoginSuccessCallback({ username: username });
+        }
+        
+    } else {
+        // 3. Si NO estamos logueados:
+        console.log("Usuario no autenticado. Mostrando pantalla de login.");
+        show('auth', screens);
+    }
+    
+    // 4. Ocultar el 'loading' y terminar la inicialización
     setLoading(false, loadingElement);
     console.log("Aplicación inicializada (main.js).");
 
-})(); // Fin IIFE
+})();
