@@ -1153,7 +1153,7 @@ class JuegoOcaWeb:
             return {"exito": False, "eventos": eventos}
 
         # Calcular cantidad a robar
-        cantidad_base = 75
+        cantidad_base = randint(50, 150)
         cantidad_robo = cantidad_base + 30 if "robo_oportunista" in jugador.perks_activos else cantidad_base
         energia_a_robar = min(cantidad_robo, obj.get_puntaje()) # No robar más de lo que tiene
 
@@ -1270,7 +1270,7 @@ class JuegoOcaWeb:
 
     def _hab_cohete(self, jugador, habilidad, objetivo):
         eventos = []
-        avance = randint(3, 17)
+        avance = randint(3, 7)
         nueva = min(jugador.get_posicion() + avance, self.posicion_meta)
         jugador.teletransportar_a(nueva) 
         eventos.append(f"🚀 Cohete: Avanzas {avance} casillas a la posición {nueva}.")

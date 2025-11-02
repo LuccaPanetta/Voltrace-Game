@@ -27,6 +27,26 @@ export function setLoading(v, loadingElement) {
     loadingElement.style.display = v ? "flex" : "none";
 }
 
+// Creamos una caché para los sonidos
+const soundCache = {};
+
+// Función helper para precargar sonidos comunes
+function preloadSounds(soundNames) {
+    console.log("Precargando sonidos comunes...");
+    for (const soundName of soundNames) {
+        if (!soundCache[soundName]) {
+            try {
+                const soundPath = `/static/sounds/${soundName}.mp3`;
+                const audio = new Audio(soundPath);
+                audio.load(); // Inicia la descarga
+                soundCache[soundName] = audio;
+            } catch (error) {
+                console.warn(`Error precargando sonido ${soundName}:`, error);
+            }
+        }
+    }
+}
+
 // Estado para manejo de audio
 let _hasInteracted = false;
 let _interactionListenerAdded = false;
@@ -46,6 +66,9 @@ export function playSound(soundName, volume = 0.5) {
                 _hasInteracted = true;
                 console.log("User interaction detected, audio enabled.");
                 interactionEvents.forEach(event => document.body.removeEventListener(event, enableAudio));
+
+                // Precargar sonidos comunes DESPUÉS de la interacción
+                preloadSounds(['ClickMouse', 'Dice', 'GameStart', 'OpenCloseModal']);
             };
             interactionEvents.forEach(event => document.body.addEventListener(event, enableAudio, { once: true }));
             _interactionListenerAdded = true;
@@ -55,10 +78,26 @@ export function playSound(soundName, volume = 0.5) {
 
     // Intentar reproducir el sonido
     try {
-        const soundPath = `/static/sounds/${soundName}.mp3`;
-        const audio = new Audio(soundPath);
+        let audio;
+
+        // Revisar el cache
+        if (soundCache[soundName]) {
+            audio = soundCache[soundName];
+        } else {
+            // Si no está, crearlo y cachearlo
+            console.warn(`Sonido "${soundName}" no estaba precargado. Cargando ahora...`);
+            const soundPath = `/static/sounds/${soundName}.mp3`;
+            audio = new Audio(soundPath);
+            soundCache[soundName] = audio;
+        }
+        
         audio.volume = Math.max(0, Math.min(1, volume));
 
+        // Reiniciar el audio si ya está sonando 
+        if (audio.readyState > 0) {
+             audio.currentTime = 0;
+        }
+       
         audio.play().catch(error => {
             // Silenciar errores comunes si el usuario no interactuó (aunque intentamos prevenirlo)
             if (error.name !== 'NotAllowedError') {
@@ -66,7 +105,7 @@ export function playSound(soundName, volume = 0.5) {
             }
         });
     } catch (error) {
-        console.error(`Error creating audio for "${soundName}":`, error);
+        console.error(`Error creating/playing audio for "${soundName}":`, error);
     }
 }
 
@@ -182,8 +221,6 @@ export function manejarInvitacion(data, container, socket, state, setLoadingFunc
     rejectButton.onclick = () => {
         playSound('ClickMouse', 0.2);
         notification.remove();
-        // Opcional: Notificar al servidor del rechazo (si implementado)
-        // socket.emit('respond_to_invitation', { invitation_id: data.id, response: 'reject' });
     };
 
     const buttonContainer = document.createElement("div");
