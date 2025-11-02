@@ -241,6 +241,20 @@
     </style>
 </head>
 <body>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flashes" style="width: 450px; margin: 15px auto; padding: 10px; border-radius: 5px; font-size: 0.9em; box-sizing: border-box;">
+            {% for category, message in messages %}
+                <div class="flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+            </div>
+            <style>
+                .flashes .flash-info { background-color: #1f2937; border: 1px solid var(--primary); color: var(--text); padding: 10px; border-radius: 5px; }
+                .flashes .flash-danger, .flashes .flash-warning { background-color: #4b1f26; border: 1px solid var(--danger); color: #fecaca; padding: 10px; border-radius: 5px; }
+                .flashes .flash-success { background-color: #16302b; border: 1px solid var(--success); color: #bbf7d0; padding: 10px; border-radius: 5px; }
+            </style>
+        {% endif %}
+    {% endwith %}
     <div class="container">
         <div id="auth-screen" class="screen active">
             <div class="header">

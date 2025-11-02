@@ -92,6 +92,7 @@ Si no solicitaste este cambio, simplemente ignorá este email.
             to_emails=user.email,
             subject='VoltRace - Restablecimiento de Contraseña',
             plain_text_content=content) 
+        message.tracking_settings = {'click_tracking': {'enable': False, 'enable_text': False}}
 
         print(f"--- DEBUG: Intentando enviar email a {user.email} (vía SendGrid API)...")
 
@@ -249,58 +250,73 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    # 1. Si el usuario ya inició sesión, lo redirige.
+    # 1. Si el usuario ya inició sesión, redirige a la página principal.
     if current_user.is_authenticated:
-        flash('Ya iniciaste sesión.', 'info')
         return redirect(url_for('index'))
-    
-    # 2. Maneja la petición POST 
+
+    # 2. Maneja la petición POST (procesamiento de datos)
     if request.method == 'POST':
-        data = request.get_json()
-        if not data:
-             # Si no hay JSON, asumimos que fue una petición POST normal de navegador
-             email = request.form.get('email')
-             password = request.form.get('password')
+        # Intenta obtener datos de JSON primero
+        data = request.get_json(silent=True)
+        
+        if data:
+            # Lógica para Peticiones JSON 
+            email = data.get('email', '').strip()
+            password = data.get('password', '')
+
+            user = User.query.filter_by(email=email).first()
+
+            if not user or not user.check_password(password):
+                # Devolver JSON de error si falla
+                return jsonify({"success": False, "message": "Email o contraseña incorrectos."}), 401
+            
+            # Login exitoso
+            login_user(user)
+            # Devolver JSON de éxito con el nombre de usuario
+            return jsonify({"success": True, "username": user.username})
+
         else:
-             email = data.get('email', '').strip()
-             password = data.get('password', '')
+            # Lógica para Peticiones POST normales de navegador (espera redirección)
+            email = request.form.get('email')
+            password = request.form.get('password')
 
-        if not email or not password:
-            flash('Faltan campos. Por favor, verificá tu email y contraseña.', 'danger')
-            return redirect(url_for('index')) # Volver al index para mostrar error
+            user = User.query.filter_by(email=email).first()
 
-        user = User.query.filter_by(email=email).first()
+            if user and user.check_password(password):
+                login_user(user, remember=True)
+                flash('¡Inicio de sesión exitoso!', 'success')
+                return redirect(url_for('index'))
+            else:
+                flash('Inicio de sesión fallido. Por favor, verificá tu email y contraseña.', 'danger')
+                return render_template('index.html') 
 
-        if not user or not user.check_password(password):
-            flash('Email o contraseña incorrectos.', 'danger')
-            return redirect(url_for('index'))
-
-        login_user(user, remember=True)
-        # Si el login HTTP es exitoso, redirigimos al inicio.
-        return redirect(url_for('index'))
-
-    # 3. Maneja la petición GET
+    # 3. Maneja la petición GET (Carga la página. Usa index.html)
     return render_template('index.html')
 
 @app.route("/forgot-password", methods=['GET', 'POST'])
 def forgot_password():
     if current_user.is_authenticated:
-        return redirect(url_for('index')) # Si ya está logueado, al lobby
+        return redirect(url_for('index'))
 
     if request.method == 'POST':
         email = request.form.get('email')
         user = User.query.filter_by(email=email).first()
+        
         if user:
             if send_reset_email(user):
                 flash('Se ha enviado un email con instrucciones para restablecer tu contraseña.', 'info')
             else:
                 flash('Error al enviar el email. Por favor, intentá de nuevo más tarde.', 'danger')
-            return redirect(url_for('login'))
+            # Si el usuario existe, SIEMPRE redirigir a /login
+            return redirect(url_for('login')) 
         else:
+            # Si el usuario NO existe, flashear el error y redirigir DE VUELTA a la misma página
             print(f"--- DEBUG: Intento de reseteo para email NO ENCONTRADO: {email} ---")
             flash('No existe una cuenta asociada a ese email.', 'warning')
+            return redirect(url_for('forgot_password')) 
 
-    return render_template('forgot_password.html') 
+    # Esto ahora solo se ejecuta en el GET 
+    return render_template('forgot_password.html')
 
 
 @app.route("/reset-password/<token>", methods=['GET', 'POST'])
