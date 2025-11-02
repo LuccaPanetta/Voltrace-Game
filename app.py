@@ -249,31 +249,38 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    # 1. Si el usuario ya inició sesión, lo redirige para evitar que vea el formulario de login.
+    # 1. Si el usuario ya inició sesión, lo redirige.
     if current_user.is_authenticated:
         flash('Ya iniciaste sesión.', 'info')
         return redirect(url_for('index'))
     
-    # 2. Maneja la petición POST (el usuario envió el formulario)
+    # 2. Maneja la petición POST 
     if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
-        
-        # Busca el usuario por email
-        user = User.query.filter_by(email=email).first()
-        
-        # Verifica usuario y contraseña
-        if user and user.check_password(password):
-            login_user(user, remember=True) # Inicia sesión
-            flash('¡Inicio de sesión exitoso!', 'success')
-            return redirect(url_for('index')) # Redirige a la página principal
+        data = request.get_json()
+        if not data:
+             # Si no hay JSON, asumimos que fue una petición POST normal de navegador
+             email = request.form.get('email')
+             password = request.form.get('password')
         else:
-            # Si falla, muestra un error y vuelve a renderizar el formulario
-            flash('Inicio de sesión fallido. Por favor, verificá tu email y contraseña.', 'danger')
-            return render_template('login.html')
-            
-    # 3. Maneja la petición GET (el usuario solo está visitando la URL /login)
-    return render_template('login.html')
+             email = data.get('email', '').strip()
+             password = data.get('password', '')
+
+        if not email or not password:
+            flash('Faltan campos. Por favor, verificá tu email y contraseña.', 'danger')
+            return redirect(url_for('index')) # Volver al index para mostrar error
+
+        user = User.query.filter_by(email=email).first()
+
+        if not user or not user.check_password(password):
+            flash('Email o contraseña incorrectos.', 'danger')
+            return redirect(url_for('index'))
+
+        login_user(user, remember=True)
+        # Si el login HTTP es exitoso, redirigimos al inicio.
+        return redirect(url_for('index'))
+
+    # 3. Maneja la petición GET
+    return render_template('index.html')
 
 @app.route("/forgot-password", methods=['GET', 'POST'])
 def forgot_password():
