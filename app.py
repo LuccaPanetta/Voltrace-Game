@@ -247,26 +247,33 @@ def register():
         print(f"Error en registro: {e}")
         return jsonify({"success": False, "message": "Error en el servidor al crear usuario."}), 500
 
-@app.route('/login', methods=['POST'])
+@app.route('/login', methods=['GET', 'POST'])
 def login():
-    data = request.get_json()
-    email = data.get('email', '').strip()
-    password = data.get('password', '')
-
-    if not email or not password:
-        return jsonify({"success": False, "message": "Faltan campos."}), 400
-
-    # Busca al usuario en la DB (de models.py)
-    user = User.query.filter_by(email=email).first()
-
-    # Verifica usuario y contraseña usando el método del modelo
-    if not user or not user.check_password(password):
-        return jsonify({"success": False, "message": "Email o contraseña incorrectos."}), 401
-
-    session.permanent = False
-    # Inicia la sesión del usuario con flask_login
-    login_user(user)
-    return jsonify({"success": True, "username": user.username})
+    # 1. Si el usuario ya inició sesión, lo redirige para evitar que vea el formulario de login.
+    if current_user.is_authenticated:
+        flash('Ya iniciaste sesión.', 'info')
+        return redirect(url_for('index'))
+    
+    # 2. Maneja la petición POST (el usuario envió el formulario)
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+        
+        # Busca el usuario por email
+        user = User.query.filter_by(email=email).first()
+        
+        # Verifica usuario y contraseña
+        if user and user.check_password(password):
+            login_user(user, remember=True) # Inicia sesión
+            flash('¡Inicio de sesión exitoso!', 'success')
+            return redirect(url_for('index')) # Redirige a la página principal
+        else:
+            # Si falla, muestra un error y vuelve a renderizar el formulario
+            flash('Inicio de sesión fallido. Por favor, verificá tu email y contraseña.', 'danger')
+            return render_template('login.html')
+            
+    # 3. Maneja la petición GET (el usuario solo está visitando la URL /login)
+    return render_template('login.html')
 
 @app.route("/forgot-password", methods=['GET', 'POST'])
 def forgot_password():
