@@ -250,33 +250,31 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    # 1. Si el usuario ya inició sesión, redirige a la página principal.
-    if current_user.is_authenticated:
+    # 1. Si el usuario ya inició sesión, redirige (solo para peticiones de navegador)
+    if current_user.is_authenticated and request.method == 'GET':
         return redirect(url_for('index'))
 
     # 2. Maneja la petición POST (procesamiento de datos)
     if request.method == 'POST':
-        # Intenta obtener datos de JSON primero
+        # Intenta obtener datos de JSON (AJAX / JavaScript) primero
         data = request.get_json(silent=True)
         
         if data:
-            # Lógica para Peticiones JSON 
             email = data.get('email', '').strip()
             password = data.get('password', '')
 
             user = User.query.filter_by(email=email).first()
 
             if not user or not user.check_password(password):
-                # Devolver JSON de error si falla
+                # Devuelve JSON de error
                 return jsonify({"success": False, "message": "Email o contraseña incorrectos."}), 401
             
             # Login exitoso
             login_user(user)
-            # Devolver JSON de éxito con el nombre de usuario
+            # ¡Devuelve JSON de éxito!
             return jsonify({"success": True, "username": user.username})
 
         else:
-            # Lógica para Peticiones POST normales de navegador (espera redirección)
             email = request.form.get('email')
             password = request.form.get('password')
 
@@ -287,7 +285,7 @@ def login():
                 flash('¡Inicio de sesión exitoso!', 'success')
                 return redirect(url_for('index'))
             else:
-                flash('Inicio de sesión fallido. Por favor, verificá tu email y contraseña.', 'danger')
+                flash('Inicio de sesión fallido. Verificá tu email y contraseña.', 'danger')
                 return render_template('index.html') 
 
     # 3. Maneja la petición GET (Carga la página. Usa index.html)
