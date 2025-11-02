@@ -1,39 +1,1346 @@
 /* ===================================================================
-   HOJA DE ESTILOS PRINCIPAL - VOLTRACE
+   MODULO: BASE
+   - Variables CSS customizadas (:root)
+   - Reset básico y estilos fundamentales (html, body, *)
+   =================================================================== */
+
+:root {
+  /* Colores del tema oscuro */
+  --bg: #0f172a;        /* Fondo principal (azul muy oscuro) */
+  --panel: #111827;     /* Fondo de paneles y tarjetas */
+  --text: #e5e7eb;      /* Texto principal (blanco suave) */
+  --muted: #9ca3af;     /* Texto secundario (gris) */
+
+  /* Colores de acción */
+  --primary: #6366f1;   /* Color principal (azul-morado) */
+  --success: #22c55e;   /* Verde para éxito */
+  --danger: #ef4444;    /* Rojo para peligro/errores */
+  --warning: #f59e0b;   /* Amarillo para advertencias */
+
+  /* Tamaños responsive - Optimizado para evitar scroll horizontal */
+  --container-max: 1440px;                    /* Ancho máximo del contenedor */
+  --container-padding: clamp(8px, 2vw, 24px); /* Padding adaptativo del contenedor */
+  --cell: clamp(30px, 4.5vw, 75px);           /* Tamaño de celdas del tablero */
+  --gap-small: clamp(4px, 1vw, 8px);          /* Espaciado pequeño */
+  --gap-medium: clamp(8px, 2vw, 16px);        /* Espaciado mediano */
+}
+
+/* ===================================================================
+   RESET Y ESTILOS BASE
    ===================================================================
-   
-   Este archivo es el "índice" principal de CSS.
-   Su única función es importar los módulos (parciales)
-   en el orden correcto para construir los estilos del juego.
-   
-   NO AGREGAR ESTILOS CSS DIRECTAMENTE EN ESTE ARCHIVO.
-   
-   Arquitectura Modular:
-   1. base.css       - Variables (:root), reset y estilos base.
-   2. layout.css     - Grillas principales, .container, .screen.
-   3. components.css - Botones, cards, inputs, tabs reutilizables.
-   4. ui.css         - Modales, notificaciones (toasts), loading.
-   5. auth.css       - Estilos de Login/Registro.
-   6. lobby.css      - Sala de espera y chat de lobby.
-   7. game.css       - Tablero, casillas, fichas, log de juego.
-   8. features.css   - Ranking, logros, perks, perfil de usuario.
-   9. animations.css - Todos los @keyframes y clases .animate-*.
-   
+   Reset básico y estilos fundamentales para todos los elementos */
+
+* {
+  box-sizing: border-box;  /* Incluir padding y border en el ancho total */
+  max-width: 100%;         /* Prevenir que elementos excedan el contenedor */
+}
+
+html, body {
+  margin: 0;               /* Eliminar márgenes por defecto del navegador */
+  padding: 0;              /* Eliminar padding por defecto del navegador */
+  width: 100%;             /* Ocupar todo el ancho disponible */
+  overflow-x: hidden;      /* IMPORTANTE: Prevenir scroll horizontal */
+
+  /* Tipografía moderna con fallbacks */
+  font-family: 'Roboto', system-ui, -apple-system, Segoe UI, Arial, sans-serif;
+
+  /* Aplicar tema oscuro */
+  background: var(--bg);   /* Fondo oscuro */
+  color: var(--text);      /* Texto claro */
+}
+/* ===================================================================
+   MODULO: LAYOUT
+   - Contenedor principal responsive
+   - Sistema de pantallas (screen)
+   - Estructura y grillas principales (header, lobby, game)
    =================================================================== */
 
 /* ===================================================================
-   HOJA DE ESTILOS PRINCIPAL - VOLTRACE
+   CONTENEDOR PRINCIPAL RESPONSIVE
    ===================================================================
-   Este archivo solo importa los módulos de CSS.
-   No agregues estilos directamente aquí.
+   Contenedor principal que centra el contenido y maneja el responsive */
+
+.container {
+  width: 100%;                          /* Ocupar todo el ancho disponible */
+  max-width: var(--container-max);      /* Límite máximo de ancho (1440px) */
+  margin: 0 auto;                       /* Centrar horizontalmente */
+  padding: var(--container-padding);    /* Padding adaptativo (8px-24px) */
+  box-sizing: border-box;               /* Incluir padding en el ancho total */
+  min-height: 100vh;                    /* Altura mínima de toda la ventana */
+}
+
+/* Sistema de pantallas */
+.screen {
+  display: none;
+  transition: all 0.5s ease;
+}
+.screen.active {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+  animation: fade-in 0.5s ease-out;
+}
+.screen:not(.active) {
+  opacity: 0;
+  transform: translateY(20px);
+  pointer-events: none;
+}
+
+/* Header principal */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--gap-medium);
+  flex-wrap: wrap;
+  gap: var(--gap-small);
+}
+
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+  }
+}
+
+/* ===================================================================
+   GRILLAS DE PANTALLAS (Layouts)
    =================================================================== */
 
-@import url('base.css');
-@import url('layout.css');
-@import url('components.css');
-@import url('ui.css');
-@import url('auth.css');
-@import url('lobby.css');
-@import url('game.css');
-@import url('features.css');
-@import url('animations.css');
+/* Layout: Lobby */
+.lobby-content {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--gap-medium);
+}
+
+@media (min-width: 768px) {
+  .lobby-content {
+    grid-template-columns: 2fr 1fr;
+  }
+}
+
+.action-cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--gap-medium);
+}
+
+@media (min-width: 640px) {
+  .action-cards {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Layout: Sala de Espera */
+.waiting-content {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--gap-medium);
+}
+
+@media (min-width: 768px) {
+  .waiting-content {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Layout: Pantalla de Juego */
+.game-content {
+    display: grid;
+    gap: 16px;
+
+    /* 1. VISTA MÓVIL (por defecto): 1 columna, todo apilado */
+    grid-template-columns: 1fr;
+    grid-template-areas:
+        "players"
+        "board"
+        "events";
+}
+
+@media (min-width: 768px) {
+    /* 2. VISTA DESKTOP (pantallas anchas): 3 columnas */
+  .game-content {
+        /* Col Izq (fija) | Col Centro (flexible) | Col Der (fija) */
+        grid-template-columns: 300px 1fr 340px;
+        grid-template-rows: 1fr; /* Una sola fila de alto */
+        grid-template-areas:
+            "players board events"; /* El layout horizontal clásico */
+  }
+}
+
+/* Asignación de Áreas de Juego */
+.panel-jugadores {
+    grid-area: players;
+    background: var(--panel);
+    padding: 12px;
+    border-radius: 8px;
+    overflow-y: auto;
+}
+
+.tablero-container {
+    grid-area: board;
+    background: var(--panel);
+    padding: 12px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.panel-eventos {
+    grid-area: events;
+    background: var(--panel);
+    padding: 12px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Hijos del panel de eventos (para que scrolleen) */
+#eventos-lista, #chat-juego-mensajes {
+    overflow-y: auto;
+    flex-grow: 1; /* Ocupa el espacio disponible */
+}
+
+/* Layout: Autenticación */
+.auth-content {
+  max-width: 400px;
+  margin: 0 auto;
+}
+/* ===================================================================
+   MODULO: COMPONENTS
+   - Estilos para componentes reutilizables:
+   - .card, .form-group, input, button
+   - Pestañas (tabs)
+   =================================================================== */
+
+/* Tarjeta base */
+.card {
+  background: var(--panel);
+  padding: var(--gap-medium);
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px #1f2937 inset;
+  width: 100%;
+  min-width: 0; /* Importante para flexbox/grid */
+}
+
+.card h3 { margin-top: 0; }
+
+/* Grupo de formulario */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-small);
+}
+
+@media (min-width: 480px) {
+  .form-group {
+    flex-direction: row;
+  }
+}
+
+/* Campos de texto y password */
+input[type="text"],
+input[type="email"],
+input[type="password"] {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid #374151;
+  background: #0b1220;
+  color: var(--text);
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box; /* Incluir padding/border en el width */
+}
+
+.text-input::placeholder { color: #4b5563; }
+.text-input:focus {
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
+}
+
+/* Grupo Label + Input (Auth) */
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.input-group label {
+    color: var(--muted);
+    font-size: 0.9em;
+    text-align: left;
+}
+
+
+/* Botones */
+button {
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  color: white;
+  white-space: nowrap;
+  min-width: fit-content;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  font-family: inherit; /* Heredar fuente */
+}
+
+.btn-primary { background: var(--primary); }
+.btn-success { background: var(--success); }
+.btn-danger { background: var(--danger); }
+.btn-secondary { background: #374151; }
+.btn-close { background: transparent; color: var(--muted); font-size: 20px; padding: 4px; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Efectos de botón */
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+button:active:not(:disabled) {
+  transform: translateY(0);
+  transition: transform 0.1s ease;
+}
+
+/* Efecto ripple */
+button::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 0; height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.3s ease, height 0.3s ease;
+}
+button:active::after {
+  width: 200%; height: 200%;
+}
+
+/* Pestañas (Tabs) - Usado en Auth y Lobby Info */
+.auth-tabs, .info-tabs {
+  display: flex;
+  margin-bottom: var(--gap-medium);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #374151;
+}
+
+.tab-button, .info-tab-button {
+  flex: 1;
+  padding: 12px 16px;
+  background: var(--panel);
+  color: var(--text);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit; /* Heredar fuente */
+  font-size: 1em; /* Tamaño base */
+}
+
+.tab-button.active, .info-tab-button.active {
+  background: var(--primary);
+  color: white;
+  font-weight: 500;
+}
+
+.tab-button:hover:not(.active), .info-tab-button:hover:not(.active) {
+  background: #374151;
+}
+
+/* Ajuste de tamaño para tabs de info (Lobby) */
+.info-tab-button {
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+@media (max-width: 640px) {
+  .info-tabs {
+    flex-direction: column;
+  }
+}
+
+/* Contenido de Pestañas */
+.auth-form, .info-content {
+  display: none;
+}
+.auth-form.active, .info-content.active {
+  display: block;
+}
+/* ===================================================================
+   MODULO: UI (User Interface)
+   - Estilos para elementos de interfaz:
+   - Modales, Notificaciones (Toasts)
+   - Superposiciones (Loading)
+   - Guía desplegable, Partículas
+   =================================================================== */
+
+/* --- Modales --- */
+.modal {
+    position: fixed;
+    inset: 0;
+    display: none; /* Cambiado de flex a none por defecto */
+    background: rgba(0,0,0,0.6); /* Más oscuro */
+    align-items: center;
+    justify-content: center;
+    z-index: 1000; /* Asegurar que esté por encima de casi todo */
+    opacity: 0; /* Empieza invisible */
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0s 0.3s; /* Transición + delay en visibility */
+}
+/* Mostrar modal cuando tenga display: flex */
+.modal[style*="display: flex"] {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.3s ease, visibility 0s 0s;
+}
+
+.modal-content { /* Contenido interno del modal */
+  background: var(--panel);
+  padding: 20px; /* Más padding */
+  border-radius: 8px;
+  width: min(90vw, 600px); /* Ancho responsive */
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  transform: scale(0.95); /* Efecto zoom inicial */
+  opacity: 0;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+.modal[style*="display: flex"] .modal-content {
+    transform: scale(1);
+    opacity: 1;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #374151;
+  padding-bottom: 10px;
+  margin-bottom: 15px;
+}
+.modal-header h3 { margin: 0; }
+
+.modal-footer { /* Para botones en modales (ej. Fin de Juego) */
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid #374151;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* --- Notificaciones (Toasts) --- */
+.notificaciones-container {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  display: grid;
+  gap: 10px;
+  z-index: 10001; /* Por encima de todo */
+  pointer-events: none; /* No bloquear clics debajo */
+  width: min(90vw, 350px); /* Ancho máximo */
+}
+
+.toast {
+  background: var(--panel);
+  padding: 12px 16px;
+  border-radius: 6px;
+  border: 1px solid #1f2937;
+  color: var(--text);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  opacity: 0;
+  transform: translateX(100%);
+  transition: all 0.3s ease;
+  pointer-events: auto; /* Permitir clics en el toast */
+  word-wrap: break-word; /* Para mensajes largos */
+}
+/* Estilos para tipos de toast */
+.toast-success { background: var(--success); color: white; border: none;}
+.toast-error { background: var(--danger); color: white; border: none;}
+.toast-warning { background: var(--warning); color: #111; border: none;}
+
+
+/* Notificación específica de Logro */
+.achievement-notification {
+  position: relative; /* Cambiado de fixed para que esté en el container */
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  padding: 16px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  opacity: 0; /* Animación controlada por JS */
+  transform: translateX(100%);
+  transition: all 0.4s ease-out;
+  min-width: 300px;
+  pointer-events: auto;
+  overflow: hidden; /* Para contener glow */
+}
+.achievement-notification.show {
+  opacity: 1;
+  transform: translateX(0);
+  animation: achievement-glow 1.5s ease-in-out infinite alternate; /* Glow mientras visible */
+}
+.achievement-notification.hide {
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all 0.3s ease-in;
+}
+.achievement-notification h4 { margin: 0 0 4px 0; font-size: 1em; }
+.achievement-notification p { margin: 0 0 4px 0; font-size: 0.9em; opacity: 0.9; }
+.achievement-notification small { font-size: 0.8em; opacity: 0.8;}
+.achievement-notification .achievement-icon { font-size: 24px; margin-right: 12px; }
+
+
+/* --- Superposición de Carga --- */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.85); /* Ligeramente más transparente */
+  display: none; /* Controlado por JS */
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-direction: column;
+  z-index: 10002; /* El más alto */
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.loading-overlay[style*="display: flex"] {
+    opacity: 1;
+}
+
+.loading-spinner {
+  font-size: 42px;
+  animation: spin 1.4s linear infinite;
+  color: var(--primary); /* Color del icono */
+  position: relative;
+}
+
+
+/* --- Guía Desplegable (Drawer) --- */
+.guia-drawer {
+    position: relative;
+    width: 95%;
+    margin: 10px auto 0 auto;
+    z-index: 10;
+}
+.guia-toggle-btn {
+    width: 100%;
+    background-color: var(--panel);
+    color: var(--muted);
+    border: 1px solid #1f2937;
+    border-bottom: none;
+    padding: 10px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 8px 8px 0 0;
+    transition: background-color 0.2s;
+    text-align: left; /* Alinear texto a la izquierda */
+}
+.guia-toggle-btn:hover {
+    background-color: #0b1220;
+    color: var(--text);
+}
+.guia-contenido {
+    background-color: #fdfaf6; /* Fondo claro tipo 'papel' */
+    color: #333; /* Texto oscuro */
+    border: 1px solid #dcdcdc; /* Borde suave */
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1) inset; /* Sombra interior */
+    border-radius: 0 0 8px 8px;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease-out, padding 0.4s ease-out;
+    padding: 0 20px; /* Padding horizontal cuando está abierto */
+    font-family: Georgia, 'Times New Roman', Times, serif; /* Fuente tipo libro */
+    line-height: 1.6;
+    font-size: 14px; /* Tamaño de fuente legible */
+}
+.guia-drawer.open .guia-contenido {
+    max-height: 350px; /* Más altura si es necesario */
+    padding: 20px;
+    overflow-y: auto;
+}
+.guia-drawer.open .guia-toggle-btn {
+    background-color: #e9e5e0; /* Color más claro al abrir */
+    color: #333;
+    border-color: #dcdcdc;
+}
+.guia-contenido h4 {
+    color: #5a4a3a; /* Marrón oscuro para títulos */
+    border-bottom: 2px solid #dcdcdc;
+    padding-bottom: 5px;
+    margin-top: 0;
+    margin-bottom: 15px; /* Más espacio */
+}
+.guia-contenido ul {
+    list-style-type: none;
+    padding-left: 0;
+    margin-bottom: 15px;
+}
+.guia-contenido li { padding: 5px 0; }
+.guia-contenido li strong {
+    display: inline-block;
+    min-width: 40px; /* Ancho mínimo para iconos/símbolos */
+    color: #5a4a3a; /* Marrón oscuro */
+    margin-right: 10px; /* Espacio después del strong */
+    font-weight: 600;
+}
+
+
+/* --- Partículas y Confeti (Efectos UI) --- */
+.particle {
+  position: absolute; /* Cambiado a absolute para que se base en su contenedor */
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 500; /* Debajo de modales */
+  opacity: 1;
+  transition: transform 1s ease-out, opacity 1s ease-out; /* Animación vía JS */
+}
+.particle.energy { background: #22c55e; }
+.particle.damage { background: #ef4444; }
+.particle.magic { background: #8b5cf6; }
+.particle.pm { background: #f59e0b; } /* Para Puntos de Mando */
+
+
+.confetti-piece {
+  position: fixed; /* Necesita ser fixed para caer por toda la pantalla */
+  width: 10px; height: 10px;
+  background: var(--primary); /* Color base */
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 1001; /* Encima de modales */
+  animation: confetti-fall 3s linear infinite; /* Usa la animación de animations.css */
+}
+/* ===================================================================
+   MODULO: AUTH (Autenticación)
+   - Estilos específicos para la pantalla de login y registro.
+   =================================================================== */
+
+/* Layout específico del contenido de autenticación */
+.auth-content {
+  max-width: 400px;
+  margin: 40px auto; /* Añadir margen superior */
+}
+
+/* Estructura en columnas para el formulario de registro */
+.auth-form-column {
+    display: flex;
+    flex-direction: column;
+    gap: 15px; /* Espacio entre grupos de input */
+}
+
+/* Ajustar el botón dentro del formulario apilado */
+.auth-form-column button {
+     margin-top: 10px; /* Espacio sobre el botón */
+     width: 100%;
+}
+/* ===================================================================
+   MODULO: LOBBY
+   - Estilos para la pantalla de Lobby (selección de sala)
+   - Estilos para la pantalla de Espera (lista de jugadores, chat)
+   =================================================================== */
+
+/* --- Pantalla de Lobby --- */
+
+.info-section {
+  background: var(--panel);
+  padding: 16px;
+  border-radius: 8px;
+}
+.info-section ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  color: var(--muted);
+  font-size: 0.9em; /* Ligeramente más pequeño */
+  line-height: 1.5; /* Mejor espaciado vertical */
+}
+.info-section li { margin-bottom: 5px; } /* Espacio entre items de lista */
+
+#rules-content h3, #ranking-content h3 { margin-top: 0; }
+
+/* --- Pantalla de Espera --- */
+
+.jugadores-lista, .chat-waiting, .eventos-sala, .controles-sala {
+  background: var(--panel);
+  padding: 16px; /* Un poco más de padding */
+  border-radius: 8px;
+  width: 100%;
+  min-width: 0;
+  box-shadow: 0 0 0 1px #1f2937 inset; /* Borde interior sutil */
+}
+.jugadores-lista h3, .chat-waiting h3, .eventos-sala h4 { margin-top: 0; margin-bottom: 12px; }
+
+#lista-jugadores {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+#lista-jugadores li {
+  padding: 8px 10px;
+  border-bottom: 1px solid #1f2937;
+  word-wrap: break-word;
+  transition: background-color 0.2s ease; /* Efecto hover */
+}
+#lista-jugadores li:last-child { border-bottom: none; }
+#lista-jugadores li:hover { background-color: #1f2937; }
+
+/* Contenedores de scroll para chat y eventos */
+.chat-mensajes, #log-eventos { /* Aplicar a ambos */
+  background: #0b1220;
+  height: clamp(150px, 25vh, 200px); /* Ajustar altura */
+  overflow-y: auto; /* Cambiado a auto */
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #1f2937;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  font-size: 0.9em;
+  color: var(--muted);
+}
+#log-eventos { list-style: none; padding: 10px; margin: 0; } /* Resetear lista de log */
+#log-eventos li { margin-bottom: 4px; }
+
+.chat-input {
+  display: flex;
+  gap: var(--gap-small);
+  margin-top: 12px; /* Más espacio */
+  flex-wrap: wrap;
+}
+
+@media (min-width: 480px) {
+  .chat-input {
+    flex-wrap: nowrap;
+  }
+}
+
+/* Controles de la sala (Iniciar/Salir) */
+.controles-sala {
+    display: flex;
+    flex-direction: column; /* Apilados en móvil */
+    gap: var(--gap-medium);
+}
+@media (min-width: 768px) {
+    .waiting-content {
+        /* Usamos áreas para el layout: players/chat arriba, controles/log abajo */
+        grid-template-columns: 1fr 1fr; 
+        grid-template-rows: auto 1fr;
+        grid-template-areas:
+            "players chat"
+            "controls log";
+        align-items: stretch;
+        gap: var(--gap-medium);
+    }
+
+    /* Asignación de áreas */
+    .jugadores-lista { grid-area: players; }
+    .chat-waiting { grid-area: chat; }
+    .eventos-sala {
+         grid-area: log; 
+         display: flex;
+         flex-direction: column;
+         height: 100%;
+         padding: 16px; 
+         background: var(--panel); 
+    }
+
+    /* Controles (botones de Iniciar/Salir) */
+    .controles-sala {
+        grid-area: controls;
+        display: flex; 
+        flex-direction: column; 
+        justify-content: flex-start; 
+        gap: 10px;
+        
+        background: none; 
+        box-shadow: none;
+        padding: 0;
+        border: none;
+        margin: 0;
+    }
+
+    /* Estilos del botón: compactar */
+    .controles-sala button {
+         width: 100%; 
+         max-width: 200px; 
+         padding: 10px 15px; 
+         margin: 0 auto; 
+    }
+}
+/* ===================================================================
+   MODULO: GAME
+   - Estilos para la pantalla de juego activa:
+   - Tablero y Casillas
+   - Fichas de jugador
+   - Panel de jugadores, Panel de eventos (Log y Chat)
+   - Habilidades
+   =================================================================== */
+
+/* --- Encabezado del Juego --- */
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--gap-medium);
+    flex-wrap: wrap; /* Permitir envolver */
+    gap: var(--gap-small);
+}
+.game-info h2 { margin: 0 0 5px 0; }
+.game-stats { display: flex; gap: 15px; color: var(--muted); }
+
+/* --- Panel de Jugadores (En partida) --- */
+/* Estilos base en layout.css */
+.player-status-item { /* Estilo para cada jugador en la lista */
+    padding: 8px 4px;
+    margin-bottom: 5px;
+    border-bottom: 1px solid #1f2937;
+    transition: background-color 0.2s ease;
+}
+.player-status-item:last-child { border-bottom: none; }
+/* Resaltar turno actual (requiere JS para añadir clase 'current-turn') */
+.player-status-item.current-turn {
+    background-color: rgba(99, 102, 241, 0.1); /* Fondo sutil primario */
+    border-left: 3px solid var(--primary);
+    padding-left: 8px;
+}
+
+.player-status-item div:first-child { /* Contenedor Nombre + Efectos */
+    display: flex;
+    align-items: center;
+    margin-bottom: 3px;
+}
+.player-status-item strong { margin-right: 5px; }
+
+/* Círculo de color */
+.color-swatch {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    margin-right: 8px;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+/* Iconos de efectos activos */
+.efectos-icons span { margin-right: 3px; }
+
+
+/* --- Tablero y Casillas --- */
+#tablero {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, var(--cell)));
+  gap: var(--gap-small);
+  margin: 0 auto;
+  width: 100%;
+  max-width: calc(12 * var(--cell) + 11 * var(--gap-small));
+  position: relative; /* Para fichas */
+  background-color: #0b1220; /* Fondo sutil para el tablero */
+  padding: var(--gap-small); /* Pequeño padding alrededor */
+  border-radius: 8px;
+}
+
+.casilla {
+  background: var(--panel); /* Fondo más oscuro que el tablero */
+  border: 1px solid #1f2937;
+  min-height: var(--cell);
+  aspect-ratio: 1;
+  padding: clamp(2px, 0.5vw, 4px);
+  border-radius: 4px; /* Menos redondeado */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between; /* Espacio entre número y contenido */
+  font-size: clamp(9px, 1.5vw, 13px); /* Ligeramente más pequeño */
+  text-align: center;
+  position: relative;
+  transition: all 0.2s ease;
+  overflow: hidden; /* Ocultar contenido que se desborde */
+}
+.casilla small { /* Número de casilla */
+  color: var(--muted);
+  font-size: clamp(8px, 1.2vw, 11px);
+  width: 100%;
+  text-align: right;
+  padding-right: 3px;
+}
+/* Iconos/Texto de casilla especial y energía */
+.c-esp, .c-ene {
+    font-size: clamp(12px, 2vw, 18px); /* Iconos más grandes */
+    font-weight: 500;
+    line-height: 1;
+}
+.c-esp { color: #fca5a5; } /* Rojo suave */
+.c-ene { color: #86efac; } /* Verde suave */
+.c-ene.negative { color: #ef4444; } /* Rojo para energía negativa */
+
+/* Efectos hover/focus en casillas */
+.casilla:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+  border-color: var(--primary);
+}
+/* Estilo para casilla especial con borde degradado */
+.casilla.special-tile::before {
+  content: ''; 
+  position: absolute;
+  top: -2px;     
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, #6366f1, #8b5cf6, #ec4899); 
+  border-radius: 8px; 
+  z-index: -1;     
+  opacity: 0;      
+  transition: opacity 0.3s ease; 
+}
+
+.casilla.special-tile:hover::before {
+    opacity: 0.5; 
+}
+
+/* --- Fichas de Jugador (Sobre el tablero) --- */
+.fichas-container {
+    position: absolute;
+    top: 2px; bottom: 2px; /* Centrar verticalmente */
+    left: 2px; right: 2px;
+    display: flex;
+    flex-wrap: wrap; /* Permitir que las fichas se envuelvan */
+    justify-content: center;
+    align-items: center;
+    gap: 2px;
+    pointer-events: none;
+}
+.ficha-jugador {
+    width: clamp(12px, 2vw, 18px); /* Tamaño adaptable */
+    height: clamp(12px, 2vw, 18px);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(8px, 1.2vw, 10px); /* Tamaño fuente adaptable */
+    font-weight: bold;
+    color: #FFFFFF;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s;
+    flex-shrink: 0; /* Evitar que se encojan */
+}
+/* Ficha del jugador actual */
+.mi-ficha {
+    border: 2px solid #fff;
+    box-shadow: 0 0 8px 2px var(--primary), 0 1px 2px rgba(0, 0, 0, 0.2);
+    transform: scale(1.15); /* Resaltar más */
+    z-index: 5; /* Poner encima de otras fichas */
+}
+
+
+/* --- Controles del Turno (Debajo del tablero) --- */
+.controles-turno {
+    margin-top: var(--gap-medium);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--gap-medium);
+    flex-wrap: wrap; /* Envolver si no caben */
+}
+.resultado-dado {
+  font-size: 1.2em;
+  font-weight: 600;
+  min-width: 40px; /* Espacio para el dado */
+  text-align: center;
+}
+
+
+/* --- Guía Rápida (Drawer - Estilos base en ui.css) --- */
+/* (Añadir overrides específicos si es necesario) */
+
+
+/* --- Panel de Eventos (Log) --- */
+/* Estilos base del panel en layout.css */
+#eventos-lista { /* Contenedor scrollable */
+    padding: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px; /* Espacio entre logs */
+}
+.log-item {
+    padding: 4px 8px; /* Ligeramente menos padding */
+    border-radius: 4px;
+    font-size: 0.85em; /* Más pequeño */
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 1.4;
+    border-left: 3px solid transparent; /* Borde izquierdo para tipo */
+}
+.log-item span { /* Icono */
+    font-size: 0.9em;
+    flex-shrink: 0;
+}
+/* Colores de borde para tipos de log */
+.log-turno { border-left-color: var(--primary); background-color: rgba(99, 102, 241, 0.05); }
+.log-habilidad { border-left-color: #a78bfa; background-color: rgba(167, 139, 250, 0.05); color: #ddd; } /* Morado suave */
+.log-movimiento { border-left-color: var(--muted); color: var(--muted); }
+.log-peligro { border-left-color: var(--danger); background-color: rgba(239, 68, 68, 0.05); color: #fca5a5; } /* Rojo suave */
+.log-positivo { border-left-color: var(--success); background-color: rgba(34, 197, 94, 0.05); color: #a7f3d0; } /* Verde suave */
+.log-sistema { border-left-color: #4b5563; color: #6b7280; font-style: italic; } /* Gris más oscuro */
+
+
+/* --- Habilidades (Modal) --- */
+/* Estilos base del modal en ui.css */
+.habilidades-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Columnas adaptables */
+  gap: 10px;
+  margin-top: 10px;
+}
+.habilidad-item {
+  background: #0b1220;
+  border: 1px solid #1f2937;
+  border-radius: 6px;
+  padding: 12px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  transition: background-color 0.2s ease;
+}
+.habilidad-item:hover { background-color: #1f2937; }
+.habilidad-item > div { flex-grow: 1; } /* Info ocupa espacio */
+.habilidad-item strong { color: var(--text); }
+.habilidad-item small { color: var(--muted); display: block; margin-top: 2px; font-size: 0.85em; }
+.habilidad-item button { flex-shrink: 0; padding: 6px 10px; font-size: 0.9em; } /* Botón más pequeño */
+/* ===================================================================
+   MODULO: FEATURES (Características)
+   - Estilos para sistemas complementarios:
+   - Perfil de Usuario (Nivel, Progreso)
+   - Ranking de Jugadores
+   - Logros (Achievements)
+   - Perks (Mejoras)
+   =================================================================== */
+
+/* --- Perfil de Usuario (Panel superior en Lobby/Waiting) --- */
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-medium); /* Más espacio */
+  flex-wrap: wrap; /* Permitir envolver */
+}
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-medium); /* Más espacio entre elementos */
+  background: var(--panel);
+  padding: 8px 15px; /* Más padding horizontal */
+  border-radius: 30px; /* Más redondeado */
+  border: 1px solid #374151;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2); /* Sombra sutil */
+}
+.user-profile span {
+  font-size: 14px;
+  color: var(--muted);
+  white-space: nowrap; /* Evitar que se rompa el texto */
+}
+#user-username { color: var(--text); font-weight: 500; }
+
+/* Botones dentro del perfil */
+.user-profile button {
+    padding: 6px 10px; /* Botones más pequeños */
+    font-size: 13px;
+    background-color: #374151; /* Color base */
+    position: relative; /* Para el indicador de notificación */
+}
+.user-profile button:hover { background-color: #4b5563; }
+/* Indicador de notificación (ej. en botón Social) */
+.user-profile button.has-notification::after {
+    content: '';
+    position: absolute;
+    top: 4px; right: 4px;
+    width: 8px; height: 8px;
+    background-color: var(--danger);
+    border-radius: 50%;
+    border: 1px solid var(--panel);
+}
+
+@media (max-width: 768px) {
+  .user-profile {
+    justify-content: center;
+    width: 100%;
+  }
+}
+
+
+/* --- Ranking de Jugadores (Top 5 en Lobby) --- */
+/* Estilos base de .top-players en components.css */
+.player-rank { /* Cada fila del ranking */
+  display: flex;
+  align-items: center;
+  gap: var(--gap-medium); /* Más espacio */
+  background: #0b1220;
+  border: 1px solid #1f2937;
+  border-radius: 6px;
+  padding: 10px 15px; /* Más padding */
+  transition: all 0.2s ease;
+  margin-bottom: var(--gap-small); /* Espacio entre filas */
+}
+.player-rank:hover {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+}
+.rank-position { /* Número o medalla */
+  font-weight: bold;
+  color: var(--primary);
+  min-width: 25px; /* Ancho fijo */
+  text-align: center;
+  font-size: 1.1em;
+}
+.rank-position.gold { color: #fbbf24; }
+.rank-position.silver { color: #d1d5db; }
+.rank-position.bronze { color: #cd7f32; } /* Color bronce */
+
+.player-info { /* Nombre + Stats */
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap; /* Permitir envolver stats en pantallas pequeñas */
+  gap: var(--gap-small);
+}
+.player-name { font-weight: 500; color: var(--text); }
+.player-stats {
+  display: flex;
+  gap: var(--gap-medium); /* Más espacio entre stats */
+  font-size: 13px;
+  color: var(--muted);
+  align-items: center;
+}
+.stat-item { display: flex; align-items: center; gap: 4px; }
+.stat-item span { font-weight: 500; color: var(--text); } /* Resaltar valor */
+
+.loading-rankings { /* Mensaje de carga */
+  text-align: center; color: var(--muted); padding: 20px; font-style: italic;
+}
+
+
+/* --- Modal de Logros (Achievements) --- */
+/* Estilos base del modal en ui.css */
+#achievements-summary { /* Resumen (Completado: X/Y) */
+    text-align: center; margin-bottom: 15px; color: var(--muted); font-weight: 500;
+}
+#achievements-list { /* Contenedor de la lista */
+    display: flex; flex-direction: column; gap: 12px; /* Más espacio */
+}
+.achievement-item { /* Cada logro individual */
+    background-color: #0b1220;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    border-left: 5px solid var(--muted); /* Gris (bloqueado) */
+    transition: all 0.2s ease-in-out;
+}
+.achievement-item.unlocked { border-left-color: var(--success); } /* Verde (desbloqueado) */
+.achievement-item.locked { opacity: 0.7; }
+
+.achievement-header { display: flex; align-items: center; gap: 15px; width: 100%; }
+.achievement-icon { font-size: 2.2em; line-height: 1; flex-shrink: 0; }
+.achievement-info { flex-grow: 1; }
+.achievement-name { margin: 0; font-size: 1.1em; color: var(--text); font-weight: 500; }
+.achievement-item.locked .achievement-name { color: var(--muted); }
+.achievement-desc { margin: 4px 0 0 0; font-size: 0.85em; color: var(--muted); line-height: 1.4; }
+.achievement-xp { font-size: 0.9em; font-weight: bold; color: #f59e0b; white-space: nowrap; margin-left: auto; padding-left: 10px; }
+
+/* Barra de Progreso de Logro */
+.achievement-progress { display: flex; align-items: center; gap: 10px; margin-top: 10px; width: 100%; }
+.progress-bar-container { flex-grow: 1; height: 8px; background-color: #374151; border-radius: 4px; overflow: hidden; }
+.progress-bar { height: 100%; background-color: var(--primary); width: 0%; border-radius: 4px; transition: width 0.5s ease-out; }
+/* Cambio a verde cerca del final */
+.progress-bar[style*="width: 8"], .progress-bar[style*="width: 9"], .progress-bar[style*="width: 100"] {
+    background-color: var(--success);
+}
+.progress-text { font-size: 0.8em; color: var(--muted); white-space: nowrap; min-width: 50px; text-align: right; }
+.unlocked-date { font-size: 0.8em; color: var(--success); margin-top: 5px; font-style: italic; text-align: right; }
+
+.achievement-item:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.3); background-color: #1f2937; }
+
+
+/* --- Modal de Perks (Mejoras) --- */
+/* Estilos base del modal en ui.css, otros en components.css */
+#modal-perks .modal-content { max-width: 650px; } /* Más ancho */
+.perks-info { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #374151; font-size: 0.95em; }
+#pm-actual { font-weight: bold; color: var(--success); font-size: 1.1em; }
+#perks-activos-list { color: var(--muted); text-align: right; } /* Perks activos a la derecha */
+
+.perk-packs { /* Contenedor de botones de pack */
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px;
+}
+.pack-button { /* Botón para comprar pack */
+    background: #1f2937; border: 2px solid #374151; padding: 15px; border-radius: 8px; text-align: center; cursor: pointer; transition: all 0.2s ease;
+}
+.pack-button h4 { margin: 0 0 5px 0; color: var(--primary); font-size: 1.1em; }
+.pack-button small { color: var(--muted); display: block; font-size: 0.85em; line-height: 1.3; }
+.pack-button:disabled { opacity: 0.4; cursor: not-allowed; background: #111827; }
+/* Resaltar packs asequibles */
+.pack-button.affordable { border-color: var(--success); box-shadow: 0 0 8px rgba(34, 197, 94, 0.3); }
+.pack-button.affordable:hover:not(:disabled) { background-color: #166534; border-color: #15803d; }
+.pack-button:not(.affordable):hover:not(:disabled) { background: #374151; border-color: #4b5563; }
+
+#perk-offer-container { /* Donde aparecen los perks a elegir */
+    margin-top: 20px; padding-top: 15px; border-top: 1px solid #374151;
+}
+#perk-offer-container h4 { margin-top: 0; margin-bottom: 10px; }
+.perk-offer-item { /* Botón para elegir un perk de la oferta */
+    display: block; width: 100%; background: #0b1220; border: 1px solid #374151; padding: 12px 15px; border-radius: 6px; margin-bottom: 8px; text-align: left; cursor: pointer; transition: all 0.2s ease; border-left-width: 4px;
+}
+.perk-offer-item:hover { background: #1f2937; border-color: var(--primary); border-left-color: var(--primary); }
+.perk-offer-item strong { color: var(--primary); }
+.perk-offer-item small { color: var(--muted); display: block; margin-top: 4px; font-size: 0.9em; }
+.perk-offer-item .perk-tier { float: right; font-size: 0.8em; padding: 2px 6px; border-radius: 4px; background: #374151; text-transform: capitalize; margin-left: 8px; }
+/* Colores de borde izquierdo para tiers en oferta */
+.perk-tier-basico { border-left-color: #6b7280; }
+.perk-tier-medio { border-left-color: #3b82f6; }
+.perk-tier-alto { border-left-color: #f59e0b; }
+
+/* Estilos para Perks Activos Agrupados */
+#perks-activos-list { display: flex; flex-direction: column; gap: 6px; font-size: 0.9em; }
+.active-perks-tier { line-height: 1.5; }
+.active-perks-tier .tier-title { display: inline-block; min-width: 60px; color: var(--muted); margin-right: 5px; text-transform: capitalize; font-weight: 500; }
+.active-perk-tag { display: inline-block; padding: 3px 8px; border-radius: 12px; margin-right: 6px; margin-bottom: 4px; font-size: 0.85em; background-color: rgba(55, 65, 81, 0.5); border: 1px solid #4b5563; }
+.active-perk-tag.perk-tier-medio { border-color: #3b82f6; background-color: rgba(59, 130, 246, 0.2); }
+.active-perk-tag.perk-tier-alto { border-color: #f59e0b; background-color: rgba(245, 158, 11, 0.2); }
+/* ===================================================================
+   MODULO: ANIMATIONS
+   - Definiciones de @keyframes
+   - Clases de utilidad .animate-*
+   =================================================================== */
+
+/* --- Definiciones de @keyframes --- */
+
+/* Movimiento visual simple (bounce) para ficha */
+@keyframes piece-bounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-3px) scale(1.1); }
+}
+
+/* Entrada con rebote (para modales, elementos UI) */
+@keyframes bounce-in {
+  0% { transform: scale(0.8); opacity: 0; }
+  60% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Salida deslizándose (para notificaciones) */
+@keyframes slide-out-right {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(100%); opacity: 0; }
+}
+
+/* Sacudida suave */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25%, 75% { transform: translateX(-2px); }
+  50% { transform: translateX(2px); }
+}
+
+/* Sacudida intensa */
+@keyframes intense-shake {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  10%, 90% { transform: translate(-2px, -1px) rotate(-1deg); }
+  20%, 80% { transform: translate(1px, 1px) rotate(1deg); }
+  30%, 70% { transform: translate(-1px, 1px) rotate(-1deg); }
+  40%, 60% { transform: translate(2px, -1px) rotate(1deg); }
+  50% { transform: translate(0, 0) rotate(0deg); }
+}
+
+/* Pulso/Glow para habilidad usada */
+@keyframes ability-cast-glow {
+  0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+  100% { box-shadow: 0 0 0 15px rgba(99, 102, 241, 0); }
+}
+
+/* Pulso de energía (verde) */
+@keyframes energy-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.1); opacity: 1; }
+}
+
+/* Flash de daño (rojo) */
+@keyframes damage-flash {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.5); }
+}
+
+/* Caída de confeti */
+@keyframes confetti-fall {
+  0% { transform: translateY(-100%) rotateZ(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotateZ(720deg); opacity: 0; }
+}
+
+/* Entrada de logro (desde derecha) */
+@keyframes achievement-slide-in {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* Brillo recurrente para notificación de logro */
+@keyframes achievement-glow {
+  0%, 100% { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); }
+  50% { box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5), 0 0 25px rgba(139, 92, 246, 0.3); }
+}
+
+/* Transiciones de pantalla (fade) */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-10px); }
+}
+
+/* Spinner de carga */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Partículas flotantes (para loading) */
+@keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-8px); }
+}
+
+
+/* --- Clases de utilidad .animate-* (Para usar con JS) --- */
+
+.animate-piece-bounce { animation: piece-bounce 0.4s ease-in-out; }
+.animate-bounce-in { animation: bounce-in 0.4s ease-out forwards; }
+.animate-slide-out-right { animation: slide-out-right 0.3s ease-in forwards; }
+.animate-shake { animation: shake 0.4s ease-in-out; }
+.animate-intense-shake { animation: intense-shake 0.5s ease-in-out; }
+.animate-ability-cast { animation: ability-cast-glow 0.8s ease-out; }
+.animate-energy-pulse { animation: energy-pulse 0.6s ease-in-out 2; } /* Repetir 2 veces */
+.animate-damage-flash { animation: damage-flash 0.3s ease-in-out 2; } /* Repetir 2 veces */
+/* .animate-victory - Podría ser una combinación de clases o un keyframe más complejo */
+/* .animate-confetti - La aplica directamente el JS al crear el elemento */
+/* .animate-achievement-enter - Controlado por JS con clases .show/.hide */
+.animate-fade-in { animation: fade-in 0.5s ease-out forwards; }
+.animate-fade-out { animation: fade-out 0.4s ease-in forwards; }
+/* .animate-float - Usado directamente en el spinner */
+
+/* Colores variados para confeti (aplicar a .confetti-piece) */
+.confetti-piece:nth-child(5n+1) { background: #6366f1; animation-delay: 0s; }
+.confetti-piece:nth-child(5n+2) { background: #fbbf24; animation-delay: -0.8s; }
+.confetti-piece:nth-child(5n+3) { background: #22c55e; animation-delay: -1.6s; }
+.confetti-piece:nth-child(5n+4) { background: #ec4899; animation-delay: -2.4s; }
+.confetti-piece:nth-child(5n+5) { background: #8b5cf6; animation-delay: -3.2s; }
