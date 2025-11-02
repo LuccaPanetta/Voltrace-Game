@@ -135,10 +135,6 @@ class AchievementSystem:
         elif event_type == 'room_created':
             newly_unlocked_ids.extend(self._check_room_achievements(username, unlocked_ach_ids, user_stats))
         
-        elif event_type == 'message_sent':
-            # Este es el trigger para 'chat_king' (mensajes en partida)
-            newly_unlocked_ids.extend(self._check_chat_achievements(username, event_data, unlocked_ach_ids, user_stats))
-        
         elif event_type == 'dice_rolled':
             newly_unlocked_ids.extend(self._check_dice_achievements(username, event_data, unlocked_ach_ids, user_stats))
         
@@ -199,14 +195,12 @@ class AchievementSystem:
             unlocked.append('first_win')
         
         # Demonio velocista
-        if 'speed_demon' not in current_achievements and event_data.get('won') and event_data.get('moves', 0) < 15:
+        if 'speed_demon' not in current_achievements and event_data.get('won') and event_data.get('total_rounds', 0) < 15:
             unlocked.append('speed_demon')
         
         # Superviviente original (ganar con poca energía)
         if 'survivor' not in current_achievements and event_data.get('won') and event_data.get('final_energy', 1000) < 50:
             unlocked.append('survivor')
-        
-        # NUEVOS LOGROS ESPECÍFICOS
         
         # Superviviente (terminar sin ser eliminado)
         if 'superviviente' not in current_achievements and event_data.get('never_eliminated', True):
@@ -241,7 +235,7 @@ class AchievementSystem:
             unlocked.append('perfeccionista')
         
         # Maratonista (más de 50 turnos)
-        if 'maratonista' not in current_achievements and event_data.get('moves', 0) > 50:
+        if 'maratonista' not in current_achievements and event_data.get('total_rounds', 0) > 50:
             unlocked.append('maratonista')
         
         # Maestro de habilidades
@@ -258,7 +252,11 @@ class AchievementSystem:
         if 'coleccionista' not in current_achievements and len(current_achievements) >= 10:
             unlocked.append('coleccionista')
         
+        if 'chat_king' not in current_achievements and event_data.get('messages_this_game', 0) >= 25:
+            unlocked.append('chat_king')
+
         return unlocked
+
     
     def _check_ability_achievements(self, username, event_data, current_achievements, user_stats):
         unlocked = []
@@ -419,7 +417,8 @@ class AchievementSystem:
             'xp': user.xp, 'level': user.level,
             'games_played': user.games_played, 'games_won': user.games_won,
             'abilities_used': getattr(user, 'abilities_used', 0),
-            'chat_messages_sent': getattr(user, 'chat_messages_sent', 0),
+            'game_messages_sent': getattr(user, 'game_messages_sent', 0),
+            'private_messages_sent': getattr(user, 'private_messages_sent', 0),
             'rooms_created': getattr(user, 'rooms_created', 0), 
             'unlocked_achievements_count': len(unlocked_ids_set),
             'friends_count': user.friends.count() # <-- AÑADIDO
@@ -443,7 +442,7 @@ class AchievementSystem:
                     "veteran": "games_played",
                     "champion": "games_won",
                     "level_master": "level",
-                    "chat_master": "chat_messages_sent",
+                    "chat_master": "private_messages_sent", 
                     "room_host": "rooms_created",
                     "coleccionista": "unlocked_achievements_count",
                     "social_butterfly": "friends_count",
@@ -504,7 +503,7 @@ class AchievementSystem:
                  unlocked.append("popular")
 
         elif event_type == 'private_message_sent':
-            messages_sent_count = user_stats.get('messages_sent', 0)
+            messages_sent_count = user_stats.get('private_messages_sent', 0)
             # Maestro del Chat (50 mensajes)
             if "chat_master" not in current_achievements and messages_sent_count >= 50:
                  unlocked.append("chat_master")

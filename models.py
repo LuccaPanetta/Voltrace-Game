@@ -60,9 +60,11 @@ class User(db.Model, UserMixin):
     level = db.Column(db.Integer, default=1)
     xp = db.Column(db.Integer, default=0)
     games_played = db.Column(db.Integer, default=0)
-    chat_messages_sent = db.Column(db.Integer, default=0)
+    game_messages_sent = db.Column(db.Integer, default=0) 
+    private_messages_sent = db.Column(db.Integer, default=0) 
     games_won = db.Column(db.Integer, default=0)
     abilities_used = db.Column(db.Integer, default=0)
+    rooms_created = db.Column(db.Integer, default=0)
     
     # --- Sistema Social (Amigos) ---
     
@@ -138,14 +140,17 @@ class User(db.Model, UserMixin):
         return False
 
     def reject_friend_request(self, user):
+        # 'self' es el receptor, 'user' es el remitente
+        request_found = False
         if self.has_received_request_from(user):
             self.received_requests.remove(user)
-            return True
-        # También manejar el rechazo si 'user' la envió
-        if self.has_sent_request_to(user):
-             self.sent_requests.remove(user)
-             return True
-        return False
+            request_found = True
+        
+        if user.has_sent_request_to(self):
+            user.sent_requests.remove(self)
+            request_found = True
+            
+        return request_found
 
     def get_unlocked_achievements(self):
         return [ua.achievement for ua in self.unlocked_achievements_assoc]

@@ -206,6 +206,18 @@ class JuegoOcaWeb:
             dado1 = jugador.dado_forzado
             jugador.dado_forzado = None # Importante: consumir el dado
             self.eventos_turno.append(f"🎯 {nombre_jugador} usó Dado Perfecto: {dado1}")
+
+            if "dado_cargado" in jugador.perks_activos:
+                if 1 <= dado1 <= 3:
+                    energia_ganada = jugador.procesar_energia(10)
+                    if energia_ganada > 0:
+                        self.eventos_turno.append(f"⚡ (Dado Cargado): ¡Ganas +{energia_ganada} Energía!")
+                    else:
+                        self.eventos_turno.append(f"🚫 (Dado Cargado): Bloqueado (+10 Energía).")
+                elif 4 <= dado1 <= 6:
+                    jugador.ganar_pm(1)
+                    self.eventos_turno.append(f"✨ (Dado Cargado): ¡Ganas +1 PM!")
+
         else:
             # Si no hay dado forzado, tirar normalmente
             dado1 = randint(1, 6)
@@ -359,10 +371,12 @@ class JuegoOcaWeb:
                     # Usa el valor real ganado en el mensaje
                     self.eventos_turno.append(f"💰 +{energia_ganada_real} energía")
                     jugador.ganar_pm(2) # PM por recoger tesoro
+                    jugador.tesoros_recogidos += 1
                 elif energia_intentada > 0: # Si intentó ganar pero no pudo (cambio real fue 0)
                     self.eventos_turno.append(f"🚫 {jugador.get_nombre()} no pudo recoger el Tesoro (+{energia_intentada} E) por Bloqueo.")
 
             elif tipo == "trampa":
+                jugador.trampas_evitadas = False
                 # 1. Obtener valor base de la trampa
                 energia_perdida_base = casilla["valor"] 
 
@@ -391,10 +405,10 @@ class JuegoOcaWeb:
                     nombre_propietario = casilla["colocada_por"]
                     propietario = self._encontrar_jugador(nombre_propietario)
                     
-                    # Comprobación Crítica: El jugador que CAYÓ debe tener el perk
-                    if "recompensa_de_mina" in jugador.perks_activos: 
+                    # Comprobación Crítica: El PROPIETARIO de la mina debe tener el perk
+                    if propietario and "recompensa_de_mina" in propietario.perks_activos: 
                         recompensa = abs(energia_perdida_final) // 2 
-                        if propietario and propietario.esta_activo():
+                        if propietario.esta_activo(): 
                             propietario.procesar_energia(recompensa)
                             self.eventos_turno.append(f"💰 Recompensa de Mina: {nombre_propietario} gana {recompensa} energía.")
                         
@@ -538,7 +552,14 @@ class JuegoOcaWeb:
                 energia_original = pack['valor']
                 energia_modificada = energia_original # Valor base a intentar aplicar
 
-                if self.evento_global_activo == "Sobrecarga":
+                # Verificar el efecto del JUGADOR o el evento GLOBAL
+                if self._verificar_efecto_activo(jugador, "multiplicador"):
+                    energia_modificada *= 2
+                    self.eventos_turno.append("✨ ¡Multiplicador! Valor del pack duplicado.")
+                    # Consumir el efecto 
+                    self._remover_efecto(jugador, "multiplicador") 
+                
+                elif self.evento_global_activo == "Sobrecarga":
                     energia_modificada *= 2
                     self.eventos_turno.append("🌎 Sobrecarga: ¡Valor del pack duplicado!")
 
@@ -584,9 +605,15 @@ class JuegoOcaWeb:
         return 0
 
     def _verificar_colision(self, jugador_moviendose, posicion):
-        if self._verificar_efecto_activo(jugador_moviendose, "fase_activa"):
-            self.eventos_turno.append(f"👻 {jugador_moviendose.get_nombre()} atraviesa a otros jugadores sin colisión.")
-            return # Salir, no hay colisión
+        # Comprobar si el jugador que se mueve es intangible
+        esta_en_fase = self._verificar_efecto_activo(jugador_moviendose, "fase_activa")
+        esta_invisible_con_perk = ("sombra_fugaz" in jugador_moviendose.perks_activos and 
+                                     self._verificar_efecto_activo(jugador_moviendose, "invisible"))
+
+        if esta_en_fase or esta_invisible_con_perk:
+            mensaje_efecto = "Fase" if esta_en_fase else "Sombra Fugaz"
+            self.eventos_turno.append(f"👻 {jugador_moviendose.get_nombre()} atraviesa a otros jugadores sin colisión ({mensaje_efecto}).")
+            return 
         jugadores_en_posicion = []
         for jugador in self.jugadores:
             if (jugador != jugador_moviendose and
@@ -611,12 +638,13 @@ class JuegoOcaWeb:
                          self.eventos_turno.append("🌎 ¡Cortocircuito! Colisión más peligrosa.")
 
                 # Verificar si alguien tiene Presencia Intimidante
-                if not es_el_que_se_movio:
-                    for j_estatico in jugadores_en_posicion: # Podría haber varios en la casilla
+                if es_el_que_se_movio:
+                    for j_estatico in jugadores_en_posicion: # Iterar sobre los que estaban quietos
                          if "presencia_intimidante" in j_estatico.perks_activos:
-                             energia_perdida -= 10 # Pierde 10 extra
-                             self.eventos_turno.append(f"  {j_estatico.get_nombre()} intimida a {j_afectado.get_nombre()}!")
-                             break 
+                             # Aplicar penalización extra SOLO al que se movió
+                             energia_perdida -= 10 
+                             self.eventos_turno.append(f"  {j_estatico.get_nombre()} intimida a {j_afectado.get_nombre()} (-10 E extra)!")
+                             break # Solo se aplica una vez 
 
                 # Verificar Escudo o Amortiguación del afectado
                 if self._verificar_efecto_activo(j_afectado, "escudo") or \
@@ -777,10 +805,12 @@ class JuegoOcaWeb:
 
         # 3. Lógica de Cierre (Cooldown, PM, Retorno)
         if exito:
+            jugador.habilidades_usadas_en_partida += 1
             # Aplicar Cooldown y marcar habilidad como usada en el turno
             if hasattr(jugador, 'habilidades_cooldown'):
-                # Usar cooldown_base del objeto habilidad original para reiniciar
-                jugador.habilidades_cooldown[habilidad.nombre] = habilidad.cooldown_base
+                # ¡Llamar a la función del jugador que aplica los perks!
+                tiene_perk_enfriamiento = "enfriamiento_rapido" in jugador.perks_activos
+                jugador.poner_en_cooldown(habilidad, tiene_perk_enfriamiento)
             jugador.habilidad_usada_este_turno = True
 
             # PM ganados
@@ -1015,7 +1045,7 @@ class JuegoOcaWeb:
              return {"exito": False, "eventos": eventos}
 
         # Aplicar el efecto de bloqueo (dura 2 rondas)
-        duracion_turnos = 2
+        duracion_turnos = len(self.jugadores) * 2 # 2 rondas
         jugador_objetivo.efectos_activos.append({"tipo": "bloqueo_energia", "turnos": duracion_turnos})
         eventos.append(f"🚫 {jugador_objetivo.get_nombre()} no podrá ganar energía durante {duracion_turnos} turnos.")
         
@@ -1216,12 +1246,14 @@ class JuegoOcaWeb:
             # Iteramos sobre cada jugador 'j' que NO es el lanzador
             if j != jugador and j.esta_activo():
                 
-                empuje_final_jugador = empuje_base # Empuje por defecto para este jugador
-                
-                if "desvio_cinetico" in j.perks_activos:
-                    reduccion = empuje_final_jugador // 2 # División entera
-                    empuje_final_jugador -= reduccion
-                    eventos.append(f"🏃‍♂️ {j.get_nombre()} desvía parte del Tsunami (Empuje reducido a {empuje_final_jugador}).")
+                if self._puede_ser_afectado(j, habilidad):
+                    empuje_final_jugador = empuje_base # Empuje por defecto para este jugador
+                    
+                    # Comprobar si el OBJETIVO (j) tiene el perk
+                    if "desvio_cinetico" in j.perks_activos:
+                        reduccion = empuje_final_jugador // 2 # División entera
+                        empuje_final_jugador -= reduccion
+                        eventos.append(f"🏃‍♂️ {j.get_nombre()} desvía parte del Tsunami (Empuje reducido a {empuje_final_jugador}).")
 
                 # Aplicar el empuje final calculado para este jugador 'j'
                 nueva = max(1, j.get_posicion() - empuje_final_jugador) 
@@ -1317,7 +1349,14 @@ class JuegoOcaWeb:
         empuje_base = 7 if "retroceso_brutal" in jugador.perks_activos else 5
         empuje_final = empuje_base # Empuje por defecto
 
-        if "desvio_cinetico" in obj.perks_activos:
+        if self._puede_ser_afectado(obj, habilidad):
+            # Comprobar si el OBJETIVO (obj) tiene el perk
+            if "desvio_cinetico" in obj.perks_activos:
+                reduccion = empuje_final // 2 
+                empuje_final -= reduccion
+                eventos.append(f"🏃‍♂️ {obj.get_nombre()} desvía parte del Retroceso (Empuje reducido a {empuje_final}).")
+
+            nueva = max(1, obj.get_posicion() - empuje_final) # No retroceder más allá de 1
             reduccion = empuje_final // 2 
             empuje_final -= reduccion
             eventos.append(f"🏃‍♂️ {obj.get_nombre()} desvía parte del Retroceso (Empuje reducido a {empuje_final}).")
@@ -1364,6 +1403,7 @@ class JuegoOcaWeb:
 
         # Almacena el valor para que ejecutar_turno_dado lo use
         jugador.dado_forzado = valor 
+        jugador.dado_perfecto_usado += 1
         eventos.append(f"🎯 Preparaste un Dado Perfecto con valor {valor}.")
         return {"exito": True, "eventos": eventos}
 
@@ -1405,16 +1445,23 @@ class JuegoOcaWeb:
         eventos = ["🎪 Caos: ¡Todos los jugadores se mueven aleatoriamente!"]
         for j in self.jugadores:
             if j.esta_activo():
-                mov = randint(1, 6)
-                # Usar avanzar para respetar límites, luego teletransportar al resultado
-                pos_actual = j.get_posicion()
-                nueva_pos_calc = min(pos_actual + mov, self.posicion_meta)
-                j.teletransportar_a(nueva_pos_calc)
-                eventos.append(f"🌀 {j.get_nombre()} avanza {mov} a {nueva_pos_calc}.")
-                # Procesar efectos en la nueva casilla
-                if nueva_pos_calc < self.posicion_meta:
-                    self._procesar_efectos_posicion(j, nueva_pos_calc)
-                    self._verificar_colision(j, nueva_pos_calc)
+                if j == jugador or self._puede_ser_afectado(j, habilidad):
+                    mov = randint(1, 6)
+                    # Comprobar si 'j' (el jugador en el bucle) es el 'jugador' (quien lanzó Caos)
+                    # Y si ese jugador tiene el perk
+                    if j == jugador and "maestro_del_azar" in j.perks_activos:
+                        mov *= 2 # Duplica el movimiento
+                        eventos.append(f"✨ ¡Maestro del Azar! {j.get_nombre()} duplica su movimiento.")
+
+                    # Usar avanzar para respetar límites, luego teletransportar al resultado
+                    pos_actual = j.get_posicion()
+                    nueva_pos_calc = min(pos_actual + mov, self.posicion_meta)
+                    j.teletransportar_a(nueva_pos_calc)
+                    eventos.append(f"🌀 {j.get_nombre()} avanza {mov} a {nueva_pos_calc}.")
+                    # Procesar efectos en la nueva casilla
+                    if nueva_pos_calc < self.posicion_meta:
+                        self._procesar_efectos_posicion(j, nueva_pos_calc)
+                        self._verificar_colision(j, nueva_pos_calc)
         return {"exito": True, "eventos": eventos}
 
     # ===================================================================

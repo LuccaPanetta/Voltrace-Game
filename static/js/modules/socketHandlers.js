@@ -361,6 +361,7 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
 
         if (privateChatIsOpen && isChattingWithSender) {
             appendPrivateMessage(data); // Añade al chat abierto
+            _socket.emit('mark_chat_as_read', { sender: data.sender });
         } else {
             showNotification(`💬 Nuevo mensaje de ${escapeHTML(data.sender)}`, _notificacionesContainer, "info", 5000);
             updateSocialNotificationIndicator(true); // Marca botón social

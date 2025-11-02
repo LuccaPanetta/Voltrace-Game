@@ -160,8 +160,8 @@ import { AnimationSystem } from './animations.js';
         "amortiguacion": { "id": "amortiguacion", "nombre": "Amortiguación", "tier": "medio", "desc": "Reduce la energía perdida por colisiones en un 33% (pierdes 67 vs 100)." },
         "eficiencia_energetica": { "id": "eficiencia_energetica", "nombre": "Eficiencia Energética", "tier": "medio", "desc": "Recoges un 20% más de energía de los packs positivos." },
         "anticipacion": { "id": "anticipacion", "nombre": "Anticipación", "tier": "medio", "desc": "Tienes un 20% de probabilidad de esquivar habilidad ofensiva enemiga." },
-        "robo_oportunista": { "id": "robo_oportunista", "nombre": "Robo Oportunista", "tier": "medio", "desc": "Si tienes 'Robo', roba +33% de energía adicional.", "requires_habilidad": "Robo" }, // Descripción actualizada
-        "escudo_duradero": { "id": "escudo_duradero", "nombre": "Escudo Duradero", "tier": "medio", "desc": "Si tienes 'Escudo Total', dura 1 ronda adicional.", "requires_habilidad": "Escudo Total" }, // Descripción ajustada
+        "robo_oportunista": { "id": "robo_oportunista", "nombre": "Robo Oportunista", "tier": "medio", "desc": "Si tienes 'Robo', roba +30 de energía adicional (80-180 vs 50-150).", "requires_habilidad": "Robo" },
+        "escudo_duradero": { "id": "escudo_duradero", "nombre": "Escudo Duradero", "tier": "medio", "desc": "Si tienes 'Escudo Total', dura 1 ronda adicional.", "requires_habilidad": "Escudo Total" }, 
         "bomba_fragmentacion": { "id": "bomba_fragmentacion", "nombre": "Bomba de Fragmentación", "tier": "medio", "desc": "Si tienes 'Bomba Energética', además del daño, empuja a los afectados 1 casilla lejos de ti.", "requires_habilidad": "Bomba Energética" },
         "sombra_fugaz": { "id": "sombra_fugaz", "nombre": "Sombra Fugaz", "tier": "medio", "desc": "Si tienes 'Invisibilidad', no causas ni te afectan las colisiones.", "requires_habilidad": "Invisibilidad" },
         "dado_cargado": { "id": "dado_cargado", "nombre": "Dado Cargado", "tier": "medio", "desc": "Si tienes 'Dado Perfecto': eligiendo 1-3 ganas +10 energía, eligiendo 4-6 ganas +1 PM.", "requires_habilidad": "Dado Perfecto" },
@@ -170,9 +170,9 @@ import { AnimationSystem } from './animations.js';
 
         // === TIER ALTO ===
         "maestria_habilidad": { "id": "maestria_habilidad", "nombre": "Maestría de Habilidad", "tier": "alto", "desc": "Ganas +3 PM extra al usar una habilidad con éxito." },
-        "ultimo_aliento": { "id": "ultimo_aliento", "nombre": "Último Aliento", "tier": "alto", "desc": "La primera vez que tu energía llegaría a 0 o menos, sobrevives con 50 E y ganas Escudo Total (1 ronda). (Una vez por partida)" },
+        "ultimo_aliento": { "id": "ultimo_aliento", "nombre": "Último Aliento", "tier": "alto", "desc": "La primera vez que tu energía llegaría a 0 o menos, sobrevives con 50 E y ganas Escudo Total (3 rondas). (Una vez por partida)" },
         "enfriamiento_rapido": { "id": "enfriamiento_rapido", "nombre": "Enfriamiento Rápido", "tier": "alto", "desc": "Reduce el cooldown base de todas tus habilidades en 1 turno (mínimo 1)." },
-        "drenaje_colision": { "id": "drenaje_colision", "nombre": "Drenaje por Colisión", "tier": "alto", "desc": "Cuando colisionas, robas 50 energía a cada otro jugador involucrado (no protegido)." }, // Aclaración
+        "drenaje_colision": { "id": "drenaje_colision", "nombre": "Drenaje por Colisión", "tier": "alto", "desc": "Cuando colisionas, robas 50 energía a cada otro jugador involucrado (no protegido)." },
         "sabotaje_persistente": { "id": "sabotaje_persistente", "nombre": "Sabotaje Persistente", "tier": "alto", "desc": "Si tienes 'Sabotaje', hace que el objetivo pierda 2 turnos (vs 1).", "requires_habilidad": "Sabotaje" }
     };
     loadPerksConfig(simulatedPerksConfig);

@@ -118,7 +118,7 @@ PERKS_CONFIG = {
         "id": "bomba_fragmentacion",
         "nombre": "Bomba de Fragmentación",
         "tier": "medio",
-        "desc": "Si tienes 'Bomba Energética', además del daño, empuja a los afectados 1 casilla lejos de ti.",
+        "desc": "Si tienes 'Bomba Energética', su rango aumenta de 3 a 5 casillas y, además del daño, empuja a los afectados 1 casilla.",
         "requires_habilidad": "Bomba Energética" 
     },
     "sombra_fugaz": {

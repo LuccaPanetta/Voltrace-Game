@@ -32,7 +32,7 @@ def crear_habilidades():
             Habilidad("Tsunami", "ofensiva", "Empuja a todos los jugadores 3 casillas atrás", "🌊", 5),
         ],
         "defensiva": [
-            Habilidad("Escudo Total", "defensiva", "Inmune a todo tipo de daño por 3 turnos", "🛡️", 7),
+            Habilidad("Escudo Total", "defensiva", "Inmune a todo tipo de daño por 3 rondas", "🛡️", 7),
             Habilidad("Curación", "defensiva", "Recupera 75 de energía instantáneamente", "🏥", 6),
             Habilidad("Invisibilidad", "defensiva", "No te afectan las habilidades de los oponentes por 2 turnos", "👻", 5),
             Habilidad("Barrera", "defensiva", "Refleja el próximo ataque que recibas por 2 turnos", "🔮", 5),

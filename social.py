@@ -438,9 +438,14 @@ class SocialSystem:
         if not sender_user.is_friend(recipient_user):
             return {"success": False, "message": "Solo puedes invitar amigos."}
             
-        # Verificar que el destinatario está online
-        if self._get_user_status(recipient_username) == "offline":
+        # Verificar que el destinatario está disponible (solo 'online' en el lobby)
+        recipient_status = self._get_user_status(recipient_username)
+        if recipient_status == "offline":
             return {"success": False, "message": "El usuario no está conectado."}
+        if recipient_status == "in_game":
+            return {"success": False, "message": "El usuario está en medio de una partida."}
+        if recipient_status == "in_lobby":
+            return {"success": False, "message": "El usuario ya está en una sala de espera."}
             
         # Crear invitación
         invitation_data = {

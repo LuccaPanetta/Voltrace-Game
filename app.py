@@ -601,7 +601,8 @@ def crear_sala(data):
         user_db = User.query.filter_by(username=username).first()
         if user_db:
             user_db.xp += 5 # Pequeño bonus por crear sala
-            db.session.commit()
+            user_db.rooms_created = getattr(user_db, 'rooms_created', 0) + 1 
+            db.session.commit() # Guardar el cambio
             unlocked_achievements = achievement_system.check_achievement(username, 'room_created')
             if unlocked_achievements:
                 emit('achievements_unlocked', {
@@ -822,11 +823,16 @@ def lanzar_dado(data):
                             event_data = {
                                 'won': is_winner,
                                 'final_energy': jugador_juego.get_puntaje(),
-                                'final_position': jugador_juego.get_posicion(),
+                                'reached_position': jugador_juego.get_posicion(),
                                 'total_rounds': sala.juego.ronda,
                                 'player_count': len(sala.jugadores),
                                 'colisiones': getattr(jugador_juego, 'colisiones_causadas', 0),
-                                'casillas_visitadas': len(getattr(jugador_juego, 'tipos_casillas_visitadas', set()))
+                                'casillas_visitadas': len(getattr(jugador_juego, 'tipos_casillas_visitadas', set())),
+                                'abilities_used': getattr(jugador_juego, 'habilidades_usadas_en_partida', 0),
+                                'treasures_this_game': getattr(jugador_juego, 'tesoros_recogidos', 0),
+                                'completed_without_traps': getattr(jugador_juego, 'trampas_evitadas', True),
+                                'precision_laser': getattr(jugador_juego, 'dado_perfecto_usado', 0),
+                                'messages_this_game': getattr(jugador_juego, 'game_messages_sent_this_match', 0)
                             }
                             unlocked_achievements = achievement_system.check_achievement(username, 'game_finished', event_data)
                             if unlocked_achievements:
@@ -1079,9 +1085,15 @@ def manejar_mensaje(data):
             username = sessions_activas[request.sid]['username']
             user_db = User.query.filter_by(username=username).first()
             if user_db:
-                user_db.chat_messages_sent = getattr(user_db, 'chat_messages_sent', 0) + 1
+                user_db.game_messages_sent = getattr(user_db, 'game_messages_sent', 0) + 1 # <-- CORREGIDO
                 user_db.xp += 1 # Pequeño bonus de XP por chatear
                 db.session.commit()
+            
+            # Incrementar el contador de la partida actual en JuegoOcaWeb
+            if sala.juego:
+                jugador_juego = sala.juego._encontrar_jugador(nombre)
+                if jugador_juego:
+                    jugador_juego.game_messages_sent_this_match = getattr(jugador_juego, 'game_messages_sent_this_match', 0) + 1
 
             unlocked_achievements = achievement_system.check_achievement(username, 'message_sent', {})
             if unlocked_achievements:
@@ -1097,6 +1109,18 @@ def manejar_mensaje(data):
         }, room=id_sala)
     else:
         emit('error', {'mensaje': 'No se pudo enviar el mensaje (sala no encontrada o no perteneces).'})
+@socketio.on('mark_chat_as_read')
+def mark_chat_as_read(data):
+    # Handler para cuando el cliente recibe un mensaje en una ventana ya abierta
+    username = sessions_activas.get(request.sid, {}).get('username')
+    sender_username = data.get('sender')
+    
+    if not username or not sender_username:
+        return # No se puede procesar
+
+    # Llama a la función existente en social_system
+    print(f"--- CHAT: Marcando mensajes de {sender_username} para {username} como leídos... ---")
+    social_system.mark_messages_as_read(username, sender_username)
 
 @socketio.on('private_message')
 def handle_private_message(data):
@@ -1119,7 +1143,7 @@ def handle_private_message(data):
         # Actualizar stats y logros del remitente
         user_db = User.query.filter_by(username=sender).first()
         if user_db:
-            user_db.chat_messages_sent = getattr(user_db, 'chat_messages_sent', 0) + 1
+            user_db.private_messages_sent = getattr(user_db, 'private_messages_sent', 0) + 1 
             db.session.commit()
         unlocked = achievement_system.check_achievement(sender, 'private_message_sent')
         if unlocked:
@@ -1461,6 +1485,7 @@ def _crear_nueva_sala_revancha(id_sala_original):
 
     # Limpiar la información de revancha pendiente
     if id_sala_original in revanchas_pendientes: del revanchas_pendientes[id_sala_original]
+    if id_sala_original in salas_activas: del salas_activas[id_sala_original]
     print(f"Sala de revancha {nueva_id_sala} creada y {len(jugadores_a_unir)} jugadores unidos.")
 
 def iniciar_timer_revancha(id_sala_original):

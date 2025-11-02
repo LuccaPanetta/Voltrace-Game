@@ -27,11 +27,16 @@ class JugadorWeb:
         self.juego_actual = None
         
         # 2. SISTEMA DE HABILIDADES Y PM
-        self.habilidades = []           
-        self.habilidades_cooldown = {}  
-        self.efectos_activos = []      
-        self.pm = 0                    
-        self.perks_activos = []       
+        self.habilidades = []       
+        self.habilidades_cooldown = {} 
+        self.efectos_activos = [] 
+        self.pm = 0 
+        self.perks_activos = []
+        self.habilidades_usadas_en_partida = 0
+        self.tesoros_recogidos = 0
+        self.trampas_evitadas = True
+        self.dado_perfecto_usado = 0 
+        self.game_messages_sent_this_match = 0 
         
         # 3. RASTREADORES DE PARTIDA (Puntuación Final)
         self.colisiones_causadas = 0
@@ -115,8 +120,11 @@ class JugadorWeb:
             self.__puntaje = 50
             energia_cambiada = self.__puntaje - energia_anterior # Calcula el cambio real (ej. si tenía 10, cambió +40)
 
-            turnos_escudo = 3 # Fallback si no podemos acceder al número de jugadores
-            # Idealmente, el juego añadiría este efecto después de ver que Último Aliento se activó
+            turnos_escudo = 3 # Fallback por si acaso
+            if self.juego_actual and self.juego_actual.jugadores:
+                turnos_escudo = len(self.juego_actual.jugadores) * 3
+            
+            print(f"DEBUG: Último Aliento aplicando Escudo por {turnos_escudo} turnos (3 rondas).")
             self.efectos_activos.append({"tipo": "escudo", "turnos": turnos_escudo})
 
             return int(energia_cambiada) # Devolver el cambio real
