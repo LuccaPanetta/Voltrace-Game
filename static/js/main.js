@@ -56,23 +56,37 @@ import { AnimationSystem } from './animations.js';
      * Función central que maneja el éxito de un login o un logout.
      * Actualiza el estado global, la UI, y muestra la pantalla correcta.
      */
-    function handleLoginSuccess(userData) {
-        state.currentUser = userData; // Actualiza state.currentUser 
-        updateProfileUI(userData);
-        if (userData) {
-            // LOGIN
+    async function handleLoginSuccess(userData) {
+        if (userData && userData.username) {
+            // Autenticar el socket inmediatamente
             socket.emit('authenticate', { username: userData.username });
-            show('lobby', screens);
-            loadTopPlayers();
+
+            // Buscar el perfil COMPLETO (Nivel, XP, etc.)
+            const fullUserData = await fetchAndUpdateUserProfile(userData.username);
+            
+            if (fullUserData) {
+                // Guardar el estado COMPLETO
+                state.currentUser = fullUserData; 
+                
+                // Mostrar el lobby
+                show('lobby', screens);
+                loadTopPlayers();
+            } else {
+                state.currentUser = null;
+                updateProfileUI(null); // Limpiar UI
+                show('auth', screens);
+            }
+
         } else {
-            // LOGOUT
+            state.currentUser = null; 
+            updateProfileUI(null); // Limpiar la UI del header
             state.idSala.value = null;
             Object.assign(state.estadoJuego, {});
             Object.assign(state.mapaColores, {});
             state.habilidadUsadaTurno.value = false;
         }
     }
-
+    
     // --- Función Global para Resetear Estado ---
     window.resetAndShowLobby = () => {
         playSound('ClickMouse', 0.3);
@@ -161,18 +175,18 @@ import { AnimationSystem } from './animations.js';
         "eficiencia_energetica": { "id": "eficiencia_energetica", "nombre": "Eficiencia Energética", "tier": "medio", "desc": "Recoges un 20% más de energía de los packs positivos." },
         "anticipacion": { "id": "anticipacion", "nombre": "Anticipación", "tier": "medio", "desc": "Tienes un 20% de probabilidad de esquivar habilidad ofensiva enemiga." },
         "robo_oportunista": { "id": "robo_oportunista", "nombre": "Robo Oportunista", "tier": "medio", "desc": "Si tienes 'Robo', roba +30 de energía adicional (80-180 vs 50-150).", "requires_habilidad": "Robo" },
-        "escudo_duradero": { "id": "escudo_duradero", "nombre": "Escudo Duradero", "tier": "medio", "desc": "Si tienes 'Escudo Total', dura 1 ronda adicional.", "requires_habilidad": "Escudo Total" }, 
-        "bomba_fragmentacion": { "id": "bomba_fragmentacion", "nombre": "Bomba de Fragmentación", "tier": "medio", "desc": "Si tienes 'Bomba Energética', además del daño, empuja a los afectados 1 casilla lejos de ti.", "requires_habilidad": "Bomba Energética" },
+        "escudo_duradero": { "id": "escudo_duradero", "nombre": "Escudo Duradero", "tier": "medio", "desc": "Si tienes 'Escudo Total', dura 1 ronda adicional (4 total).", "requires_habilidad": "Escudo Total" }, 
+        "bomba_fragmentacion": { "id": "bomba_fragmentacion", "nombre": "Bomba de Fragmentación", "tier": "medio", "desc": "Si tienes 'Bomba Energética', su rango aumenta de 3 a 5 casillas y, además del daño, empuja a los afectados 1 casilla.", "requires_habilidad": "Bomba Energética" }, // <--- CORREGIDO
         "sombra_fugaz": { "id": "sombra_fugaz", "nombre": "Sombra Fugaz", "tier": "medio", "desc": "Si tienes 'Invisibilidad', no causas ni te afectan las colisiones.", "requires_habilidad": "Invisibilidad" },
         "dado_cargado": { "id": "dado_cargado", "nombre": "Dado Cargado", "tier": "medio", "desc": "Si tienes 'Dado Perfecto': eligiendo 1-3 ganas +10 energía, eligiendo 4-6 ganas +1 PM.", "requires_habilidad": "Dado Perfecto" },
         "desvio_cinetico": { "id": "desvio_cinetico", "nombre": "Desvío Cinético", "tier": "medio", "desc": "Reduce a la mitad (redondeado hacia abajo) el movimiento forzado por habilidades de oponentes." },
-        "maestro_del_azar": { "id": "maestro_del_azar", "nombre": "Maestro del Azar", "tier": "medio", "desc": "Si tienes 'Caos', tú te mueves el doble de tu resultado aleatorio.", "requires_habilidad": "Caos" },
+        "maestro_del_azar": { "id": "maestro_del_azar", "nombre": "Maestro del Azar", "tier": "medio", "desc": "Si tienes 'Caos', tú te mueces el doble de tu resultado aleatorio.", "requires_habilidad": "Caos" },
 
         // === TIER ALTO ===
-        "maestria_habilidad": { "id": "maestria_habilidad", "nombre": "Maestría de Habilidad", "tier": "alto", "desc": "Ganas +3 PM extra al usar una habilidad con éxito." },
+        "maestria_habilidad": { "id": "maestria_habilidad", "nombre": "Maestría de Habilidad", "tier": "alto", "desc": "Ganas +2 PM extra al usar una habilidad con éxito." }, 
         "ultimo_aliento": { "id": "ultimo_aliento", "nombre": "Último Aliento", "tier": "alto", "desc": "La primera vez que tu energía llegaría a 0 o menos, sobrevives con 50 E y ganas Escudo Total (3 rondas). (Una vez por partida)" },
         "enfriamiento_rapido": { "id": "enfriamiento_rapido", "nombre": "Enfriamiento Rápido", "tier": "alto", "desc": "Reduce el cooldown base de todas tus habilidades en 1 turno (mínimo 1)." },
-        "drenaje_colision": { "id": "drenaje_colision", "nombre": "Drenaje por Colisión", "tier": "alto", "desc": "Cuando colisionas, robas 50 energía a cada otro jugador involucrado (no protegido)." },
+        "drenaje_colision": { "id": "drenaje_colision", "nombre": "Drenaje por Colisión", "tier": "alto", "desc": "Cuando colisionas, robas 50 energía a cada otro jugador involucrado." },
         "sabotaje_persistente": { "id": "sabotaje_persistente", "nombre": "Sabotaje Persistente", "tier": "alto", "desc": "Si tienes 'Sabotaje', hace que el objetivo pierda 2 turnos (vs 1).", "requires_habilidad": "Sabotaje" }
     };
     loadPerksConfig(simulatedPerksConfig);

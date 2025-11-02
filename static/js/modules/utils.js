@@ -201,12 +201,11 @@ export function manejarInvitacion(data, container, socket, state, setLoadingFunc
             return;
         }
 
-        // Lógica de confirmación si ya está en sala
-        if (state.idSala && (screenElements.waiting?.classList.contains("active") || screenElements.game?.classList.contains("active"))) {
+        if (state.idSala.value && (screenElements.waiting?.classList.contains("active") || screenElements.game?.classList.contains("active"))) {
             if (!confirm("Ya estás en una sala. ¿Quieres salir y unirte a la nueva?")) {
                 return;
             }
-            socket.emit("salir_sala", { id_sala: state.idSala }); // Sale de la actual
+            socket.emit("salir_sala", { id_sala: state.idSala.value }); // Sale de la actual
         }
 
         setLoadingFunc(true);

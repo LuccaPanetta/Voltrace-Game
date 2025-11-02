@@ -209,22 +209,20 @@ async function handleLogout() {
 async function loginAPI(email, password) {
     const notifContainer = document.getElementById('notificaciones'); // Necesario por si hay error
     try {
-        const response = await fetch("/login", {
+        const response = await fetch("/register", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email, password }),
+            body: JSON.stringify({ email, username, password }),
         });
-        // Si la respuesta no es OK (ej. 401 Unauthorized), lee el JSON de error
         if (!response.ok) {
             const errorData = await response.json();
             return { success: false, message: errorData.message || `Error ${response.status}` };
         }
-        return await response.json(); // Devuelve { success: true, username: ... }
+        return await response.json(); 
     } catch (error) {
-        console.error("Login API error:", error);
-        // Usa showNotification aquí en lugar del return para que se muestre
-        showNotification("Error de conexión al iniciar sesión.", notifContainer, "error");
-        return { success: false, message: "Error de conexión." }; // Devuelve un objeto de error
+        console.error("Register API error:", error);
+        showNotification("Error de conexión al registrar.", notifContainer, "error");
+        return { success: false, message: "Error de conexión." }; // Devuelve objeto de error
     }
 }
 

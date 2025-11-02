@@ -348,8 +348,9 @@ async function rejectFriendRequest(senderUsername, buttonElement) {
     if (!_state.currentUser || !_state.currentUser.username || !buttonElement) return;
     const listItem = buttonElement.closest(".social-list-item");
     const actionsDiv = listItem?.querySelector(".social-actions");
+    
     if (actionsDiv) {
-        actionsDiv.innerHTML = `<button class="btn-success btn-accept-request">Aceptar</button> <button class="btn-danger btn-reject-request">Rechazar</button>`;
+        actionsDiv.textContent = "..."; // Feedback visual
     }
     const notifContainer = document.getElementById('notificaciones');
 
@@ -360,6 +361,7 @@ async function rejectFriendRequest(senderUsername, buttonElement) {
         if (result.success) {
             listItem?.remove();
         } else {
+            // Restaurar botones si falla
             const actionsDiv = listItem?.querySelector(".social-actions");
             if (actionsDiv) {
                 actionsDiv.innerHTML = `<button class="btn-success btn-accept-request">Aceptar</button> <button class="btn-danger btn-reject-request">Rechazar</button>`;
@@ -367,6 +369,7 @@ async function rejectFriendRequest(senderUsername, buttonElement) {
         }
     } catch (error) {
         showNotification("Error de red al rechazar solicitud.", notifContainer, "error");
+        // Restaurar botones si falla
         const actionsDiv = listItem?.querySelector(".social-actions");
         if (actionsDiv) {
             actionsDiv.innerHTML = `<button class="btn-success btn-accept-request">Aceptar</button> <button class="btn-danger btn-reject-request">Rechazar</button>`;
