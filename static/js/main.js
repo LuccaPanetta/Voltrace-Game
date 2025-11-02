@@ -52,8 +52,28 @@ import { AnimationSystem } from './animations.js';
         mapaColores: {},
         habilidadUsadaTurno: { value: false }
     };
+    /**
+     * Función central que maneja el éxito de un login o un logout.
+     * Actualiza el estado global, la UI, y muestra la pantalla correcta.
+     */
+    function handleLoginSuccess(userData) {
+        state.currentUser = userData; // Actualiza state.currentUser 
+        updateProfileUI(userData);
+        if (userData) {
+            // LOGIN
+            socket.emit('authenticate', { username: userData.username });
+            show('lobby', screens);
+            loadTopPlayers();
+        } else {
+            // LOGOUT
+            state.idSala.value = null;
+            Object.assign(state.estadoJuego, {});
+            Object.assign(state.mapaColores, {});
+            state.habilidadUsadaTurno.value = false;
+        }
+    }
 
-    // --- Función Global para Resetear Estado (ej. al volver al lobby) ---
+    // --- Función Global para Resetear Estado ---
     window.resetAndShowLobby = () => {
         playSound('ClickMouse', 0.3);
         const modalFinal = document.getElementById("modal-final");
@@ -79,23 +99,7 @@ import { AnimationSystem } from './animations.js';
 
 
     // --- Inicialización de Módulos ---
-    initAuth(screens, show, setLoading, loadingElement, (userData) => {
-        // Callback de login/logout
-        state.currentUser = userData; // Actualiza state.currentUser 
-        updateProfileUI(userData);
-        if (userData) {
-            socket.emit('authenticate', { username: userData.username });
-            show('lobby', screens);
-            loadTopPlayers();
-        } else {
-            // Logout
-            state.idSala.value = null;
-            Object.assign(state.estadoJuego, {});
-            Object.assign(state.mapaColores, {});
-            state.habilidadUsadaTurno.value = false;
-            // show('auth') se maneja en auth.js
-        }
-    }, gameAnimations);
+    initAuth(screens, show, setLoading, loadingElement, handleLoginSuccess, gameAnimations);
 
     // Pasa el objeto 'state' completo a los módulos que necesitan leer currentUser
     initLobby(socket, screens, show, setLoading, state);
@@ -185,10 +189,8 @@ import { AnimationSystem } from './animations.js';
     if (isAuthenticated && username) {
         // 2. Si el servidor dice que SÍ estamos logueados:
         console.log(`Usuario ya autenticado como: ${username}. Saltando al lobby.`);
-        if (_onLoginSuccessCallback) {
-            // Pasamos los datos que tenemos a la función de callback de auth
-            _onLoginSuccessCallback({ username: username });
-        }
+        
+        handleLoginSuccess({ username: username });
         
     } else {
         // 3. Si NO estamos logueados:
