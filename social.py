@@ -267,7 +267,10 @@ class SocialSystem:
 
         if not sender_user or not recipient_user:
             return {'success': False, 'message': 'Usuario remitente o destinatario no válido.'}
-            
+        
+        if sender_user.id == recipient_user.id:
+            return {'success': False, 'message': 'No puedes enviarte mensajes a ti mismo.'}
+    
         try:
             # 2. Crear y guardar el objeto PrivateMessage en la DB
             new_message = PrivateMessage(

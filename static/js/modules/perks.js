@@ -118,6 +118,10 @@ export function openPerkModal() {
     if(perkOfferContainerDisplay) perkOfferContainerDisplay.innerHTML = "";
     if (btnCerrarPerks) btnCerrarPerks.style.display = 'block';
     modalPerksElement.style.display = "flex";
+
+    if (_socket && _idSala && _idSala.value) {
+        _socket.emit("solicitar_precios_perks", { id_sala: _idSala.value });
+    }
 }
 
 /** Cierra el modal de perks. */
@@ -267,15 +271,46 @@ function reactivarBotonesPackSiEsPosible(pmForzado) {
     }
 
     if (packBasicoBtn) {
-        packBasicoBtn.disabled = misPM < 4;
-        packBasicoBtn.classList.toggle('affordable', misPM >= 4);
+        const cost = parseInt(packBasicoBtn.dataset.cost) || 4; 
+        packBasicoBtn.disabled = misPM < cost;
+        packBasicoBtn.classList.toggle('affordable', misPM >= cost);
     }
     if (packIntermedioBtn) {
-        packIntermedioBtn.disabled = misPM < 8;
-        packIntermedioBtn.classList.toggle('affordable', misPM >= 8);
+        const cost = parseInt(packIntermedioBtn.dataset.cost) || 8; 
+        packIntermedioBtn.disabled = misPM < cost;
+        packIntermedioBtn.classList.toggle('affordable', misPM >= cost);
     }
     if (packAvanzadoBtn) {
-        packAvanzadoBtn.disabled = misPM < 12;
-        packAvanzadoBtn.classList.toggle('affordable', misPM >= 12);
+        const cost = parseInt(packAvanzadoBtn.dataset.cost) || 12; 
+        packAvanzadoBtn.disabled = misPM < cost;
+        packAvanzadoBtn.classList.toggle('affordable', misPM >= cost);
     }
+
+}
+/**
+ * Actualiza el texto y data-cost de los precios en los botones del modal.
+ * @param {object} costos - Objeto {basico: 4, intermedio: 8, avanzado: 12}
+ */
+export function updatePerkPrices(costos) {
+    if (!costos) return;
+
+    if (packBasicoBtn) {
+        // Busca el <small> que contiene el coste
+        const small = packBasicoBtn.querySelector('small');
+        if (small) small.textContent = `Coste: ${costos.basico} PM`;
+        packBasicoBtn.dataset.cost = costos.basico;
+    }
+    if (packIntermedioBtn) {
+        const small = packIntermedioBtn.querySelector('small');
+        if (small) small.textContent = `Coste: ${costos.intermedio} PM`;
+        packIntermedioBtn.dataset.cost = costos.intermedio;
+    }
+    if (packAvanzadoBtn) {
+        const smallCost = packAvanzadoBtn.querySelector('small');
+        if (smallCost) smallCost.textContent = `Coste: ${costos.avanzado} PM`;
+        packAvanzadoBtn.dataset.cost = costos.avanzado;
+    }
+
+    // Volver a-evaluar si los botones están habilitados con los nuevos precios
+    reactivarBotonesPackSiEsPosible();
 }

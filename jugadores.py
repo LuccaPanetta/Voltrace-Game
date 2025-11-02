@@ -41,6 +41,7 @@ class JugadorWeb:
         # 3. RASTREADORES DE PARTIDA (Puntuación Final)
         self.colisiones_causadas = 0
         self.tipos_casillas_visitadas = set()
+        self.energy_packs_collected = 0
         
         # 4. FLAGS DE ESTADO ESPECIAL
         self.dado_forzado = None               
@@ -95,18 +96,6 @@ class JugadorWeb:
         # Calcular energía tentativa si no está bloqueado o si pierde energía
         energia_final_calculada = energia_anterior + cantidad
 
-        if energia_final_calculada <= 0 and \
-           "ultimo_aliento" in self.perks_activos and \
-           not self._ultimo_aliento_usado: # Solo se activa si _usado es False
-
-            print(f"DEBUG: {self.nombre} activó Último Aliento.")
-            # 1. Marcar como USADO 
-            self._ultimo_aliento_usado = True
-
-            self.__puntaje = 50 # Sobrevive con 50E
-            energia_cambiada = self.__puntaje - energia_anterior
-            return int(energia_cambiada)
-
         # Se activa SI la energía va a ser 0 o menos, Y el perk está activo, Y no se ha usado ya
         if energia_final_calculada <= 0 and \
            "ultimo_aliento" in self.perks_activos and \
@@ -145,7 +134,7 @@ class JugadorWeb:
     
     def teletransportar_a(self, posicion):
         if self.__activo:
-            self.__posicion = max(0, min(posicion, 75))
+            self.__posicion = max(1, min(posicion, 75))
     
     def get_pm(self):
         return self.pm

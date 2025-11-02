@@ -164,6 +164,9 @@
     .pack-button:disabled { opacity: 0.5; cursor: not-allowed; }
 
     #perk-offer-container { /* Donde aparecen los perks a elegir */
+        display: flex;
+        flex-direction: column; /* Apila los botones verticalmente */
+        gap: 8px; /* Añade un espacio entre los botones */
         margin-top: 16px;
         padding-top: 16px;
         border-top: 1px solid #374151;
@@ -461,7 +464,7 @@
                                 <li><strong>🔄 Intercambio (S):</strong> Intercambias posición con un oponente al azar.</li>
                                 <li><strong>⏸️ Pausa (P):</strong> Pierdes tu próximo turno.</li>
                                 <li><strong>⚡ Turbo (!):</strong> Avanzas 3 casillas extra.</li>
-                                <li><strong>🧛 Vampiro (V):</strong> Robas 25 E a todos los oponentes en un rango de 3 casillas.</li>
+                                <li><strong>🧛 Vampiro (V):</strong> Pierdés un 10% de tu energía.</li>
                                 <li><strong>↩️ Rebote (R):</strong> Retrocedes 2 casillas.</li>
                                 <li><strong>⚫ Agujero Negro:</strong> Eres enviado a la posición del jugador más atrasado.</li>
                                 <li><strong>⭐ Recurso (⭐):</strong> Ganas Puntos de Mando (PM).</li>

@@ -134,8 +134,12 @@ class User(db.Model, UserMixin):
 
     def accept_friend_request(self, user):
         if self.has_received_request_from(user):
-            self.received_requests.remove(user)
-            self.add_friend(user)
+            self.received_requests.remove(user) # Eliminar de "Recibidas" del receptor
+            
+            if user.has_sent_request_to(self):
+                user.sent_requests.remove(self) # Eliminar de "Enviadas" del emisor
+
+            self.add_friend(user) # Añadir la amistad
             return True
         return False
 

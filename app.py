@@ -769,7 +769,7 @@ def lanzar_dado(data):
     # Maneja la acción de lanzar el dado
     try:
         id_sala = data['id_sala']
-        print(f"\n--- RECIBIDO EVENTO: lanzar_dado --- Sala: {id_sala}, SID: {request.sid}")
+        print(f"\n--- PASO 1: RECIBIDO 'lanzar_dado' --- Sala: {id_sala}, SID: {request.sid}")
         if id_sala not in salas_activas:
             emit('error', {'mensaje': 'Sala no encontrada'})
             return
@@ -779,7 +779,7 @@ def lanzar_dado(data):
             emit('error', {'mensaje': 'El juego no está activo'})
             return
 
-        # Verificar que es el turno del jugador que envió el evento
+        # Verificar que es el turno del jugador
         jugador_actual_obj = sala.juego.obtener_jugador_actual()
         nombre_jugador_actual = jugador_actual_obj.get_nombre() if jugador_actual_obj else None
         nombre_jugador_emitente = sala.jugadores.get(request.sid, {}).get('nombre', 'DESCONOCIDO')
@@ -791,12 +791,125 @@ def lanzar_dado(data):
             emit('error', {'mensaje': 'No es tu turno'})
             return
 
-        # Ejecutar la lógica del turno en JuegoOcaWeb
-        resultado = sala.juego.ejecutar_turno_dado(nombre_jugador_emitente)
+        resultado = sala.juego.paso_1_lanzar_y_mover(nombre_jugador_emitente)
 
-        # Verificar si el juego terminó después del turno
+        # Si el turno fue pausado, el turno ya avanzó. Enviamos el estado completo.
+        if resultado.get('pausado'):
+            print(f"--- TURNO PAUSADO --- Sala: {id_sala}. Enviando estado completo.")
+            colores_map = getattr(sala, 'colores_map', {})
+            socketio.emit('paso_2_resultado_casilla', { 
+                'estado_juego': {
+                    'jugadores': sala.juego.obtener_estado_jugadores(),
+                    'tablero': sala.juego.obtener_estado_tablero(),
+                    'turno_actual': sala.juego.obtener_turno_actual(),
+                    'ronda': sala.juego.ronda,
+                    'estado': sala.estado,
+                    'colores_jugadores': colores_map
+                },
+                'eventos': resultado.get('eventos', [])
+            }, room=id_sala)
+            return
+
+        # Si el juego terminó en el PASO 1 (llegó a la meta)
+        if resultado.get('meta_alcanzada') or sala.juego.ha_terminado():
+            print(f"--- JUEGO TERMINADO (PASO 1) --- Sala: {id_sala}")
+            sala.estado = 'terminado'
+
+            # Procesar estadísticas y logros para cada jugador
+            for sid, jugador_data in sala.jugadores.items():
+                if sid in sessions_activas:
+                    username = sessions_activas[sid]['username']
+                    jugador_nombre_loop = jugador_data['nombre']
+                    jugador_juego = sala.juego._encontrar_jugador(jugador_nombre_loop) # Usar método interno seguro
+
+                    if jugador_juego:
+                        ganador_obj = sala.juego.determinar_ganador() # Calcula puntajes y determina ganador
+                        ganador_nombre = ganador_obj.get_nombre() if ganador_obj else None
+                        is_winner = jugador_nombre_loop == ganador_nombre
+
+                        # Actualizar estadísticas en la DB
+                        user_db = User.query.filter_by(username=username).first()
+                        if user_db:
+                            user_db.games_played += 1
+                            if is_winner: user_db.games_won += 1
+                            user_db.xp += 50 + (25 if is_winner else 0) # XP base + bonus
+                            db.session.commit()
+
+                            # Verificar logros
+                            event_data = {
+                                'won': is_winner,
+                                'final_energy': jugador_juego.get_puntaje(),
+                                'reached_position': jugador_juego.get_posicion(),
+                                'total_rounds': sala.juego.ronda,
+                                'player_count': len(sala.jugadores),
+                                'colisiones': getattr(jugador_juego, 'colisiones_causadas', 0),
+                                'special_tiles_activated': getattr(jugador_juego, 'tipos_casillas_visitadas', set()),
+                                'abilities_used': getattr(jugador_juego, 'habilidades_usadas_en_partida', 0),
+                                'treasures_this_game': getattr(jugador_juego, 'tesoros_recogidos', 0),
+                                'completed_without_traps': getattr(jugador_juego, 'trampas_evitadas', True),
+                                'precision_laser': getattr(jugador_juego, 'dado_perfecto_usado', 0),
+                                'messages_this_game': getattr(jugador_juego, 'game_messages_sent_this_match', 0),
+                                'only_active_player': sala.juego.ha_terminado() and len([j for j in sala.juego.jugadores if j.esta_activo()]) == 1,
+                                'never_eliminated': jugador_juego.esta_activo(),
+                                'energy_packs_collected': getattr(jugador_juego, 'energy_packs_collected', 0)
+                            }
+                            unlocked_achievements = achievement_system.check_achievement(username, 'game_finished', event_data)
+                            if unlocked_achievements:
+                                socketio.emit('achievements_unlocked', {
+                                    'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_achievements]
+                                }, to=sid)
+                        # Actualizar presencia a 'online'
+                        social_system.update_user_presence(username, 'online', {'sid': sid})
+
+            # Obtener las estadísticas finales
+            stats_finales_dict = sala.juego.obtener_estadisticas_finales()
+
+            # Emitir evento de juego terminado a todos en la sala
+            socketio.emit('juego_terminado', {
+                'ganador': stats_finales_dict.get('ganador'),
+                'estadisticas_finales': stats_finales_dict.get('lista_final')
+            }, room=id_sala)
+            return # Terminar aquí si el juego finalizó
+
+        socketio.emit('paso_1_resultado_movimiento', {
+            'jugador': nombre_jugador_emitente,
+            'resultado': resultado,
+        }, room=id_sala)
+
+    except Exception as e:
+        print(f"!!! ERROR GRAVE en 'lanzar_dado' (PASO 1): {e}")
+        traceback.print_exc()
+        emit('error', {'mensaje': f'Error fatal del servidor (Paso 1): {e}'})
+
+@socketio.on('paso_2_terminar_movimiento')
+def terminar_movimiento(data):
+    # Maneja la señal del cliente de que la animación de movimiento terminó 
+    try:
+        id_sala = data['id_sala']
+        print(f"\n--- PASO 2: RECIBIDO 'terminar_movimiento' --- Sala: {id_sala}, SID: {request.sid}")
+        if id_sala not in salas_activas:
+            emit('error', {'mensaje': 'Sala no encontrada (Paso 2)'})
+            return
+            
+        sala = salas_activas[id_sala]
+        if sala.estado != 'jugando' or not sala.juego:
+            emit('error', {'mensaje': 'El juego no está activo (Paso 2)'})
+            return
+
+        # Obtenemos el jugador del que AÚN es el turno (porque no ha avanzado)
+        jugador_actual_obj = sala.juego.obtener_jugador_actual()
+        if not jugador_actual_obj:
+            print("--- ERROR PASO 2: No se encontró jugador actual.")
+            emit('error', {'mensaje': 'Error interno: Jugador no encontrado (Paso 2)'})
+            return
+            
+        nombre_jugador_actual = jugador_actual_obj.get_nombre()
+        print(f"Procesando casilla para: {nombre_jugador_actual}")
+
+        resultado = sala.juego.paso_2_procesar_casilla_y_avanzar(nombre_jugador_actual)
+        
         if sala.juego.ha_terminado():
-            print(f"--- JUEGO TERMINADO --- Sala: {id_sala}")
+            print(f"--- JUEGO TERMINADO (PASO 2) --- Sala: {id_sala}")
             sala.estado = 'terminado'
 
             # Procesar estadísticas y logros para cada jugador
@@ -850,27 +963,25 @@ def lanzar_dado(data):
                 'ganador': stats_finales_dict.get('ganador'),
                 'estadisticas_finales': stats_finales_dict.get('lista_final')
             }, room=id_sala)
-            return # Terminar aquí si el juego finalizó
+            return
 
-        # Si el juego NO terminó, emitir la actualización del turno
         colores_map = getattr(sala, 'colores_map', {})
-        socketio.emit('turno_ejecutado', {
-            'jugador': nombre_jugador_emitente,
-            'resultado': resultado, # Eventos, dado, avance
+        socketio.emit('paso_2_resultado_casilla', {
             'estado_juego': {
                 'jugadores': sala.juego.obtener_estado_jugadores(),
                 'tablero': sala.juego.obtener_estado_tablero(),
-                'turno_actual': sala.juego.obtener_turno_actual(), # SIGUIENTE jugador
+                'turno_actual': sala.juego.obtener_turno_actual(),
                 'ronda': sala.juego.ronda,
                 'estado': sala.estado,
                 'colores_jugadores': colores_map
-            }
+            },
+            'eventos': resultado.get('eventos', [])
         }, room=id_sala)
 
     except Exception as e:
-        print(f"!!! ERROR GRAVE en 'lanzar_dado': {e}")
+        print(f"!!! ERROR GRAVE en 'terminar_movimiento' (PASO 2): {e}")
         traceback.print_exc()
-        emit('error', {'mensaje': f'Error fatal del servidor al lanzar dado: {e}'})
+        emit('error', {'mensaje': f'Error fatal del servidor (Paso 2): {e}'})
 
 @socketio.on('usar_habilidad')
 def usar_habilidad(data):
@@ -1344,7 +1455,11 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
             if sala.juego.ha_terminado():
                 print(f"--- JUEGO TERMINADO POR DESCONEXIÓN --- Sala: {id_sala}")
                 sala.estado = 'terminado'
-                stats_finales_dict = sala.juego.obtener_estadisticas_finales() # Calcular stats finales
+                
+                sala.juego.determinar_ganador()
+                
+                stats_finales_dict = sala.juego.obtener_estadisticas_finales() # Ahora esto leerá los puntajes correctos
+                
                 socketio.emit('juego_terminado', {
                     'ganador': stats_finales_dict.get('ganador'),
                     'estadisticas_finales': stats_finales_dict.get('lista_final'),
@@ -1441,11 +1556,15 @@ def iniciar_juego_sala(id_sala):
         # Podrías emitir un error a la sala aquí si falla el inicio
 
 def _crear_nueva_sala_revancha(id_sala_original):
-    # Función interna para manejar la creación de la sala de revancha
-    info_revancha = revanchas_pendientes.get(id_sala_original)
+    # Intentar obtener Y eliminar la info de revancha atómicamente.
+    info_revancha = revanchas_pendientes.pop(id_sala_original, None)
+    
     if not info_revancha:
-        print(f"ERROR: No se encontró info de revancha para sala {id_sala_original}")
+        print(f"INFO: La revancha para sala {id_sala_original} ya fue procesada o cancelada. Ignorando llamada duplicada.")
         return
+    
+    if info_revancha.get('timer'):
+        info_revancha['timer'].cancel()
 
     nueva_id_sala = str(uuid.uuid4())[:8] # Nuevo ID para la sala de revancha
     print(f"--- CREANDO SALA DE REVANCHA --- Nueva ID: {nueva_id_sala}")
@@ -1470,7 +1589,6 @@ def _crear_nueva_sala_revancha(id_sala_original):
             # Notificar cancelación a los que sí solicitaron
             for j in jugadores_a_unir:
                 socketio.emit('revancha_cancelada', {'mensaje': f'Revancha cancelada. Mínimo de {MIN_JUGADORES_REVANCHA} jugadores requerido.'}, room=j['sid'])
-            if id_sala_original in revanchas_pendientes: del revanchas_pendientes[id_sala_original] # Limpiar
             if nueva_id_sala in salas_activas: del salas_activas[nueva_id_sala] # Eliminar sala nueva vacía
             return
 
@@ -1483,9 +1601,9 @@ def _crear_nueva_sala_revancha(id_sala_original):
             socketio.emit('revancha_lista', {'nueva_id_sala': nueva_id_sala}, room=sid_a_unir) # Notificar al cliente
             social_system.update_user_presence(nombre_a_unir, 'in_lobby', {'room_id': nueva_id_sala, 'sid': sid_a_unir}) # Actualizar presencia
 
-    # Limpiar la información de revancha pendiente
-    if id_sala_original in revanchas_pendientes: del revanchas_pendientes[id_sala_original]
-    if id_sala_original in salas_activas: del salas_activas[id_sala_original]
+    if id_sala_original in salas_activas:
+        del salas_activas[id_sala_original]
+        
     print(f"Sala de revancha {nueva_id_sala} creada y {len(jugadores_a_unir)} jugadores unidos.")
 
 def iniciar_timer_revancha(id_sala_original):

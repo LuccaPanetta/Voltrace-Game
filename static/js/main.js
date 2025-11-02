@@ -111,7 +111,7 @@ import { AnimationSystem } from './animations.js';
     initPerks(socket, state, state.idSala, state.estadoJuego); 
 
     // setupSocketHandlers recibe el objeto 'state' bajo el nombre 'stateRefs'
-    setupSocketHandlers(socket, screens, loadingElement, notificacionesContainer, state);
+    setupSocketHandlers(socket, screens, loadingElement, notificacionesContainer, state, gameAnimations);
 
     // --- Listener Global para Tecla Escape ---
     document.addEventListener("keydown", (e) => {

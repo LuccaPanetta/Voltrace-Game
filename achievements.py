@@ -120,9 +120,11 @@ class AchievementSystem:
             'games_played': user.games_played,
             'games_won': user.games_won,
             'abilities_used': getattr(user, 'abilities_used', 0), 
+            'game_messages_sent': getattr(user, 'game_messages_sent', 0),    
+            'private_messages_sent': getattr(user, 'private_messages_sent', 0),
             'messages_sent': getattr(user, 'chat_messages_sent', 0),    
             'rooms_created': getattr(user, 'rooms_created', 0),
-            'friends_count': user.friends.count() # <-- AÑADIDO: Conteo de amigos
+            'friends_count': user.friends.count() 
         }
         
         # 4. Llamar a las funciones de verificación
@@ -237,10 +239,22 @@ class AchievementSystem:
         # Maratonista (más de 50 turnos)
         if 'maratonista' not in current_achievements and event_data.get('total_rounds', 0) > 50:
             unlocked.append('maratonista')
-        
-        # Maestro de habilidades
+
+        # Maestro de habilidades (Usa 4 o más habilidades)
         if 'ability_master' not in current_achievements and event_data.get('abilities_used', 0) >= 4:
             unlocked.append('ability_master')
+        
+        # Cazatesoros (Cae en 5+ tesoros)
+        if 'treasure_hunter' not in current_achievements and event_data.get('treasures_this_game', 0) >= 5:
+            unlocked.append('treasure_hunter')
+
+        # Precisión Láser (Usa Dado Perfecto 3+ veces)
+        if 'precision_laser' not in current_achievements and event_data.get('precision_laser', 0) >= 3:
+            unlocked.append('precision_laser')
+
+        # Esquiva Trampas (Completa sin caer en trampas)
+        if 'trap_avoider' not in current_achievements and event_data.get('completed_without_traps', False):
+             unlocked.append('trap_avoider')
         
         # Estratega Supremo (3 victorias consecutivas)
         if 'estratega_supremo' not in current_achievements and event_data.get('won'):
@@ -421,7 +435,7 @@ class AchievementSystem:
             'private_messages_sent': getattr(user, 'private_messages_sent', 0),
             'rooms_created': getattr(user, 'rooms_created', 0), 
             'unlocked_achievements_count': len(unlocked_ids_set),
-            'friends_count': user.friends.count() # <-- AÑADIDO
+            'friends_count': user.friends.count()
         }
 
         # 3. Iterar sobre TODOS los logros configurados y obtener su info/progreso
