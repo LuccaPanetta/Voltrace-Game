@@ -31,7 +31,7 @@ from flask import Flask, render_template, request, jsonify, session, flash, url_
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_mail import Mail, Message
 from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail as SendGridMail
+from sendgrid.helpers.mail import Mail as SendGridMail, TrackingSettings, ClickTracking
 import uuid                    # Para generar IDs únicos de salas
 from datetime import datetime  # Para timestamps
 from threading import Timer
@@ -92,7 +92,10 @@ Si no solicitaste este cambio, simplemente ignorá este email.
             to_emails=user.email,
             subject='VoltRace - Restablecimiento de Contraseña',
             plain_text_content=content) 
-        message.tracking_settings = {'click_tracking': {'enable': False, 'enable_text': False}}
+        tracking_settings = TrackingSettings(
+            click_tracking=ClickTracking(enable=False, enable_text=False)
+        )
+        message.tracking_settings = tracking_settings
 
         print(f"--- DEBUG: Intentando enviar email a {user.email} (vía SendGrid API)...")
 
