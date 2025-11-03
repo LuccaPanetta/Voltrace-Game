@@ -54,64 +54,64 @@ export class AnimationSystem {
    * @param {function} callback - Función a ejecutar al completar animación
    */
   animatePlayerMove(fromPosition, toPosition, playerName, callback = null) {
-    // Si las animaciones están desactivadas, ejecutar callback inmediatamente
     if (!this.isEnabled) {
       if (callback) callback();
       return;
     }
 
-    // Buscar las casillas de origen y destino en el DOM usando data-position
+    // Buscar las casillas DOM
     const fromCell = document.querySelector(`[data-position="${fromPosition}"]`);
     const toCell = document.querySelector(`[data-position="${toPosition}"]`);
     
-    // Si no se encuentran las casillas, cancelar animación
     if (!fromCell || !toCell) {
       if (callback) callback();
       return;
     }
 
-    // Crear elemento temporal que representa la ficha del jugador
-    const tempPiece = document.createElement('div');
-    tempPiece.className = 'temp-game-piece';
-    tempPiece.textContent = playerName[0].toUpperCase(); // Mostrar inicial del jugador
-    tempPiece.style.cssText = `
-      position: absolute;
-      width: 20px;
-      height: 20px;
-      background: var(--primary);
-      color: white;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      font-size: 12px;
-      z-index: 100;
-      pointer-events: none;
-    `;
+    // Buscar la ficha REAL del jugador en la casilla de origen
+    let pieceToMove = null;
+    const fichasEnOrigen = fromCell.querySelectorAll('.ficha-jugador');
+    fichasEnOrigen.forEach(ficha => {
+        // Comparamos la inicial. Esto asume que tu .ficha-jugador tiene la 'P'
+        if (ficha.textContent.toUpperCase() === playerName[0].toUpperCase()) {
+            pieceToMove = ficha;
+        }
+    });
 
+    if (!pieceToMove) {
+        // No se encontró la ficha, no hacer nada.
+        if (callback) callback();
+        return;
+    }
+
+    // Preparar la ficha para la animación
     const fromRect = fromCell.getBoundingClientRect();
     const toRect = toCell.getBoundingClientRect();
     
-    tempPiece.style.left = `${fromRect.left + fromRect.width / 2 - 10}px`;
-    tempPiece.style.top = `${fromRect.top + fromRect.height / 2 - 10}px`;
+    // Clonar la ficha para animarla (la original desaparecerá con updateTablero)
+    const animPiece = pieceToMove.cloneNode(true);
+    animPiece.style.cssText = `
+      position: absolute;
+      left: ${fromRect.left + (fromRect.width / 2) - (animPiece.offsetWidth / 2)}px;
+      top: ${fromRect.top + (fromRect.height / 2) - (animPiece.offsetHeight / 2)}px;
+      z-index: 1000;
+      pointer-events: none;
+      transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    `;
     
-    document.body.appendChild(tempPiece);
+    document.body.appendChild(animPiece);
 
     // Animar movimiento
-    tempPiece.style.transition = 'all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-    tempPiece.style.left = `${toRect.left + toRect.width / 2 - 10}px`;
-    tempPiece.style.top = `${toRect.top + toRect.height / 2 - 10}px`;
+    requestAnimationFrame(() => {
+        animPiece.style.left = `${toRect.left + (toRect.width / 2) - (animPiece.offsetWidth / 2)}px`;
+        animPiece.style.top = `${toRect.top + (toRect.height / 2) - (animPiece.offsetHeight / 2)}px`;
+    });
     
-    // Agregar efecto de bounce
+    // Limpiar
     setTimeout(() => {
-      tempPiece.classList.add('animate-move-piece');
-    }, 400);
-
-    setTimeout(() => {
-      tempPiece.remove();
+      animPiece.remove(); // Eliminar la ficha de animación
       if (callback) callback();
-    }, 500);
+    }, 500); // Duración de la animación
   }
 
   // Efecto shake para cuando caes en trampa
