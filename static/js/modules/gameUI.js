@@ -4,8 +4,6 @@
    =================================================================== */
 
 import { escapeHTML, playSound } from './utils.js';
-// Necesitaremos la referencia a GameAnimations si la usamos aquí
-// import { GameAnimations } from '../animations.js'; // Asumiendo que animations.js también se modulariza
 
 // Referencias DOM
 let eventosListaDisplay, jugadoresEstadoDisplay, rondaActualDisplay, turnoJugadorDisplay;
@@ -17,7 +15,6 @@ let guiaDrawer, guiaToggleBtn;
 
 // Referencias a estado/funciones externas
 let _socket = null;
-let _currentUser = null;
 let _idSala = null;
 let _estadoJuego = null; // Referencia mutable al estado del juego
 let _mapaColores = null; // Referencia mutable al mapa de colores
@@ -27,13 +24,6 @@ let _state = null;
 
 /**
  * Inicializa el módulo de UI del juego.
- * @param {object} socketRef - Instancia de Socket.IO.
- * @param {object} stateRef - Referencia al objeto 'state' global de main.js. <--- PARÁMETRO CORRECTO
- * @param {object} idSalaRef - Referencia al objeto idSala ({ value: ... }).
- * @param {object} estadoJuegoRef - Referencia al objeto estadoJuego.
- * @param {object} mapaColoresRef - Referencia al objeto mapaColores.
- * @param {object} habilidadUsadaRef - Referencia al objeto habilidadUsadaTurno ({ value: ... }).
- * @param {function} openPerksFuncRef - Referencia a la función para abrir el modal de perks.
  */
 export function initGameUI(socketRef, stateRef, idSalaRef, estadoJuegoRef, mapaColoresRef, habilidadUsadaRef, openPerksFuncRef) {
     _socket = socketRef;
@@ -44,7 +34,7 @@ export function initGameUI(socketRef, stateRef, idSalaRef, estadoJuegoRef, mapaC
     _habilidadUsadaTurno = habilidadUsadaRef;
     _openPerkModalFunc = openPerksFuncRef;
 
-    // Cachear elementos DOM (Esto debe ir DESPUÉS de asignar _state, _socket, etc.)
+    // Cachear elementos DOM
     eventosListaDisplay = document.getElementById("eventos-lista");
     jugadoresEstadoDisplay = document.getElementById("jugadores-estado");
     rondaActualDisplay = document.getElementById("ronda-actual");
@@ -79,7 +69,10 @@ export function initGameUI(socketRef, stateRef, idSalaRef, estadoJuegoRef, mapaC
     btnVolverLobby?.addEventListener("click", handleVolverAlLobby);
     guiaToggleBtn?.addEventListener('click', handleToggleGuia);
 
-    console.log("Módulo GameUI inicializado."); // Log para confirmar
+    // Crear el tablero inicial (vacío)
+    _crearTableroInicial();
+
+    console.log("Módulo GameUI inicializado.");
 }
 
 // --- Manejadores de Eventos ---
@@ -89,7 +82,6 @@ function handleLanzarDado() {
     btnLanzarDado.disabled = true;
     playSound('Dice', 0.4);
 
-    // Asumiendo que GameAnimations está disponible globalmente o importado
     if (window.GameAnimations && window.GameAnimations.isEnabled) {
         window.GameAnimations.animateAbilityUse("magic", btnLanzarDado);
     }
@@ -172,24 +164,18 @@ function handleMostrarHabilidades() {
 function handleEnviarMensajeJuego() {
     playSound('ClickMouse', 0.3);
     const msg = mensajeJuegoInput?.value.trim();
-
     if (!msg || !_idSala || !_idSala.value) return; 
-
     _socket.emit("enviar_mensaje", { id_sala: _idSala.value, mensaje: msg }); 
-
     if(mensajeJuegoInput) mensajeJuegoInput.value = "";
 }
 
 function handleSolicitarRevancha() {
     playSound('ClickMouse', 0.3);
-    if (!btnNuevaPartida || !btnVolverLobby) return; // Asegurarse que los botones existen
-
+    if (!btnNuevaPartida || !btnVolverLobby) return; 
     const idSalaActual = _idSala.value;
-
     btnNuevaPartida.disabled = true;
     btnVolverLobby.disabled = true;
     btnNuevaPartida.textContent = "Esperando...";
-
     if (idSalaActual) { 
         _socket.emit('solicitar_revancha', { 
             value: idSalaActual,
@@ -222,9 +208,7 @@ function handleVolverAlLobby() {
         window.resetAndShowLobby();
     } else {
         console.error("Función global resetAndShowLobby no encontrada.");
-        // Fallback simple (puede no limpiar todo)
         if (modalFinalElement) modalFinalElement.style.display = "none";
-        // Necesitamos acceso a _showFunc y _screens desde aquí, o una función global
          if (typeof window.showScreen === 'function') window.showScreen('lobby');
     }
 }
@@ -236,8 +220,32 @@ function handleToggleGuia() {
 
 // --- Funciones de Renderizado ---
 
-/** Renderiza el panel de estado de jugadores. */
-function updateJugadoresEstado(jugadores) {
+/**
+ * Crea la estructura HTML base del tablero (solo se ejecuta una vez).
+ */
+function _crearTableroInicial() {
+    if (!tableroElement) return;
+    tableroElement.innerHTML = ""; // Limpiar por si acaso
+    console.log("Creando estructura de tablero inicial...");
+    for (let i = 1; i <= 75; i++) {
+        const cell = document.createElement("div");
+        cell.className = "casilla";
+        cell.setAttribute("data-position", i);
+        // Crear los elementos internos que actualizaremos
+        cell.innerHTML = `<div><small>#${i}</small></div>
+                          <div class="c-esp"></div>
+                          <div class="c-ene"></div>
+                          <div class="fichas-container"></div>`;
+        tableroElement.appendChild(cell);
+    }
+}
+
+/**
+ * Renderiza el panel de estado de jugadores de forma "inteligente".
+ * Compara el estado nuevo con el viejo (_estadoJuego) y solo actualiza el HTML
+ * de los jugadores que cambiaron.
+ */
+function updateJugadoresEstado(nuevosJugadores) {
     if (!jugadoresEstadoDisplay || !_mapaColores) return;
 
     const jugadoresViejos = _estadoJuego.jugadores || [];
@@ -249,10 +257,11 @@ function updateJugadoresEstado(jugadores) {
     (nuevosJugadores || []).forEach((j) => {
         const viejoJ = viejosMap.get(j.nombre);
         const jugadorDOMId = `status-${j.nombre}`;
-        const jugadorDOM = document.getElementById(jugadorDOMId);
+        let jugadorDOM = document.getElementById(jugadorDOMId);
         
-        // Comparar: Si el jugador no existía o sus datos cambiaron...
+        // Comparar: Si el jugador no existía en DOM o sus datos cambiaron...
         if (!viejoJ || !jugadorDOM || JSON.stringify(j) !== JSON.stringify(viejoJ)) {
+
             let efectosHtml = "";
             if (j.efectos_activos?.length > 0) {
                 efectosHtml = '<span class="efectos-icons" style="margin-left: 8px; font-size: 0.9em; vertical-align: middle;">';
@@ -297,21 +306,25 @@ function updateJugadoresEstado(jugadores) {
                 // Si el jugador ya existe en el DOM, solo actualiza su contenido
                 jugadorDOM.innerHTML = nuevoHTML;
             } else {
-                // Si es un jugador nuevo (improbable en mitad de partida, pero seguro)
-                const div = document.createElement("div");
-                div.id = jugadorDOMId;
-                div.className = "player-status-item";
-                div.style.cssText = "border-bottom: 1px solid #1f2937; padding: 8px 4px; margin-bottom: 5px;";
-                div.innerHTML = nuevoHTML;
-                jugadoresEstadoDisplay.appendChild(div);
+                // Si es un jugador nuevo (al inicio de la partida)
+                jugadorDOM = document.createElement("div");
+                jugadorDOM.id = jugadorDOMId;
+                jugadorDOM.className = "player-status-item";
+                jugadorDOM.style.cssText = "border-bottom: 1px solid #1f2937; padding: 8px 4px; margin-bottom: 5px;";
+                jugadorDOM.innerHTML = nuevoHTML;
+                jugadoresEstadoDisplay.appendChild(jugadorDOM);
             }
         }
         // Si no cambió, no hacemos NADA.
     });
 }
 
-/** Renderiza el tablero de juego. */
-function updateTablero(tableroData) {
+
+/**
+ * Renderiza el tablero de juego de forma "inteligente".
+ * Ya no usa innerHTML para todo el tablero.
+ */
+function updateTablero(nuevoTablero) {
     if (!tableroElement || !_mapaColores || !_state || !_state.currentUser) {
         console.warn("updateTablero abortado: Faltan dependencias.");
         return; 
@@ -320,16 +333,9 @@ function updateTablero(tableroData) {
     const tableroViejo = _estadoJuego.tablero || {};
     const mapaColores = _mapaColores.value || {};
 
-    // Crear el tablero inicial si está vacío
+    // Asegurarse que el tablero base exista
     if (tableroElement.children.length === 0) {
-        console.log("Creando tablero inicial...");
-        for (let i = 1; i <= 75; i++) {
-            const cell = document.createElement("div");
-            cell.className = "casilla";
-            cell.setAttribute("data-position", i);
-            cell.innerHTML = `<div><small>#${i}</small></div><div class="c-esp"></div><div class="c-ene"></div><div class="fichas-container"></div>`;
-            tableroElement.appendChild(cell);
-        }
+        _crearTableroInicial();
     }
 
     // Iterar sobre las casillas y actualizar solo las que cambiaron
@@ -438,9 +444,11 @@ export function appendGameChatMessage(data) {
     chatMensajesJuegoDisplay.scrollTop = chatMensajesJuegoDisplay.scrollHeight;
 }
 
-/** Función principal que actualiza toda la UI del juego. */
+/**
+ * Función principal que actualiza toda la UI del juego.
+ */
 export function actualizarEstadoJuego(estado) {
-    // 1. Validar que todo lo necesario exista
+    // Validar que todo lo necesario exista
     if (!jugadoresEstadoDisplay || !tableroElement || !rondaActualDisplay || !turnoJugadorDisplay || !btnLanzarDado || !btnMostrarHab || 
         !_state || !_state.currentUser || !_state.currentUser.username || 
         !estado
@@ -453,7 +461,7 @@ export function actualizarEstadoJuego(estado) {
     const jugadorTurnoAnterior = _estadoJuego ? _estadoJuego.turno_actual : null;
 
     // RENDERIZAR PRIMERO (Comparar 'estado' (nuevo) con '_estadoJuego' (viejo))
-    updateJugadoresEstado(estado.jugadores); 
+    updateJugadoresEstado(estado.jugadores);
     updateTablero(estado.tablero || {});
 
     // ACTUALIZAR EL ESTADO LOCAL DESPUÉS
