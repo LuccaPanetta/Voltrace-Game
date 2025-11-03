@@ -289,40 +289,38 @@ class JuegoOcaWeb:
         self.eventos_turno = [] # Limpiar eventos para la 2da fase
         
         posicion_actual = jugador.get_posicion()
-        posicion_procesada = -1 # Para evitar bucles infinitos si 2 casillas se teletransportan entre sí
         
-        # Bucle se ejecuta mientras el jugador siga moviéndose a nuevas casillas
-        while posicion_actual < self.posicion_meta and posicion_actual != posicion_procesada:
+        # Ejecutar la lógica de la casilla SÓLO SI AÚN NO ESTÁ EN LA META
+        if posicion_actual < self.posicion_meta:
+            posicion_procesada = -1 
             
-            posicion_procesada = posicion_actual # Marcar esta posición como "ya vista"
-            
-            # Procesar Casilla Especial / Pack
+            while posicion_actual < self.posicion_meta and posicion_actual != posicion_procesada:
+                
+                posicion_procesada = posicion_actual 
+                self._procesar_efectos_posicion(jugador, posicion_procesada) 
+                self._verificar_colision(jugador, posicion_procesada)
+                posicion_actual = jugador.get_posicion()
 
-            self._procesar_efectos_posicion(jugador, posicion_procesada) 
-            
-            # Verificar Colisión en esta posición
-            self._verificar_colision(jugador, posicion_procesada)
+                if posicion_actual == posicion_procesada:
+                    break
 
-            # Obtener la nueva posición
-            posicion_actual = jugador.get_posicion()
-
-            # Si el jugador no se movió, terminamos el bucle
-            if posicion_actual == posicion_procesada:
-                break
-
-        # Reducir efectos temporales (solo una vez al final)
+        # Reducir efectos temporales (siempre se ejecuta)
         self._reducir_efectos_temporales(jugador)
 
+        # (La lógica de "Rebote Controlado" se arregla aquí)
+        fue_por_dado = getattr(jugador, 'dado_lanzado_este_turno', False)
+        
         # Limpiar flags de acción
         jugador.reset_turn_flags()
-        
         jugador.limpiar_oferta_perk()
-
-        # Avanzar Turno
-        if not self.fin_juego:
-            self._avanzar_turno() 
         
-        # Devolver los eventos de esta fase
+        # Avanzar Turno SOLO SI FUE POR UN DADO
+        if not self.fin_juego and fue_por_dado:
+            self._avanzar_turno()
+        elif not self.fin_juego:
+            # No avanzar el turno, fue una habilidad.
+            print(f"DEBUG: Fin de Paso 2 (Habilidad). No se avanza el turno.")
+        
         return {"exito": True, "eventos": self.eventos_turno}
 
     def _procesar_inicio_turno(self, jugador):
@@ -1508,8 +1506,12 @@ class JuegoOcaWeb:
     def _hab_intercambio_forzado(self, jugador, habilidad, objetivo):
         eventos = []
         obj = self._encontrar_jugador(objetivo)
+
         if not obj or not obj.esta_activo():
             eventos.append("Objetivo inválido o no activo.")
+            return {"exito": False, "eventos": eventos}
+        if obj == jugador:
+            eventos.append("No puedes intercambiar contigo mismo.")
             return {"exito": False, "eventos": eventos}
         if not self._puede_ser_afectado(obj, habilidad):
              eventos.append(f"{obj.get_nombre()} está protegido.")

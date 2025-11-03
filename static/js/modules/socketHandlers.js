@@ -200,7 +200,6 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
             
             renderEventos(eventosPaso1); 
             
-            // Solo animar el dado si 'res.dado' existe Y si NO fue una habilidad
             if (res.dado !== undefined && !habilidad_usada) {
                 if (_gameAnimations && _gameAnimations.isEnabled) { 
                     _gameAnimations.animateDiceRoll(resultadoDadoDisplay, res.dado, () => { 
@@ -210,17 +209,15 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
                     if (resultadoDadoDisplay) resultadoDadoDisplay.textContent = `🎲 ${res.dado}`;
                 }
             } else {
-                // Si fue una habilidad (Cohete) o no hubo dado (Pausa), limpiar el display.
                 if (resultadoDadoDisplay) resultadoDadoDisplay.textContent = ""; 
             }
             
-            // Si este movimiento fue por una habilidad, actualiza la UI del cooldown
+            // Actualizar UI de Cooldown si fue una habilidad
             if (habilidad_usada && jugadorNombre === _state.currentUser.username) {
                 actualizarCooldownsUI(jugadorNombre, habilidad_usada);
             }
             
             if (res.meta_alcanzada) {
-                console.log("Animación Paso 1: Meta alcanzada. No se envía Paso 2.");
                 if (_gameAnimations && _gameAnimations.isEnabled) { 
                     _gameAnimations.animatePlayerMove(res.pos_inicial, res.pos_final, jugadorNombre, () => {});
                 }
@@ -237,7 +234,6 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
                     res.pos_final,
                     jugadorNombre,
                     () => {
-                        // La animación SÓLO reproduce el sonido al terminar
                         playOptimisticSound(res.pos_final, _estadoJuego);
                     } 
                 );
@@ -247,10 +243,9 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
 
             const jugadorDelTurno = _estadoJuego.turno_actual;
             if (jugadorDelTurno === _state.currentUser.username) {
-                console.log("Soy el jugador del turno, avisando al servidor (paso_2_terminar_movimiento)...");
                 _socket.emit('paso_2_terminar_movimiento', { 
                     id_sala: _idSala.value,
-                    jugador_movido: jugadorNombre // Informa quién se movió realmente
+                    jugador_movido: jugadorNombre 
                 });
             }
 
@@ -274,17 +269,15 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
                 for (const j_nuevo of estado_nuevo.jugadores) {
                     const j_viejo = _estadoJuego.jugadores.find(j => j.nombre === j_nuevo.nombre);
                     
-                    // Si el jugador no existía o su posición cambió
                     if (j_viejo && j_nuevo.posicion !== j_viejo.posicion) {
                         jugador_movido_nombre = j_nuevo.nombre;
                         
-                        // Usar la posición intermedia que guardamos en Paso 1,
+                        // Usar la posición intermedia
                         pos_vieja_real = _intermediatePosition[j_nuevo.nombre] || j_viejo.posicion;
                         pos_nueva_real = j_nuevo.posicion;
                         
-                        // Limpiar la posición intermedia
                         delete _intermediatePosition[j_nuevo.nombre];
-                        break; // Encontramos al jugador que se movió
+                        break; 
                     }
                 }
             }
