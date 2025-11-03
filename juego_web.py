@@ -858,7 +858,7 @@ class JuegoOcaWeb:
         if indice_habilidad < 1 or indice_habilidad > len(jugador.habilidades):
             return {"exito": False, "mensaje": "Índice de habilidad inválido"}
 
-        habilidad = jugador.habilidades[indice_habilidad - 1] 
+        habilidad = jugador.habilidades[indice_habilidad - 1] # Objeto base de la habilidad
 
         # Leer el cooldown ACTUAL desde el DICCIONARIO DEL JUGADOR, no del objeto habilidad
         cooldown_actual = jugador.habilidades_cooldown.get(habilidad.nombre, 0)
@@ -903,16 +903,14 @@ class JuegoOcaWeb:
         if exito:
             jugador.habilidades_usadas_en_partida += 1
             
-            es_accion_de_turno = resultado_logica.get('es_movimiento') or \
-                                 resultado_logica.get('es_movimiento_doble') or \
-                                 resultado_logica.get('es_movimiento_otro') or \
-                                 resultado_logica.get('es_movimiento_multiple')
+            es_accion_de_turno = resultado_logica.get('es_movimiento')
             
             if es_accion_de_turno:
+                # Esta habilidad (Cohete, Rebote) cuenta como la acción principal
                 jugador.dado_lanzado_este_turno = True 
-                jugador.habilidad_usada_este_turno = False # No contamos como habilidad Y dado
+                jugador.habilidad_usada_este_turno = False 
             else:
-                # Es una habilidad de "efecto" (Escudo, Bomba) que no consume la acción
+                # Esta habilidad (Control, Ofensiva, Defensiva) NO consume el turno
                 jugador.habilidad_usada_este_turno = True
 
             # Aplicar Cooldown
@@ -932,8 +930,10 @@ class JuegoOcaWeb:
             jugador.ganar_pm(pm_total_ganados) # Gana el total
 
             if pm_bonus_perk > 0:
+                # Log específico para el perk
                 self.eventos_turno.append(f"✨ +{pm_bonus_perk} PM extra (Maestría de Habilidad)")
 
+            # Añadir eventos de la habilidad al log principal
             self.eventos_turno.extend(eventos_habilidad)
 
             # Preparar retorno 
@@ -951,23 +951,22 @@ class JuegoOcaWeb:
             }
 
             # Propagar los flags especiales si existen en el resultado_logica
-            if es_accion_de_turno: # Solo propagar si es una acción de turno
-                if resultado_logica.get('es_movimiento'):
-                    respuesta['es_movimiento'] = True
-                    respuesta['resultado_movimiento'] = resultado_logica.get('resultado_movimiento')
-                
-                elif resultado_logica.get('es_movimiento_doble'):
-                    respuesta['es_movimiento_doble'] = True
-                    respuesta['resultado_movimiento_jugador'] = resultado_logica.get('resultado_movimiento_jugador')
-                    respuesta['resultado_movimiento_objetivo'] = resultado_logica.get('resultado_movimiento_objetivo')
-                
-                elif resultado_logica.get('es_movimiento_otro'):
-                    respuesta['es_movimiento_otro'] = True
-                    respuesta['resultado_movimiento'] = resultado_logica.get('resultado_movimiento')
+            if resultado_logica.get('es_movimiento'):
+                respuesta['es_movimiento'] = True
+                respuesta['resultado_movimiento'] = resultado_logica.get('resultado_movimiento')
+            
+            elif resultado_logica.get('es_movimiento_doble'):
+                respuesta['es_movimiento_doble'] = True
+                respuesta['resultado_movimiento_jugador'] = resultado_logica.get('resultado_movimiento_jugador')
+                respuesta['resultado_movimiento_objetivo'] = resultado_logica.get('resultado_movimiento_objetivo')
+            
+            elif resultado_logica.get('es_movimiento_otro'):
+                respuesta['es_movimiento_otro'] = True
+                respuesta['resultado_movimiento'] = resultado_logica.get('resultado_movimiento')
 
-                elif resultado_logica.get('es_movimiento_multiple'): # <--- Añadido Caos
-                    respuesta['es_movimiento_multiple'] = True
-                    respuesta['movimientos'] = resultado_logica.get('movimientos')
+            elif resultado_logica.get('es_movimiento_multiple'):
+                respuesta['es_movimiento_multiple'] = True
+                respuesta['movimientos'] = resultado_logica.get('movimientos')
 
             return respuesta
 

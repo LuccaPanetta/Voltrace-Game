@@ -12,6 +12,7 @@ let chatMensajesJuegoDisplay, mensajeJuegoInput, btnEnviarMensajeJuego;
 let listaHabDisplay, modalHabElement, btnCerrarHab;
 let modalFinalElement, resultadosFinalesDisplay, btnNuevaPartida, btnVolverLobby;
 let guiaDrawer, guiaToggleBtn;
+let _celdasCache = new Map();
 
 // Referencias a estado/funciones externas
 let _socket = null;
@@ -33,6 +34,7 @@ export function initGameUI(socketRef, stateRef, idSalaRef, estadoJuegoRef, mapaC
     _mapaColores = mapaColoresRef;
     _habilidadUsadaTurno = habilidadUsadaRef;
     _openPerkModalFunc = openPerksFuncRef;
+    
 
     // Cachear elementos DOM
     eventosListaDisplay = document.getElementById("eventos-lista");
@@ -63,6 +65,7 @@ export function initGameUI(socketRef, stateRef, idSalaRef, estadoJuegoRef, mapaC
         playSound('OpenCloseModal', 0.2);
         if(modalHabElement) modalHabElement.style.display = 'none';
     });
+    listaHabDisplay?.addEventListener("click", handleUsarHabilidadClick);
     btnEnviarMensajeJuego?.addEventListener("click", handleEnviarMensajeJuego);
     mensajeJuegoInput?.addEventListener("keypress", (e) => { if (e.key === 'Enter') handleEnviarMensajeJuego(); });
     btnNuevaPartida?.addEventListener("click", handleSolicitarRevancha);
@@ -110,51 +113,30 @@ function handleMostrarHabilidades() {
             const cooldownText = cooldownRestante > 0
                 ? `<small style="color: var(--warning); font-weight: bold;"> (CD: ${cooldownRestante}t)</small>`
                 : "";
+            
+            const isDisabled = cooldownRestante > 0 || _habilidadUsadaTurno.value;
+            let titleText = "";
+            if (isDisabled) {
+                titleText = cooldownRestante > 0 
+                    ? `Disponible en ${cooldownRestante} turno(s).` 
+                    : "Ya usaste una habilidad este turno.";
+            }
 
             item.innerHTML = `
               <div>
                 ${originalIndex + 1}. ${h.simbolo} <strong>${escapeHTML(h.nombre)}</strong>${cooldownText}
                 <br>
                 <small>${escapeHTML(h.descripcion)}</small>
-              </div>`;
+              </div>
+              <button class="btn-primary btn-usar-habilidad" 
+                      data-indice="${originalIndex + 1}" 
+                      data-nombre="${escapeHTML(h.nombre)}"
+                      data-tipo="${h.tipo}"
+                      ${isDisabled ? 'disabled' : ''}
+                      title="${titleText}">
+                Usar
+              </button>`;
 
-            const btn = document.createElement("button");
-            btn.className = "btn-primary";
-            btn.textContent = "Usar";
-            btn.disabled = cooldownRestante > 0 || _habilidadUsadaTurno.value;
-
-            if (_habilidadUsadaTurno.value && cooldownRestante === 0) {
-                btn.title = "Ya usaste una habilidad este turno.";
-            } else if (cooldownRestante > 0) {
-                btn.title = `Disponible en ${cooldownRestante} turno(s).`;
-            }
-
-            btn.onclick = () => {
-                if (btn.disabled) return;
-                let objetivo = null;
-                if (["Sabotaje", "Intercambio Forzado", "Retroceso", "Bloqueo Energético"].includes(h.nombre)) {
-                    objetivo = prompt(`¿A quién quieres usar ${h.nombre}? Ingresa el nombre exacto:`);
-                    if (objetivo === null) return;
-                } else if (h.nombre === "Dado Perfecto") {
-                    objetivo = prompt("¿Cuánto quieres avanzar? (1-6)?");
-                    if (objetivo === null) return;
-                }
-
-                // Reproducir sonidos
-                if (h.tipo === 'movimiento') playSound('MovementAbility', 0.3);
-                else if (h.tipo === 'ofensiva') playSound('OffensiveAbility', 0.3);
-                else if (h.tipo === 'defensiva' || h.tipo === 'control') playSound('DefensiveAbility', 0.3);
-                else playSound('ClickMouse', 0.3);
-
-                _socket.emit("usar_habilidad", {
-                    id_sala: _idSala.value,
-                    indice_habilidad: originalIndex + 1,
-                    objetivo: objetivo,
-                });
-                if(modalHabElement) modalHabElement.style.display = "none";
-            };
-
-            item.appendChild(btn);
             listaHabDisplay.appendChild(item);
         });
     }
@@ -227,6 +209,7 @@ function _crearTableroInicial() {
     if (!tableroElement) return;
     tableroElement.innerHTML = ""; // Limpiar por si acaso
     console.log("Creando estructura de tablero inicial...");
+    _celdasCache.clear();
     for (let i = 1; i <= 75; i++) {
         const cell = document.createElement("div");
         cell.className = "casilla";
@@ -237,6 +220,7 @@ function _crearTableroInicial() {
                           <div class="c-ene"></div>
                           <div class="fichas-container"></div>`;
         tableroElement.appendChild(cell);
+        _celdasCache.set(i, cell);
     }
 }
 
@@ -349,7 +333,7 @@ function updateTablero(nuevoTablero) {
         }
 
         // Si cambió, encontrar el DOM de esa casilla y actualizarla
-        const cell = tableroElement.querySelector(`[data-position="${pos}"]`);
+        const cell = _celdasCache.get(pos);
         if (!cell) continue; 
         
         // Referencias a los elementos internos de la casilla
@@ -430,7 +414,6 @@ export function agregarAlLog(eventoMsg) {
 /** Renderiza la lista completa de eventos del turno. */
 export function renderEventos(eventos) {
     if (!eventosListaDisplay) return;
-    eventosListaDisplay.innerHTML = ""; // Limpiar antes
     (eventos || []).forEach(agregarAlLog);
 }
 
@@ -461,23 +444,30 @@ export function actualizarEstadoJuego(estado) {
     // Guardar el turno anterior (para resetear el flag de habilidad)
     const jugadorTurnoAnterior = _estadoJuego ? _estadoJuego.turno_actual : null;
 
-    // RENDERIZAR PRIMERO (Comparar 'estado' (nuevo) con '_estadoJuego' (viejo))
+    // RENDERIZAR PRIMERO 
     updateJugadoresEstado(estado.jugadores);
     updateTablero(estado.tablero || {});
 
     // ACTUALIZAR EL ESTADO LOCAL DESPUÉS
     Object.assign(_estadoJuego, estado);
 
-    // Renderizar componentes simples (esto siempre es rápido)
+    // Renderizar componentes simples 
     rondaActualDisplay.textContent = estado.ronda ?? "-";
     turnoJugadorDisplay.textContent = escapeHTML(estado.turno_actual ?? "-");
 
-    // Habilitar/deshabilitar botones
+
     const esMiTurno = estado.turno_actual === _state.currentUser.username;
     const juegoActivo = estado.estado === "jugando";
+    const esTurnoNuevo = estado.turno_actual !== jugadorTurnoAnterior;
+
+    // Limpiar el log de eventos SI es un turno nuevo y el juego está activo
+    if (esTurnoNuevo && juegoActivo && eventosListaDisplay) {
+        eventosListaDisplay.innerHTML = ''; // Limpiar log
+        agregarAlLog(`➡️ Turno de ${escapeHTML(estado.turno_actual ?? "-")}`);
+    }
 
     // Resetear flag de habilidad si es un nuevo turno para mí
-    if (esMiTurno && (estado.turno_actual !== jugadorTurnoAnterior)) {
+    if (esMiTurno && esTurnoNuevo) {
         _habilidadUsadaTurno.value = false;
     }
 
@@ -485,7 +475,7 @@ export function actualizarEstadoJuego(estado) {
     btnLanzarDado.disabled = !esMiTurno || !juegoActivo;
     btnMostrarHab.disabled = !juegoActivo; 
 
-    // Botón Comprar Perks (con el arreglo para que se re-habilite)
+    // Botón Comprar Perks 
     const controlesTurno = document.querySelector(".controles-turno");
     let btnAbrirPerks = document.getElementById("btn-abrir-perks");
     
@@ -500,10 +490,9 @@ export function actualizarEstadoJuego(estado) {
             btnLanzarDado.insertAdjacentElement('afterend', btnAbrirPerks);
         }
         btnAbrirPerks.style.display = "inline-block";
-        // Re-habilita el botón (arreglo del bug anterior)
+        // Re-habilita el botón
         btnAbrirPerks.disabled = false; 
     } else if (btnAbrirPerks) {
-        // Oculta el botón si no es tu turno
         btnAbrirPerks.style.display = "none";
     }
 }
@@ -588,4 +577,37 @@ export function actualizarCooldownsUI(username, habilidadUsada) {
     if (modalHabElement?.style.display === 'flex' && username === _state.currentUser.username) {
         handleMostrarHabilidades(); 
     }
+}
+
+function handleUsarHabilidadClick(e) {
+    const btn = e.target.closest('.btn-usar-habilidad'); // Busca el botón
+    if (!btn || btn.disabled) return;
+
+    const indice = parseInt(btn.dataset.indice, 10);
+    const nombre = btn.dataset.nombre;
+    const tipo = btn.dataset.tipo;
+
+    if (isNaN(indice)) return;
+
+    let objetivo = null;
+    if (["Sabotaje", "Intercambio Forzado", "Retroceso", "Bloqueo Energético"].includes(nombre)) {
+        objetivo = prompt(`¿A quién quieres usar ${nombre}? Ingresa el nombre exacto:`);
+        if (objetivo === null) return;
+    } else if (nombre === "Dado Perfecto") {
+        objetivo = prompt("¿Cuánto quieres avanzar? (1-6)?");
+        if (objetivo === null) return;
+    }
+
+    // Reproducir sonidos
+    if (tipo === 'movimiento') playSound('MovementAbility', 0.3);
+    else if (tipo === 'ofensiva') playSound('OffensiveAbility', 0.3);
+    else if (tipo === 'defensiva' || tipo === 'control') playSound('DefensiveAbility', 0.3);
+    else playSound('ClickMouse', 0.3);
+
+    _socket.emit("usar_habilidad", {
+        id_sala: _idSala.value,
+        indice_habilidad: indice, // Enviar el índice base 1
+        objetivo: objetivo,
+    });
+    if(modalHabElement) modalHabElement.style.display = "none";
 }

@@ -182,8 +182,14 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
         show("game", _screens);
         _mapaColores.value = estadoInicial.colores_jugadores || {}; // Guarda mapa de colores
         console.log("Mapa de colores recibido:", _mapaColores.value);
+        
         actualizarEstadoJuego(estadoInicial); 
-        showNotification("¡La partida ha comenzado!", _notificacionesContainer, "success");
+        
+        // Limpiamos el log por si acaso y añadimos los primeros eventos
+        const eventosLista = document.getElementById("eventos-lista");
+        if (eventosLista) eventosLista.innerHTML = ''; 
+        
+        agregarAlLog("¡La partida ha comenzado!");
     });
 
     _socket.on("paso_1_resultado_movimiento", (data) => {
@@ -286,7 +292,11 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
                     if(_gameAnimations) _gameAnimations.shakeBoard(); 
                 }
             });
-            
+
+            // Actualizar el estado INMEDIATAMENTE.
+            actualizarEstadoJuego(estado_nuevo);
+            renderEventos(eventos_paso_2); // (Que ahora apendiza, no limpia)
+
             // Comprobar si hubo un movimiento forzado (Teleport, etc.)
             if (jugador_movido_nombre && pos_vieja_real !== pos_nueva_real && pos_nueva_real < 75) {
                 console.log(`--- Movimiento encadenado (Paso 2): ${pos_vieja_real} -> ${pos_nueva_real}. Animando...`);
@@ -299,21 +309,9 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
                         pos_vieja_real,
                         pos_nueva_real,
                         jugador_movido_nombre,
-                        () => {
-                            // Cuando la animación del teleporter TERMINA,
-                            // actualizar la UI al estado final.
-                            actualizarEstadoJuego(estado_nuevo);
-                            renderEventos(eventos_paso_2);
-                        }
+                        null // Sin callback que bloquee el estado
                     );
-                } else {
-                    actualizarEstadoJuego(estado_nuevo);
-                    renderEventos(eventos_paso_2);
                 }
-            } else {
-                // No hubo movimiento extra, solo actualizar.
-                actualizarEstadoJuego(estado_nuevo);
-                renderEventos(eventos_paso_2);
             }
 
         } catch (error) {
