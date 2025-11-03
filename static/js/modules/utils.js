@@ -68,7 +68,12 @@ export function playSound(soundName, volume = 0.5) {
                 interactionEvents.forEach(event => document.body.removeEventListener(event, enableAudio));
 
                 // Precargar sonidos comunes DESPUÉS de la interacción
-                preloadSounds(['ClickMouse', 'Dice', 'GameStart', 'OpenCloseModal']);
+                preloadSounds([
+                    'ClickMouse', 'Dice', 'GameStart', 'OpenCloseModal', 
+                    'LandOnTrap', 'LandOnTreasure', 'Collision', 'Teleport', 
+                    'MovementAbility', 'OffensiveAbility', 'DefensiveAbility', 
+                    'PerkActivate', 'GameWin', 'GameLost' 
+                ]);
             };
             interactionEvents.forEach(event => document.body.addEventListener(event, enableAudio, { once: true }));
             _interactionListenerAdded = true;

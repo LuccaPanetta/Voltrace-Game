@@ -285,18 +285,29 @@ class JuegoOcaWeb:
             
         self.eventos_turno = [] # Limpiar eventos para la 2da fase
         
-        # Procesar Efectos de la Posición donde aterrizó
-        posicion_aterrizaje = jugador.get_posicion()
+        posicion_actual = jugador.get_posicion()
+        posicion_procesada = -1 # Para evitar bucles infinitos si 2 casillas se teletransportan entre sí
         
-        # Solo procesar si no llegó a la meta 
-        if posicion_aterrizaje < self.posicion_meta:
-            self._procesar_efectos_posicion(jugador, posicion_aterrizaje)
-        
-        # Verificar Colisión en la posición FINAL del jugador
-        posicion_final_real = jugador.get_posicion()
-        self._verificar_colision(jugador, posicion_final_real)
+        # Bucle se ejecuta mientras el jugador siga moviéndose a nuevas casillas
+        while posicion_actual < self.posicion_meta and posicion_actual != posicion_procesada:
+            
+            posicion_procesada = posicion_actual # Marcar esta posición como "ya vista"
+            
+            # Procesar Casilla Especial / Pack
 
-        # Reducir efectos temporales
+            self._procesar_efectos_posicion(jugador, posicion_procesada) 
+            
+            # Verificar Colisión en esta posición
+            self._verificar_colision(jugador, posicion_procesada)
+
+            # Obtener la nueva posición
+            posicion_actual = jugador.get_posicion()
+
+            # Si el jugador no se movió, terminamos el bucle
+            if posicion_actual == posicion_procesada:
+                break
+
+        # Reducir efectos temporales (solo una vez al final)
         self._reducir_efectos_temporales(jugador)
 
         # Limpiar flags de acción
@@ -472,10 +483,7 @@ class JuegoOcaWeb:
                 nueva_pos = min(jugador.get_posicion() + avance, self.posicion_meta)
                 jugador.teletransportar_a(nueva_pos)
                 self.eventos_turno.append(f"🌀 Teletransporte: avanzas {avance} a {nueva_pos}")
-                # Procesar efectos/colisión en la nueva casilla
-                if nueva_pos < self.posicion_meta:
-                    self._procesar_efectos_posicion(jugador, nueva_pos) # Recursivo
-                    self._verificar_colision(jugador, nueva_pos)
+                # Procesar efectos/colisión en la nueva casilla   
 
             elif tipo == "multiplicador":
                 duracion_turnos = len(self.jugadores) + 1
@@ -511,15 +519,9 @@ class JuegoOcaWeb:
                     jugador.teletransportar_a(pos_o_original)
                     objetivo.teletransportar_a(pos_j_original)
                     self.eventos_turno.append(f"🔄 Intercambias posición con {objetivo.get_nombre()} (al azar). Ahora estás en {pos_o_original} y {objetivo.get_nombre()} en {pos_j_original}.")
-                    if pos_o_original < self.posicion_meta:
-                        self._procesar_efectos_posicion(jugador, pos_o_original)
-                        self._verificar_colision(jugador, pos_o_original)
-                    
-                    if pos_j_original < self.posicion_meta:
-                        self._procesar_efectos_posicion(objetivo, pos_j_original)
-                        self._verificar_colision(objetivo, pos_j_original)
                 else:
                     self.eventos_turno.append("🔄 No hay nadie con quien intercambiar.")
+
             elif tipo == "rebote":
                 retroceso = randint(5, 10)
                 nueva_pos = max(1, jugador.get_posicion() - retroceso) # No ir más allá de 1
@@ -527,10 +529,9 @@ class JuegoOcaWeb:
                     jugador.teletransportar_a(nueva_pos)
                     self.eventos_turno.append(f"↩️ Rebote: retrocedes {retroceso} a {nueva_pos}")
                     # Procesar efectos/colisión en la nueva casilla
-                    self._procesar_efectos_posicion(jugador, nueva_pos)
-                    self._verificar_colision(jugador, nueva_pos)
                 else:
                     self.eventos_turno.append("↩️ Rebote: Ya estás en la casilla 1.")
+                    
             elif tipo == "retroceso_estrategico": # Agujero Negro
                 if len(self.jugadores) > 1:
                     # Busca al jugador activo con la posición MÁS BAJA
@@ -539,9 +540,6 @@ class JuegoOcaWeb:
                         nueva_pos = jugador_ultimo.get_posicion()
                         jugador.teletransportar_a(nueva_pos)
                         self.eventos_turno.append(f"⚫ Agujero Negro: Eres enviado a la posición del último jugador ({nueva_pos}).")
-                        if nueva_pos < self.posicion_meta:
-                            self._procesar_efectos_posicion(jugador, nueva_pos)
-                        self._verificar_colision(jugador, nueva_pos)
                         # Procesar colisión en la nueva casilla (muy importante)
                         self._verificar_colision(jugador, nueva_pos) 
                     else:
@@ -562,8 +560,6 @@ class JuegoOcaWeb:
                             j.teletransportar_a(nueva_pos)
                             self.eventos_turno.append(f"🧲 {j.get_nombre()} es atraído a {nueva_pos}.")
                             # Procesar efectos Y colisión en la nueva casilla
-                            self._procesar_efectos_posicion(j, nueva_pos)
-                            self._verificar_colision(j, nueva_pos)
             
             elif tipo == "intercambio_recurso": # Chatarrería 
                 energia_cambio = jugador.procesar_energia(-50)

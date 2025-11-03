@@ -181,26 +181,27 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
         show("game", _screens);
         _mapaColores.value = estadoInicial.colores_jugadores || {}; // Guarda mapa de colores
         console.log("Mapa de colores recibido:", _mapaColores.value);
-        actualizarEstadoJuego(estadoInicial); // Actualiza toda la UI del juego
+        actualizarEstadoJuego(estadoInicial); 
         showNotification("¡La partida ha comenzado!", _notificacionesContainer, "success");
     });
 
     _socket.on("paso_1_resultado_movimiento", (data) => {
         try {
-            // Deshabilitar botones mientras se anima el Paso 1
-            if (btnLanzarDado) btnLanzarDado.disabled = true;
-            if (btnMostrarHab) btnMostrarHab.disabled = true;
-            const btnPerks = document.getElementById('btn-abrir-perks');
-            if (btnPerks) btnPerks.disabled = true;
+        // Deshabilitar botones mientras se anima el Paso 1
+        if (btnLanzarDado) btnLanzarDado.disabled = true;
+        if (btnMostrarHab) btnMostrarHab.disabled = true;
+        const btnPerks = document.getElementById('btn-abrir-perks');
+        if (btnPerks) btnPerks.disabled = true;
 
-            const jugadorNombre = data.jugador;
-            const res = data.resultado;
-            const eventosPaso1 = res.eventos || [];
-            
-            // Mostrar eventos del PASO 1 (Dado, Turbo, etc.)
-            renderEventos(eventosPaso1); 
-            
-            // Animar el dado
+        const jugadorNombre = data.jugador;
+        const res = data.resultado;
+        const eventosPaso1 = res.eventos || [];
+        
+        // Mostrar eventos del PASO 1 
+        renderEventos(eventosPaso1); 
+        
+        if (res.dado !== undefined) {
+            // Si existe, animar y mostrar
             const duracionAnimDado = 800;
             if (_gameAnimations && _gameAnimations.isEnabled) { 
                 _gameAnimations.animateDiceRoll(resultadoDadoDisplay, res.dado, () => { 
@@ -209,62 +210,65 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
             } else {
                 if (resultadoDadoDisplay) resultadoDadoDisplay.textContent = `🎲 ${res.dado}`;
             }
-
-            // NO esperamos a que termine el dado. Ejecutamos el movimiento EN PARALELO.
-            
-            // Si el juego terminó (llegó a la meta), solo animar y no avisar al servidor.
-            if (res.meta_alcanzada) {
-                console.log("Animación Paso 1: Meta alcanzada. No se envía Paso 2.");
-                if (_gameAnimations && _gameAnimations.isEnabled) { 
-                     _gameAnimations.animatePlayerMove(res.pos_inicial, res.pos_final, jugadorNombre, () => {});
-                }
-                return; 
-            }
-
-            // Si el juego NO terminó, animar y LUEGO avisar al servidor
-            if (_gameAnimations && _gameAnimations.isEnabled) {
-                
-                _gameAnimations.animatePlayerMove(
-                    res.pos_inicial,
-                    res.pos_final,
-                    jugadorNombre,
-                    () => {
-                        playOptimisticSound(res.pos_final, _estadoJuego);
-                        // Cuando la animación TERMINA, avisar al servidor
-                        if (_state.currentUser && jugadorNombre === _state.currentUser.username) {
-                            console.log("Animaciones desactivadas. Soy yo, avisando al servidor (paso_2_terminar_movimiento)...");
-                            _socket.emit('paso_2_terminar_movimiento', { id_sala: _idSala.value });
-                        } else {
-                            console.log("Animaciones desactivadas. Otro jugador movió, yo no aviso.");
-                }
-                    }
-                );
-                
-            } else {
-                // Si las animaciones están desactivadas:
-                const jugador = _estadoJuego.jugadores.find(j => j.nombre === jugadorNombre);
-                if (jugador) {
-                    jugador.posicion = res.pos_final;
-                }
-                if (typeof renderTablero === 'function') {
-                     renderTablero(_estadoJuego.tablero || {});
-                } else {
-                    console.warn("renderTablero no está accesible en socketHandlers para actualización sin anim.");
-                }
-                playOptimisticSound(res.pos_final, _estadoJuego);
-                if (_state.currentUser && jugadorNombre === _state.currentUser.username) {
-                    console.log("Soy yo (el que movió), avisando al servidor (paso_2_terminar_movimiento)...");
-                    _socket.emit('paso_2_terminar_movimiento', { id_sala: _idSala.value });
-                } else {
-                    console.log("Otro jugador movió, yo no aviso al servidor.");
-                }
-            }
-
-        } catch (error) {
-            console.error("!!! ERROR DENTRO DEL LISTENER 'paso_1_resultado_movimiento':", error);
-            agregarAlLog(`Error del cliente: ${error.message}`);
+        } else {
+            // Si no hay valor de dado (ej. estabas pausado), simplemente limpia el display.
+            if (resultadoDadoDisplay) resultadoDadoDisplay.textContent = ""; 
         }
-    });
+        
+        // Si el juego terminó (llegó a la meta), solo animar y no avisar al servidor.
+        if (res.meta_alcanzada) {
+            console.log("Animación Paso 1: Meta alcanzada. No se envía Paso 2.");
+            if (_gameAnimations && _gameAnimations.isEnabled) { 
+                 _gameAnimations.animatePlayerMove(res.pos_inicial, res.pos_final, jugadorNombre, () => {});
+            }
+            return; 
+        }
+
+        // Si el juego NO terminó, animar y LUEGO avisar al servidor
+        if (_gameAnimations && _gameAnimations.isEnabled) {
+            
+            _gameAnimations.animatePlayerMove(
+                res.pos_inicial,
+                res.pos_final,
+                jugadorNombre,
+                () => { 
+                    playOptimisticSound(res.pos_final, _estadoJuego);
+                    
+                    if (_state.currentUser && jugadorNombre === _state.currentUser.username) {
+                        console.log("Soy yo (el que movió), avisando al servidor (paso_2_terminar_movimiento)...");
+                        _socket.emit('paso_2_terminar_movimiento', { id_sala: _idSala.value });
+                    } else {
+                        console.log("Otro jugador movió, yo no aviso al servidor.");
+                    }
+                } 
+            );
+            
+        } else {
+            // Si las animaciones están desactivadas:
+            const jugador = _estadoJuego.jugadores.find(j => j.nombre === jugadorNombre);
+            if (jugador) {
+                jugador.posicion = res.pos_final;
+            }
+            if (typeof renderTablero === 'function') {
+                 renderTablero(_estadoJuego.tablero || {});
+            } else {
+                console.warn("renderTablero no está accesible en socketHandlers para actualización sin anim.");
+            }
+            playOptimisticSound(res.pos_final, _estadoJuego);
+            
+            if (_state.currentUser && jugadorNombre === _state.currentUser.username) {
+                console.log("Animaciones desactivadas. Soy yo, avisando al servidor (paso_2_terminar_movimiento)...");
+                _socket.emit('paso_2_terminar_movimiento', { id_sala: _idSala.value });
+            } else {
+                 console.log("Animaciones desactivadas. Otro jugador movió, yo no aviso.");
+            }
+        }
+
+    } catch (error) {
+        console.error("!!! ERROR DENTRO DEL LISTENER 'paso_1_resultado_movimiento':", error);
+        agregarAlLog(`Error del cliente: ${error.message}`);
+    }
+});
 
     _socket.on("paso_2_resultado_casilla", (data) => {
         try {
