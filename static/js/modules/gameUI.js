@@ -402,39 +402,43 @@ export function appendGameChatMessage(data) {
 
 /** Función principal que actualiza toda la UI del juego. */
 export function actualizarEstadoJuego(estado) {
-    // Validar
+    // Validar que todo lo necesario exista
     if (!jugadoresEstadoDisplay || !tableroElement || !rondaActualDisplay || !turnoJugadorDisplay || !btnLanzarDado || !btnMostrarHab || 
-        !_state || !_state.currentUser || !_state.currentUser.username || !estado) {
+        !_state || !_state.currentUser || !_state.currentUser.username || 
+        !estado
+       ) {
         console.warn("actualizarEstadoJuego abortado: elementos DOM o estado no listos.");
         return; 
     }
 
-    // Guardar turno anterior
+    // Guardar el turno anterior (para resetear el flag de habilidad)
     const jugadorTurnoAnterior = _estadoJuego ? _estadoJuego.turno_actual : null;
 
-    // RENDERIZAR PRIMERO
+    // RENDERIZAR PRIMERO (Comparar 'estado' (nuevo) con '_estadoJuego' (viejo))
     updateJugadoresEstado(estado.jugadores); 
-    updateTablero(estado.tablero || {}); 
+    updateTablero(estado.tablero || {});
 
     // ACTUALIZAR EL ESTADO LOCAL DESPUÉS
     Object.assign(_estadoJuego, estado);
 
-    // Renderizar texto simple
+    // Renderizar componentes simples (esto siempre es rápido)
     rondaActualDisplay.textContent = estado.ronda ?? "-";
     turnoJugadorDisplay.textContent = escapeHTML(estado.turno_actual ?? "-");
 
-    // Lógica de botones
+    // Habilitar/deshabilitar botones
     const esMiTurno = estado.turno_actual === _state.currentUser.username;
     const juegoActivo = estado.estado === "jugando";
 
+    // Resetear flag de habilidad si es un nuevo turno para mí
     if (esMiTurno && (estado.turno_actual !== jugadorTurnoAnterior)) {
         _habilidadUsadaTurno.value = false;
     }
 
+    // Habilitar botones de acción
     btnLanzarDado.disabled = !esMiTurno || !juegoActivo;
     btnMostrarHab.disabled = !juegoActivo; 
 
-    // Botón Comprar Perks 
+    // Botón Comprar Perks (con el arreglo para que se re-habilite)
     const controlesTurno = document.querySelector(".controles-turno");
     let btnAbrirPerks = document.getElementById("btn-abrir-perks");
     
@@ -449,8 +453,10 @@ export function actualizarEstadoJuego(estado) {
             btnLanzarDado.insertAdjacentElement('afterend', btnAbrirPerks);
         }
         btnAbrirPerks.style.display = "inline-block";
-        btnAbrirPerks.disabled = false; // Re-habilita el botón
+        // Re-habilita el botón (arreglo del bug anterior)
+        btnAbrirPerks.disabled = false; 
     } else if (btnAbrirPerks) {
+        // Oculta el botón si no es tu turno
         btnAbrirPerks.style.display = "none";
     }
 }
