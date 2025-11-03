@@ -70,18 +70,18 @@ class JuegoOcaWeb:
         # 1. DEFINE EL "POOL" DE CASILLAS POSIBLES (CON ATRIBUTO 'ID_UNICO')
         # Añadimos un ID_UNICO para distinguir tipos de efectos (ej. Tesoro Menor vs Tesoro Mayor)
         POOL_DE_CASILLAS = [
-            {"tipo": "tesoro", "simbolo": "$", "valor": 70, "nombre": "Tesoro Menor", "id_unico": "tesoro_menor"},
-            {"tipo": "trampa", "simbolo": "X", "valor": -60, "nombre": "Trampa de Energía", "id_unico": "trampa_energia"},
-            {"tipo": "teletransporte", "simbolo": "T", "avance": (3, 5), "nombre": "Portal Mágico", "id_unico": "portal_magico"},
-            {"tipo": "multiplicador", "simbolo": "*2", "nombre": "Amplificador", "id_unico": "amplificador"},
-            {"tipo": "intercambio", "simbolo": "S", "nombre": "Cámara de Intercambio", "id_unico": "intercambio"},
-            {"tipo": "tesoro", "simbolo": "$$", "valor": 120, "nombre": "Tesoro Mayor", "id_unico": "tesoro_mayor"},
-            {"tipo": "pausa", "simbolo": "P", "nombre": "Zona de Pausa", "id_unico": "pausa"},
-            {"tipo": "trampa", "simbolo": "XX", "valor": -80, "nombre": "Trampa Peligrosa", "id_unico": "trampa_peligrosa"},
-            {"tipo": "turbo", "simbolo": "!", "nombre": "Acelerador", "id_unico": "acelerador"},
-            {"tipo": "teletransporte", "simbolo": "T+", "avance": (4, 6), "nombre": "Portal Avanzado", "id_unico": "portal_avanzado"},
-            {"tipo": "vampiro", "simbolo": "V", "porcentaje": 10, "nombre": "Drenaje de Energía", "id_unico": "vampiro"},
-            {"tipo": "rebote", "simbolo": "R", "nombre": "Trampolín Inverso", "id_unico": "rebote"},
+            {"tipo": "tesoro", "simbolo": "💰", "valor": 70, "nombre": "Tesoro Menor", "id_unico": "tesoro_menor"},
+            {"tipo": "trampa", "simbolo": "❌", "valor": -60, "nombre": "Trampa de Energía", "id_unico": "trampa_energia"},
+            {"tipo": "teletransporte", "simbolo": "🌀", "avance": (2, 5), "nombre": "Portal Mágico", "id_unico": "portal_magico"},
+            {"tipo": "multiplicador", "simbolo": "✨", "nombre": "Amplificador", "id_unico": "amplificador"}, 
+            {"tipo": "intercambio", "simbolo": "🔄", "nombre": "Cámara de Intercambio", "id_unico": "intercambio"},
+            {"tipo": "tesoro", "simbolo": "🤑", "valor": 120, "nombre": "Tesoro Mayor", "id_unico": "tesoro_mayor"}, 
+            {"tipo": "pausa", "simbolo": "⏸️", "nombre": "Zona de Pausa", "id_unico": "pausa"}, 
+            {"tipo": "trampa", "simbolo": "☠️", "valor": -150, "nombre": "Trampa Peligrosa", "id_unico": "trampa_peligrosa"}, 
+            {"tipo": "turbo", "simbolo": "⚡", "nombre": "Acelerador", "id_unico": "acelerador"}, 
+            {"tipo": "teletransporte", "simbolo": "💠", "avance": (5, 8), "nombre": "Portal Avanzado", "id_unico": "portal_avanzado"}, 
+            {"tipo": "vampiro", "simbolo": "🧛", "porcentaje": 15, "nombre": "Drenaje de Energía", "id_unico": "vampiro"}, 
+            {"tipo": "rebote", "simbolo": "↩️", "nombre": "Trampolín Inverso", "id_unico": "rebote"}, 
             {"tipo": "retroceso_estrategico", "simbolo": "⚫", "nombre": "Agujero Negro", "id_unico": "agujero_negro"},
             {"tipo": "recurso", "simbolo": "⭐", "nombre": "Pozo de PM", "id_unico": "pozo_pm"},
             {"tipo": "atraccion", "simbolo": "🧲", "nombre": "Imán", "id_unico": "iman"},
@@ -89,7 +89,7 @@ class JuegoOcaWeb:
         ]
 
         # 2. DEFINE LAS POSICIONES VÁLIDAS
-        posiciones_validas = list(range(4, self.posicion_meta - 1)) # De la 4 a la 73
+        posiciones_validas = list(range(4, self.posicion_meta - 1)) 
 
         # 3. DEFINE CUÁNTAS CASILLAS QUIERES Y CUÁNTOS TIPOS ÚNICOS MÁXIMO
         CANTIDAD_ESPECIALES = 20  

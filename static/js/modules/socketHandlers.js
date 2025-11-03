@@ -200,8 +200,8 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
             
             renderEventos(eventosPaso1); 
             
-            // Lógica del dado (sin cambios)
-            if (res.dado !== undefined) {
+            // Solo animar el dado si 'res.dado' existe Y si NO fue una habilidad
+            if (res.dado !== undefined && !habilidad_usada) {
                 if (_gameAnimations && _gameAnimations.isEnabled) { 
                     _gameAnimations.animateDiceRoll(resultadoDadoDisplay, res.dado, () => { 
                         if (resultadoDadoDisplay) resultadoDadoDisplay.textContent = `🎲 ${res.dado}`;
@@ -210,6 +210,7 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
                     if (resultadoDadoDisplay) resultadoDadoDisplay.textContent = `🎲 ${res.dado}`;
                 }
             } else {
+                // Si fue una habilidad (Cohete) o no hubo dado (Pausa), limpiar el display.
                 if (resultadoDadoDisplay) resultadoDadoDisplay.textContent = ""; 
             }
             

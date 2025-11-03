@@ -812,21 +812,18 @@ def lanzar_dado(data):
             emit('error', {'mensaje': 'El juego no está activo'})
             return
 
-        # Verificar que es el turno del jugador
         jugador_actual_obj = sala.juego.obtener_jugador_actual()
         nombre_jugador_actual = jugador_actual_obj.get_nombre() if jugador_actual_obj else None
         nombre_jugador_emitente = sala.jugadores.get(request.sid, {}).get('nombre', 'DESCONOCIDO')
-
-        print(f"Turno esperado: '{nombre_jugador_actual}', Jugador que envió: '{nombre_jugador_emitente}'")
 
         if nombre_jugador_actual != nombre_jugador_emitente:
             print("--- ACCIÓN RECHAZADA: No es su turno (lanzar dado) ---")
             emit('error', {'mensaje': 'No es tu turno'})
             return
 
+        # Ejecutar el movimiento
         resultado = sala.juego.paso_1_lanzar_y_mover(nombre_jugador_emitente)
 
-        # Si el turno fue pausado, el turno ya avanzó. Enviamos el estado completo.
         if resultado.get('pausado'):
             print(f"--- TURNO PAUSADO --- Sala: {id_sala}. Enviando estado completo.")
             colores_map = getattr(sala, 'colores_map', {})
@@ -843,70 +840,11 @@ def lanzar_dado(data):
             }, room=id_sala)
             return
 
-        # Si el juego terminó en el PASO 1 (llegó a la meta)
-        if resultado.get('meta_alcanzada') or sala.juego.ha_terminado():
-            print(f"--- JUEGO TERMINADO (PASO 1) --- Sala: {id_sala}")
-            sala.estado = 'terminado'
-
-            # Procesar estadísticas y logros para cada jugador
-            for sid, jugador_data in sala.jugadores.items():
-                if sid in sessions_activas:
-                    username = sessions_activas[sid]['username']
-                    jugador_nombre_loop = jugador_data['nombre']
-                    jugador_juego = sala.juego._encontrar_jugador(jugador_nombre_loop) # Usar método interno seguro
-
-                    if jugador_juego:
-                        ganador_obj = sala.juego.determinar_ganador() # Calcula puntajes y determina ganador
-                        ganador_nombre = ganador_obj.get_nombre() if ganador_obj else None
-                        is_winner = jugador_nombre_loop == ganador_nombre
-
-                        # Actualizar estadísticas en la DB
-                        user_db = User.query.filter_by(username=username).first()
-                        if user_db:
-                            user_db.games_played += 1
-                            if is_winner: user_db.games_won += 1
-                            user_db.xp += 50 + (25 if is_winner else 0) # XP base + bonus
-                            db.session.commit()
-
-                            # Verificar logros
-                            event_data = {
-                                'won': is_winner,
-                                'final_energy': jugador_juego.get_puntaje(),
-                                'reached_position': jugador_juego.get_posicion(),
-                                'total_rounds': sala.juego.ronda,
-                                'player_count': len(sala.jugadores),
-                                'colisiones': getattr(jugador_juego, 'colisiones_causadas', 0),
-                                'special_tiles_activated': getattr(jugador_juego, 'tipos_casillas_visitadas', set()),
-                                'abilities_used': getattr(jugador_juego, 'habilidades_usadas_en_partida', 0),
-                                'treasures_this_game': getattr(jugador_juego, 'tesoros_recogidos', 0),
-                                'completed_without_traps': getattr(jugador_juego, 'trampas_evitadas', True),
-                                'precision_laser': getattr(jugador_juego, 'dado_perfecto_usado', 0),
-                                'messages_this_game': getattr(jugador_juego, 'game_messages_sent_this_match', 0),
-                                'only_active_player': sala.juego.ha_terminado() and len([j for j in sala.juego.jugadores if j.esta_activo()]) == 1,
-                                'never_eliminated': jugador_juego.esta_activo(),
-                                'energy_packs_collected': getattr(jugador_juego, 'energy_packs_collected', 0)
-                            }
-                            unlocked_achievements = achievement_system.check_achievement(username, 'game_finished', event_data)
-                            if unlocked_achievements:
-                                socketio.emit('achievements_unlocked', {
-                                    'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_achievements]
-                                }, to=sid)
-                        # Actualizar presencia a 'online'
-                        social_system.update_user_presence(username, 'online', {'sid': sid})
-
-            # Obtener las estadísticas finales
-            stats_finales_dict = sala.juego.obtener_estadisticas_finales()
-
-            # Emitir evento de juego terminado a todos en la sala
-            socketio.emit('juego_terminado', {
-                'ganador': stats_finales_dict.get('ganador'),
-                'estadisticas_finales': stats_finales_dict.get('lista_final')
-            }, room=id_sala)
-            return # Terminar aquí si el juego finalizó
-
+        # Emitir el resultado del movimiento 
         socketio.emit('paso_1_resultado_movimiento', {
             'jugador': nombre_jugador_emitente,
             'resultado': resultado,
+            'habilidad_usada': None # Flag para el dado fantasma
         }, room=id_sala)
 
     except Exception as e:
