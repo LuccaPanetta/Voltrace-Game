@@ -160,7 +160,7 @@ PERKS_CONFIG = {
         "id": "ultimo_aliento",
         "nombre": "Último Aliento",
         "tier": "alto",
-        "desc": "La primera vez que tu energía llegaría a 0 o menos, sobrevives con 50 E y ganas Escudo Total (3 rondas). (Una vez por partida)"
+        "desc": "Al llegar a 0 E por primera vez, sobrevive con 50 E y gana Escudo Total (3 rondas)."
     },
     "enfriamiento_rapido": {
         "id": "enfriamiento_rapido",

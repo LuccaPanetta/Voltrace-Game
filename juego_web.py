@@ -493,7 +493,7 @@ class JuegoOcaWeb:
                 self.eventos_turno.append(f"×2 Tu próxima energía se duplicará (Efecto dura {duracion_turnos} turnos)")
 
             elif tipo == "pausa":
-                duracion_turnos = len(self.jugadores) + 1
+                duracion_turnos = 1
                 jugador.efectos_activos.append({"tipo": "pausa", "turnos": duracion_turnos})
                 self.eventos_turno.append(f"⏸️ Pierdes tu próximo turno (Efecto dura {duracion_turnos} turnos)")
 
@@ -826,6 +826,7 @@ class JuegoOcaWeb:
 
     def usar_habilidad_jugador(self, nombre_jugador, indice_habilidad, objetivo=None):
         # Validaciones Iniciales
+        self.eventos_turno = []
         jugador = self._encontrar_jugador(nombre_jugador)
         if not jugador:
             return {"exito": False, "mensaje": "Jugador no encontrado"}
@@ -833,7 +834,6 @@ class JuegoOcaWeb:
         if self.evento_global_activo == "Interferencia":
             return {"exito": False, "mensaje": "🌎 ¡Interferencia! No se pueden usar habilidades durante este evento."}
 
-        # Nueva validación: Chequear si hay una oferta de perk pendiente
         if hasattr(jugador, 'oferta_perk_activa') and jugador.oferta_perk_activa:
             return {"exito": False, "mensaje": "Debes elegir un perk de la oferta pendiente antes de usar una habilidad."}
 
@@ -847,8 +847,13 @@ class JuegoOcaWeb:
         if cooldown_actual > 0:
             return {"exito": False, "mensaje": f"Habilidad '{habilidad.nombre}' en cooldown por {cooldown_actual} turnos."}
 
+        # REGLA: Prevenir Habilidad + Habilidad
         if getattr(jugador, 'habilidad_usada_este_turno', False):
             return {"exito": False, "mensaje": "Ya usaste una habilidad en este turno."}
+
+        # REGLA: Prevenir Dado + Habilidad
+        if getattr(jugador, 'dado_lanzado_este_turno', False):
+            return {"exito": False, "mensaje": "Ya lanzaste el dado este turno. No puedes usar una habilidad."}
 
         # Despacho a la Función Específica
         try:
@@ -876,7 +881,7 @@ class JuegoOcaWeb:
             self.eventos_turno.append(f"!!! ERROR al usar {habilidad.nombre}: {e}")
             return {"exito": False, "mensaje": f"Error interno del servidor al ejecutar {habilidad.nombre}."}
 
-        # Lógica de Cierre (Cooldown, PM, Retorno)
+        # 3. Lógica de Cierre 
         if exito:
             jugador.habilidades_usadas_en_partida += 1
             # Aplicar Cooldown y marcar habilidad como usada en el turno
@@ -903,7 +908,7 @@ class JuegoOcaWeb:
             # Añadir eventos de la habilidad al log principal
             self.eventos_turno.extend(eventos_habilidad)
 
-            # Preparar retorno (Leer cooldown actualizado después de aplicarlo)
+            # Preparar retorno 
             cooldown_actual_retorno = jugador.habilidades_cooldown.get(habilidad.nombre, habilidad.cooldown_base)
             habilidad_dict_final = {
                 'nombre': habilidad.nombre, 'tipo': habilidad.tipo,
@@ -917,7 +922,7 @@ class JuegoOcaWeb:
                 "habilidad": habilidad_dict_final 
             }
         else:
-            # Habilidad fallida (añadir evento de fallo al log)
+            # Habilidad fallida 
             if eventos_habilidad: 
                 self.eventos_turno.extend(eventos_habilidad)
                 

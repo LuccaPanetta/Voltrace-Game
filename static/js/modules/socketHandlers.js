@@ -187,7 +187,6 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
 
     _socket.on("paso_1_resultado_movimiento", (data) => {
         try {
-        // Deshabilitar botones mientras se anima el Paso 1
         if (btnLanzarDado) btnLanzarDado.disabled = true;
         if (btnMostrarHab) btnMostrarHab.disabled = true;
         const btnPerks = document.getElementById('btn-abrir-perks');
@@ -197,12 +196,10 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
         const res = data.resultado;
         const eventosPaso1 = res.eventos || [];
         
-        // Mostrar eventos del PASO 1 
         renderEventos(eventosPaso1); 
         
+        // Lógica del dado 
         if (res.dado !== undefined) {
-            // Si existe, animar y mostrar
-            const duracionAnimDado = 800;
             if (_gameAnimations && _gameAnimations.isEnabled) { 
                 _gameAnimations.animateDiceRoll(resultadoDadoDisplay, res.dado, () => { 
                     if (resultadoDadoDisplay) resultadoDadoDisplay.textContent = `🎲 ${res.dado}`;
@@ -211,11 +208,9 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
                 if (resultadoDadoDisplay) resultadoDadoDisplay.textContent = `🎲 ${res.dado}`;
             }
         } else {
-            // Si no hay valor de dado (ej. estabas pausado), simplemente limpia el display.
             if (resultadoDadoDisplay) resultadoDadoDisplay.textContent = ""; 
         }
         
-        // Si el juego terminó (llegó a la meta), solo animar y no avisar al servidor.
         if (res.meta_alcanzada) {
             console.log("Animación Paso 1: Meta alcanzada. No se envía Paso 2.");
             if (_gameAnimations && _gameAnimations.isEnabled) { 
@@ -224,44 +219,27 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
             return; 
         }
 
-        // Si el juego NO terminó, animar y LUEGO avisar al servidor
         if (_gameAnimations && _gameAnimations.isEnabled) {
-            
             _gameAnimations.animatePlayerMove(
                 res.pos_inicial,
                 res.pos_final,
                 jugadorNombre,
-                () => { 
+                () => {
+                    // La animación SÓLO reproduce el sonido al terminar
                     playOptimisticSound(res.pos_final, _estadoJuego);
-                    
-                    if (_state.currentUser && jugadorNombre === _state.currentUser.username) {
-                        console.log("Soy yo (el que movió), avisando al servidor (paso_2_terminar_movimiento)...");
-                        _socket.emit('paso_2_terminar_movimiento', { id_sala: _idSala.value });
-                    } else {
-                        console.log("Otro jugador movió, yo no aviso al servidor.");
-                    }
                 } 
             );
-            
         } else {
-            // Si las animaciones están desactivadas:
+            // Si no hay animaciones, actualiza el tablero manualmente
             const jugador = _estadoJuego.jugadores.find(j => j.nombre === jugadorNombre);
-            if (jugador) {
-                jugador.posicion = res.pos_final;
-            }
-            if (typeof renderTablero === 'function') {
-                 renderTablero(_estadoJuego.tablero || {});
-            } else {
-                console.warn("renderTablero no está accesible en socketHandlers para actualización sin anim.");
-            }
+            if (jugador) jugador.posicion = res.pos_final;
+            if (typeof renderTablero === 'function') renderTablero(_estadoJuego.tablero || {});
             playOptimisticSound(res.pos_final, _estadoJuego);
-            
-            if (_state.currentUser && jugadorNombre === _state.currentUser.username) {
-                console.log("Animaciones desactivadas. Soy yo, avisando al servidor (paso_2_terminar_movimiento)...");
-                _socket.emit('paso_2_terminar_movimiento', { id_sala: _idSala.value });
-            } else {
-                 console.log("Animaciones desactivadas. Otro jugador movió, yo no aviso.");
-            }
+        }
+
+        if (_state.currentUser && jugadorNombre === _state.currentUser.username) {
+            console.log("Soy yo (el que movió), avisando al servidor (paso_2_terminar_movimiento) INMEDIATAMENTE...");
+            _socket.emit('paso_2_terminar_movimiento', { id_sala: _idSala.value });
         }
 
     } catch (error) {
