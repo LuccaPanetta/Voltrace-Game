@@ -148,14 +148,47 @@ def load_user(user_id):
 # --- Configurar SocketIO ---
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+# --- Inicialización de Sistemas ---
+achievement_system = AchievementSystem()
+social_system = SocialSystem()
+
 # --- Creación de Tablas de DB (si no existen) ---
 with app.app_context():
     db.create_all()
     print("Base de datos inicializada y tablas creadas (si no existían).")
-
-# --- Inicialización de Sistemas ---
-achievement_system = AchievementSystem()
-social_system = SocialSystem()
+    try:
+        from models import Achievement # Importar el modelo
+        
+        # Obtener todos los IDs de logros que YA están en la DB
+        existing_ids = {ach.internal_id for ach in Achievement.query.all()}
+        
+        # Iterar sobre la configuración en achievements.py
+        new_achievements_added = 0
+        for internal_id, config in achievement_system.achievements_config.items():
+            if internal_id not in existing_ids:
+                # Si el logro falta en la DB, crearlo
+                new_ach = Achievement(
+                    internal_id=internal_id,
+                    name=config.get('name', 'Logro Sin Nombre'),
+                    description=config.get('description', ''),
+                    icon=config.get('icon', '⭐'),
+                    xp_reward=config.get('xp_reward', 0)
+                )
+                db.session.add(new_ach)
+                new_achievements_added += 1
+                print(f"Sincronizando DB: Añadiendo logro '{internal_id}'...")
+        
+        # Guardar los cambios
+        if new_achievements_added > 0:
+            db.session.commit()
+            print(f"¡Sincronización de Logros completa! Se añadieron {new_achievements_added} nuevos logros a la DB.")
+        else:
+            print("Sincronización de Logros: La DB ya está actualizada.")
+            
+    except Exception as e:
+        db.session.rollback()
+        print(f"!!! ERROR al sincronizar la tabla de Logros: {e}")
+        traceback.print_exc()
 
 # --- Variables Globales del Servidor ---
 salas_activas = {}              # Diccionario para guardar las salas activas

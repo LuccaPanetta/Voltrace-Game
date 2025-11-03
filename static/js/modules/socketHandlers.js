@@ -187,66 +187,63 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
 
     _socket.on("paso_1_resultado_movimiento", (data) => {
         try {
-        if (btnLanzarDado) btnLanzarDado.disabled = true;
-        if (btnMostrarHab) btnMostrarHab.disabled = true;
-        const btnPerks = document.getElementById('btn-abrir-perks');
-        if (btnPerks) btnPerks.disabled = true;
+            if (btnLanzarDado) btnLanzarDado.disabled = true;
+            if (btnMostrarHab) btnMostrarHab.disabled = true;
+            const btnPerks = document.getElementById('btn-abrir-perks');
+            if (btnPerks) btnPerks.disabled = true;
 
-        const jugadorNombre = data.jugador;
-        const res = data.resultado;
-        const eventosPaso1 = res.eventos || [];
-        
-        renderEventos(eventosPaso1); 
-        
-        // Lógica del dado 
-        if (res.dado !== undefined) {
-            if (_gameAnimations && _gameAnimations.isEnabled) { 
-                _gameAnimations.animateDiceRoll(resultadoDadoDisplay, res.dado, () => { 
+            const jugadorNombre = data.jugador;
+            const res = data.resultado;
+            const eventosPaso1 = res.eventos || [];
+            
+            renderEventos(eventosPaso1); 
+            
+            // Lógica del dado 
+            if (res.dado !== undefined) {
+                if (_gameAnimations && _gameAnimations.isEnabled) { 
+                    _gameAnimations.animateDiceRoll(resultadoDadoDisplay, res.dado, () => { 
+                        if (resultadoDadoDisplay) resultadoDadoDisplay.textContent = `🎲 ${res.dado}`;
+                    });
+                } else {
                     if (resultadoDadoDisplay) resultadoDadoDisplay.textContent = `🎲 ${res.dado}`;
-                });
+                }
             } else {
-                if (resultadoDadoDisplay) resultadoDadoDisplay.textContent = `🎲 ${res.dado}`;
+                if (resultadoDadoDisplay) resultadoDadoDisplay.textContent = ""; 
             }
-        } else {
-            if (resultadoDadoDisplay) resultadoDadoDisplay.textContent = ""; 
-        }
-        
-        if (res.meta_alcanzada) {
-            console.log("Animación Paso 1: Meta alcanzada. No se envía Paso 2.");
-            if (_gameAnimations && _gameAnimations.isEnabled) { 
-                 _gameAnimations.animatePlayerMove(res.pos_inicial, res.pos_final, jugadorNombre, () => {});
+            
+            if (res.meta_alcanzada) {
+                console.log("Animación Paso 1: Meta alcanzada. No se envía Paso 2.");
+                if (_gameAnimations && _gameAnimations.isEnabled) { 
+                    _gameAnimations.animatePlayerMove(res.pos_inicial, res.pos_final, jugadorNombre, () => {});
+                }
+                return; 
             }
-            return; 
-        }
 
-        if (_gameAnimations && _gameAnimations.isEnabled) {
-            _gameAnimations.animatePlayerMove(
-                res.pos_inicial,
-                res.pos_final,
-                jugadorNombre,
-                () => {
-                    // La animación SÓLO reproduce el sonido al terminar
-                    playOptimisticSound(res.pos_final, _estadoJuego);
-                } 
-            );
-        } else {
-            // Si no hay animaciones, actualiza el tablero manualmente
-            const jugador = _estadoJuego.jugadores.find(j => j.nombre === jugadorNombre);
-            if (jugador) jugador.posicion = res.pos_final;
-            if (typeof renderTablero === 'function') renderTablero(_estadoJuego.tablero || {});
-            playOptimisticSound(res.pos_final, _estadoJuego);
-        }
+            if (_gameAnimations && _gameAnimations.isEnabled) {
+                _gameAnimations.animatePlayerMove(
+                    res.pos_inicial,
+                    res.pos_final,
+                    jugadorNombre,
+                    () => {
+                        // La animación SÓLO reproduce el sonido al terminar
+                        playOptimisticSound(res.pos_final, _estadoJuego);
+                    } 
+                );
+            } else {  
+                // Si no hay animaciones, actualiza el tablero manualmente
+                playOptimisticSound(res.pos_final, _estadoJuego);
+            }
 
-        if (_state.currentUser && jugadorNombre === _state.currentUser.username) {
-            console.log("Soy yo (el que movió), avisando al servidor (paso_2_terminar_movimiento) INMEDIATAMENTE...");
-            _socket.emit('paso_2_terminar_movimiento', { id_sala: _idSala.value });
-        }
+            if (_state.currentUser && jugadorNombre === _state.currentUser.username) {
+                console.log("Soy yo (el que movió), avisando al servidor (paso_2_terminar_movimiento) INMEDIATAMENTE...");
+                _socket.emit('paso_2_terminar_movimiento', { id_sala: _idSala.value });
+            }
 
-    } catch (error) {
-        console.error("!!! ERROR DENTRO DEL LISTENER 'paso_1_resultado_movimiento':", error);
-        agregarAlLog(`Error del cliente: ${error.message}`);
-    }
-});
+        } catch (error) {
+            console.error("!!! ERROR DENTRO DEL LISTENER 'paso_1_resultado_movimiento':", error);
+            agregarAlLog(`Error del cliente: ${error.message}`);
+        }
+    });
 
     _socket.on("paso_2_resultado_casilla", (data) => {
         try {
