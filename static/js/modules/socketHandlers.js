@@ -234,11 +234,10 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
                 playOptimisticSound(res.pos_final, _estadoJuego);
             }
 
-            const jugadorDelTurno = _estadoJuego.turno_actual;
-            if (jugadorDelTurno === _state.currentUser.username) {
+            if (jugadorNombre === _state.currentUser.username) {
                 _socket.emit('paso_2_terminar_movimiento', { 
                     id_sala: _idSala.value,
-                    jugador_movido: jugadorNombre
+                    jugador_que_termino: jugadorNombre
                 });
             }
 

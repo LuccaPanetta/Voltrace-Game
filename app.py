@@ -867,17 +867,30 @@ def terminar_movimiento(data):
             emit('error', {'mensaje': 'El juego no está activo (Paso 2)'})
             return
 
-        # Obtenemos el jugador del que AÚN es el turno (porque no ha avanzado)
+        # Obtener el nombre del jugador que terminó (enviado por el cliente)
+        nombre_jugador_que_termino = data.get('jugador_que_termino')
+        
+        # Intentar obtener el jugador actual (puede ser None si el juego terminó)
         jugador_actual_obj = sala.juego.obtener_jugador_actual()
-        if not jugador_actual_obj:
-            print("--- ERROR PASO 2: No se encontró jugador actual.")
+        
+        # Determinar el nombre del jugador a procesar
+        nombre_jugador_a_procesar = None
+        if jugador_actual_obj:
+            # Caso normal: El juego no ha terminado, usamos el turno del servidor
+            nombre_jugador_a_procesar = jugador_actual_obj.get_nombre()
+        elif nombre_jugador_que_termino:
+            nombre_jugador_a_procesar = nombre_jugador_que_termino
+        
+        # Fallar si AÚN no lo encontramos
+        if not nombre_jugador_a_procesar:
+            print("--- ERROR PASO 2: No se pudo determinar el jugador (ni por servidor ni por cliente).")
             emit('error', {'mensaje': 'Error interno: Jugador no encontrado (Paso 2)'})
             return
             
-        nombre_jugador_actual = jugador_actual_obj.get_nombre()
-        print(f"Procesando casilla para: {nombre_jugador_actual}")
+        print(f"Procesando casilla para: {nombre_jugador_a_procesar}")
 
-        resultado = sala.juego.paso_2_procesar_casilla_y_avanzar(nombre_jugador_actual)
+        # Usar 'nombre_jugador_a_procesar'
+        resultado = sala.juego.paso_2_procesar_casilla_y_avanzar(nombre_jugador_a_procesar)
         
         if sala.juego.ha_terminado():
             print(f"--- JUEGO TERMINADO (PASO 2) --- Sala: {id_sala}")
@@ -1007,7 +1020,7 @@ def usar_habilidad(data):
                 unlocked_achievements_list = achievement_system.check_achievement(username, 'ability_used')
                 if unlocked_achievements_list: 
                     emit('achievements_unlocked', {
-                        'achievements': unlocked_achievements_list 
+                        'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_achievements_list]
                     }, to=sid)
 
             # Preparar estado actualizado del juego (solo para habilidades no-optimistas)
@@ -1030,7 +1043,8 @@ def usar_habilidad(data):
                     'resultado': {
                         **resultado['resultado_movimiento'],
                         'eventos': resultado.get('eventos', [])
-                    }
+                    },
+                    'habilidad_usada': resultado.get('habilidad') 
                 }, room=id_sala)
             
             # CASO 2: Habilidad de Movimiento Doble (Intercambio Forzado)
@@ -1041,8 +1055,9 @@ def usar_habilidad(data):
                     'jugador': nombre_jugador_emitente,
                     'resultado': {
                         **resultado['resultado_movimiento_jugador'],
-                        'eventos': resultado.get('eventos', [])
-                    }
+                        'eventos': resultado.get('eventos', []) 
+                    },
+                    'habilidad_usada': resultado.get('habilidad')
                 }, room=id_sala)
                 
                 # Emitir para el jugador objetivo
@@ -1051,11 +1066,43 @@ def usar_habilidad(data):
                     'jugador': mov_obj['jugador'],
                     'resultado': {
                         **mov_obj,
-                        'eventos': [] # El log principal ya salió
-                    }
+                        'eventos': [] # Sin log duplicado
+                    },
+                    'habilidad_usada': None # Sin cooldown para el objetivo
                 }, room=id_sala)
 
-            # CASO 3: Habilidad Normal (No-movimiento o ya procesada como Retroceso)
+            # CASO 3: Habilidad de Movimiento de Otro 
+            elif resultado.get('es_movimiento_otro'):
+                print("--- Habilidad de Movimiento de Otro (Paso 1) detectada. Emitiendo 'paso_1'.")
+                mov_obj = resultado['resultado_movimiento']
+                socketio.emit('paso_1_resultado_movimiento', {
+                    'jugador': mov_obj['jugador_movido'], # El jugador objetivo es el que se mueve
+                    'resultado': {
+                        **mov_obj,
+                        'eventos': resultado.get('eventos', []) 
+                    },
+                    'habilidad_usada': resultado.get('habilidad') 
+                }, room=id_sala)
+
+            # CASO 4: Habilidad de Movimiento Múltiple (Caos)
+            elif resultado.get('es_movimiento_multiple'):
+                print("--- Habilidad de Movimiento Múltiple (Paso 1) detectada. Emitiendo 'paso_1' para todos.")
+                
+                eventos_principales = resultado.get('eventos', [])
+                
+                for i, mov in enumerate(resultado.get('movimientos', [])):
+                    eventos_a_enviar = eventos_principales if i == 0 else []
+                    
+                    socketio.emit('paso_1_resultado_movimiento', {
+                        'jugador': mov['jugador'],
+                        'resultado': {
+                            **mov,
+                            'eventos': eventos_a_enviar
+                        },
+                        'habilidad_usada': resultado.get('habilidad') 
+                    }, room=id_sala)
+
+            # CASO 5: Habilidad Normal (No-movimiento)
             else:
                 print("--- Habilidad estándar detectada. Emitiendo 'habilidad_usada' (Paso Único).")
                 if resultado.get('habilidad', {}).get('nombre') == 'Invisibilidad':

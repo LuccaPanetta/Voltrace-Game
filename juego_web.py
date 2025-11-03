@@ -858,7 +858,7 @@ class JuegoOcaWeb:
         if indice_habilidad < 1 or indice_habilidad > len(jugador.habilidades):
             return {"exito": False, "mensaje": "Índice de habilidad inválido"}
 
-        habilidad = jugador.habilidades[indice_habilidad - 1] # Objeto base de la habilidad
+        habilidad = jugador.habilidades[indice_habilidad - 1] 
 
         # Leer el cooldown ACTUAL desde el DICCIONARIO DEL JUGADOR, no del objeto habilidad
         cooldown_actual = jugador.habilidades_cooldown.get(habilidad.nombre, 0)
@@ -902,13 +902,25 @@ class JuegoOcaWeb:
         # 3. Lógica de Cierre 
         if exito:
             jugador.habilidades_usadas_en_partida += 1
-            # Aplicar Cooldown y marcar habilidad como usada en el turno
+            
+            es_accion_de_turno = resultado_logica.get('es_movimiento') or \
+                                 resultado_logica.get('es_movimiento_doble') or \
+                                 resultado_logica.get('es_movimiento_otro') or \
+                                 resultado_logica.get('es_movimiento_multiple')
+            
+            if es_accion_de_turno:
+                jugador.dado_lanzado_este_turno = True 
+                jugador.habilidad_usada_este_turno = False # No contamos como habilidad Y dado
+            else:
+                # Es una habilidad de "efecto" (Escudo, Bomba) que no consume la acción
+                jugador.habilidad_usada_este_turno = True
+
+            # Aplicar Cooldown
             if hasattr(jugador, 'habilidades_cooldown'):
                 # ¡Llamar a la función del jugador que aplica los perks!
                 tiene_perk_enfriamiento = "enfriamiento_rapido" in jugador.perks_activos
                 jugador.poner_en_cooldown(habilidad, tiene_perk_enfriamiento)
-            jugador.habilidad_usada_este_turno = True
-
+            
             # PM ganados
             pm_ganados_base = 1
             pm_bonus_perk = 0
@@ -920,10 +932,8 @@ class JuegoOcaWeb:
             jugador.ganar_pm(pm_total_ganados) # Gana el total
 
             if pm_bonus_perk > 0:
-                # Log específico para el perk
                 self.eventos_turno.append(f"✨ +{pm_bonus_perk} PM extra (Maestría de Habilidad)")
 
-            # Añadir eventos de la habilidad al log principal
             self.eventos_turno.extend(eventos_habilidad)
 
             # Preparar retorno 
@@ -941,18 +951,23 @@ class JuegoOcaWeb:
             }
 
             # Propagar los flags especiales si existen en el resultado_logica
-            if resultado_logica.get('es_movimiento'):
-                respuesta['es_movimiento'] = True
-                respuesta['resultado_movimiento'] = resultado_logica.get('resultado_movimiento')
-            
-            elif resultado_logica.get('es_movimiento_doble'):
-                respuesta['es_movimiento_doble'] = True
-                respuesta['resultado_movimiento_jugador'] = resultado_logica.get('resultado_movimiento_jugador')
-                respuesta['resultado_movimiento_objetivo'] = resultado_logica.get('resultado_movimiento_objetivo')
-            
-            elif resultado_logica.get('es_movimiento_otro'):
-                respuesta['es_movimiento_otro'] = True
-                respuesta['resultado_movimiento'] = resultado_logica.get('resultado_movimiento')
+            if es_accion_de_turno: # Solo propagar si es una acción de turno
+                if resultado_logica.get('es_movimiento'):
+                    respuesta['es_movimiento'] = True
+                    respuesta['resultado_movimiento'] = resultado_logica.get('resultado_movimiento')
+                
+                elif resultado_logica.get('es_movimiento_doble'):
+                    respuesta['es_movimiento_doble'] = True
+                    respuesta['resultado_movimiento_jugador'] = resultado_logica.get('resultado_movimiento_jugador')
+                    respuesta['resultado_movimiento_objetivo'] = resultado_logica.get('resultado_movimiento_objetivo')
+                
+                elif resultado_logica.get('es_movimiento_otro'):
+                    respuesta['es_movimiento_otro'] = True
+                    respuesta['resultado_movimiento'] = resultado_logica.get('resultado_movimiento')
+
+                elif resultado_logica.get('es_movimiento_multiple'): # <--- Añadido Caos
+                    respuesta['es_movimiento_multiple'] = True
+                    respuesta['movimientos'] = resultado_logica.get('movimientos')
 
             return respuesta
 
@@ -1680,6 +1695,7 @@ class JuegoOcaWeb:
 
     def _hab_caos(self, jugador, habilidad, objetivo):
         eventos = ["🎪 Caos: ¡Todos los jugadores se mueven aleatoriamente!"]
+        movimientos_planificados = []
         for j in self.jugadores:
             if j.esta_activo():
                 
@@ -1700,6 +1716,14 @@ class JuegoOcaWeb:
                 # Aplicar el movimiento final
                 pos_actual = j.get_posicion()
                 nueva_pos_calc = min(pos_actual + mov_final, self.posicion_meta)
+
+                movimientos_planificados.append({
+                    "jugador": j.get_nombre(),
+                    "pos_inicial": pos_actual,
+                    "pos_final": nueva_pos_calc,
+                    "meta_alcanzada": nueva_pos_calc >= self.posicion_meta,
+                    "dado": mov_final 
+                })
                 
                 if nueva_pos_calc != pos_actual:
                     j.teletransportar_a(nueva_pos_calc)
@@ -1711,7 +1735,12 @@ class JuegoOcaWeb:
                 else:
                     eventos.append(f"🌀 {j.get_nombre()} intentó moverse {mov_final} pero no avanzó.")
                     
-        return {"exito": True, "eventos": eventos}
+        return {
+            "exito": True, 
+            "eventos": eventos,
+            "es_movimiento_multiple": True,
+            "movimientos": movimientos_planificados
+        }
 
     # ===================================================================
     # --- 6. LÓGICA DE FIN DE JUEGO Y ESTADO ---
