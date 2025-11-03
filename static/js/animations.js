@@ -99,7 +99,7 @@ export class AnimationSystem {
     document.body.appendChild(tempPiece);
 
     // Animar movimiento
-    tempPiece.style.transition = 'all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+    tempPiece.style.transition = 'all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
     tempPiece.style.left = `${toRect.left + toRect.width / 2 - 10}px`;
     tempPiece.style.top = `${toRect.top + toRect.height / 2 - 10}px`;
     
@@ -111,7 +111,7 @@ export class AnimationSystem {
     setTimeout(() => {
       tempPiece.remove();
       if (callback) callback();
-    }, 800);
+    }, 500);
   }
 
   // Efecto shake para cuando caes en trampa

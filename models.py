@@ -97,6 +97,10 @@ class User(db.Model, UserMixin):
     # --- Sistema de Logros ---
     unlocked_achievements_assoc = db.relationship('UserAchievement', back_populates='user')
 
+    __table_args__ = (
+        db.Index('idx_user_level_xp', 'level', 'xp'), 
+    )
+
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
@@ -184,6 +188,12 @@ class PrivateMessage(db.Model):
     message = db.Column(db.String(500))
     timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
     read = db.Column(db.Boolean, default=False, nullable=False)
+
+    __table_args__ = (
+        db.Index('idx_pm_conversation', 'sender_id', 'recipient_id', 'timestamp'), 
+        db.Index('idx_pm_conversation_rev', 'recipient_id', 'sender_id', 'timestamp'), 
+        db.Index('idx_pm_unread', 'recipient_id', 'read', 'sender_id'), 
+    )
 
 class Achievement(db.Model):
     __tablename__ = 'achievement'

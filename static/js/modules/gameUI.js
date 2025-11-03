@@ -86,6 +86,7 @@ export function initGameUI(socketRef, stateRef, idSalaRef, estadoJuegoRef, mapaC
 
 function handleLanzarDado() {
     if (!_idSala || !_idSala.value || btnLanzarDado?.disabled) return;
+    btnLanzarDado.disabled = true;
     playSound('Dice', 0.4);
 
     // Asumiendo que GameAnimations está disponible globalmente o importado

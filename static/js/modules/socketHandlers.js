@@ -187,6 +187,7 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
 
     _socket.on("paso_1_resultado_movimiento", (data) => {
         try {
+            // Deshabilitar botones mientras se anima el Paso 1
             if (btnLanzarDado) btnLanzarDado.disabled = true;
             if (btnMostrarHab) btnMostrarHab.disabled = true;
             const btnPerks = document.getElementById('btn-abrir-perks');
@@ -196,8 +197,8 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
             const res = data.resultado;
             const eventosPaso1 = res.eventos || [];
             
-            // Mostrar eventos 
-            renderEventos(eventosPaso1); // Borra log anterior y muestra solo eventos del dado
+            // Mostrar eventos del PASO 1 (Dado, Turbo, etc.)
+            renderEventos(eventosPaso1); 
             
             // Animar el dado
             const duracionAnimDado = 800;
@@ -209,57 +210,55 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
                 if (resultadoDadoDisplay) resultadoDadoDisplay.textContent = `🎲 ${res.dado}`;
             }
 
-            // Animar el movimiento del peón
-            // Esperamos que la animación del dado termine
-            setTimeout(() => {
-                // Si el juego terminó (llegó a la meta), no necesitamos avisar al servidor.
-                if (res.meta_alcanzada) {
-                    console.log("Animación Paso 1: Meta alcanzada. No se envía Paso 2.");
-                    // Animar el movimiento final a la meta
-                    if (_gameAnimations && _gameAnimations.isEnabled) { 
-                         _gameAnimations.animatePlayerMove( 
-                            res.pos_inicial, 
-                            res.pos_final,
-                            jugadorNombre, 
-                            () => {} // Callback vacío
-                         );
-                    }
-                    // El servidor ya envió (o enviará) 'juego_terminado'
-                    return; 
-                }
-
-                // Si el juego NO terminó, animar y LUEGO avisar al servidor
+            // NO esperamos a que termine el dado. Ejecutamos el movimiento EN PARALELO.
+            
+            // Si el juego terminó (llegó a la meta), solo animar y no avisar al servidor.
+            if (res.meta_alcanzada) {
+                console.log("Animación Paso 1: Meta alcanzada. No se envía Paso 2.");
                 if (_gameAnimations && _gameAnimations.isEnabled) { 
-                    
-                    // Llama a tu función de animación
-                    _gameAnimations.animatePlayerMove( 
-                        res.pos_inicial,
-                        res.pos_final,
-                        jugadorNombre,
-                        () => {
-                            // 4. Cuando la animación TERMINA, avisar al servidor
-                            console.log("Animación Paso 1 terminada. Avisando al servidor (paso_2_terminar_movimiento)...");
-                            _socket.emit('paso_2_terminar_movimiento', { id_sala: _idSala.value });
-                        }
-                    );
-                    
-                } else {
-                    // Si las animaciones están desactivadas:
-                    const jugador = _estadoJuego.jugadores.find(j => j.nombre === jugadorNombre);
-                    if (jugador) {
-                        jugador.posicion = res.pos_final;
-                    }
-                    // Re-renderizar el tablero con la nueva posición 
-                    if (typeof renderTablero === 'function') {
-                         renderTablero(_estadoJuego.tablero || {});
-                    } else {
-                        console.warn("renderTablero no está accesible en socketHandlers para actualización sin anim.");
-                    }
-                    
-                    console.log("Animaciones desactivadas. Avisando al servidor (paso_2_terminar_movimiento)...");
-                    _socket.emit('paso_2_terminar_movimiento', { id_sala: _idSala.value });
+                     _gameAnimations.animatePlayerMove(res.pos_inicial, res.pos_final, jugadorNombre, () => {});
                 }
-            }, duracionAnimDado); // Esperar a que termine la anim del dado
+                return; 
+            }
+
+            // Si el juego NO terminó, animar y LUEGO avisar al servidor
+            if (_gameAnimations && _gameAnimations.isEnabled) {
+                
+                _gameAnimations.animatePlayerMove(
+                    res.pos_inicial,
+                    res.pos_final,
+                    jugadorNombre,
+                    () => {
+                        playOptimisticSound(res.pos_final, _estadoJuego);
+                        // Cuando la animación TERMINA, avisar al servidor
+                        if (_state.currentUser && jugadorNombre === _state.currentUser.username) {
+                            console.log("Animaciones desactivadas. Soy yo, avisando al servidor (paso_2_terminar_movimiento)...");
+                            _socket.emit('paso_2_terminar_movimiento', { id_sala: _idSala.value });
+                        } else {
+                            console.log("Animaciones desactivadas. Otro jugador movió, yo no aviso.");
+                }
+                    }
+                );
+                
+            } else {
+                // Si las animaciones están desactivadas:
+                const jugador = _estadoJuego.jugadores.find(j => j.nombre === jugadorNombre);
+                if (jugador) {
+                    jugador.posicion = res.pos_final;
+                }
+                if (typeof renderTablero === 'function') {
+                     renderTablero(_estadoJuego.tablero || {});
+                } else {
+                    console.warn("renderTablero no está accesible en socketHandlers para actualización sin anim.");
+                }
+                playOptimisticSound(res.pos_final, _estadoJuego);
+                if (_state.currentUser && jugadorNombre === _state.currentUser.username) {
+                    console.log("Soy yo (el que movió), avisando al servidor (paso_2_terminar_movimiento)...");
+                    _socket.emit('paso_2_terminar_movimiento', { id_sala: _idSala.value });
+                } else {
+                    console.log("Otro jugador movió, yo no aviso al servidor.");
+                }
+            }
 
         } catch (error) {
             console.error("!!! ERROR DENTRO DEL LISTENER 'paso_1_resultado_movimiento':", error);
@@ -270,31 +269,24 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
     _socket.on("paso_2_resultado_casilla", (data) => {
         try {
             const eventosPaso2 = data.eventos || [];
-            
-            // Reproducir sonidos y efectos visuales 
+
+            // Reproducir EFECTOS VISUALES (shake) y sonidos de COLISIÓN
             eventosPaso2.forEach(evento => {
                 if (typeof evento !== 'string') return;
                 const lowerEvent = evento.toLowerCase();
                 if (lowerEvent.includes("trampa") || lowerEvent.includes("💀")) { 
-                    playSound('LandOnTrap', 0.2); 
-                    if(_gameAnimations) _gameAnimations.shakeBoard(); // <--- CORREGIDO
+                    if(_gameAnimations) _gameAnimations.shakeBoard(); 
                 }
                 else if (lowerEvent.includes("colisión") || lowerEvent.includes("💥")) { 
                     playSound('Collision', 0.2); 
-                    if(_gameAnimations) _gameAnimations.shakeBoard(); // <--- CORREGIDO
-                }
-                else if (lowerEvent.includes("tesoro") || lowerEvent.includes("💰") || lowerEvent.includes("💚 +")) { 
-                    playSound('LandOnTreasure', 0.2); 
-                }
-                else if (lowerEvent.includes("teletransporte") || lowerEvent.includes("portal") || lowerEvent.includes("🌀")) { 
-                    playSound('Teleport', 0.3); 
+                    if(_gameAnimations) _gameAnimations.shakeBoard(); 
                 }
             });
 
             // Actualizar TODA la UI con el estado final
             actualizarEstadoJuego(data.estado_juego);
-            
-            // Renderizar los eventos del PASO 2 
+
+            // Renderizar los eventos 
             eventosPaso2.forEach(agregarAlLog); 
 
         } catch (error) {
@@ -497,5 +489,36 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
                         setLoading, show, _screens);
     });
 
+
     console.log("Socket handlers configurados.");
-} // Fin de setupSocketHandlers
+} 
+// Fin de setupSocketHandlers
+/**
+ * Reproduce un sonido "optimista" basado en el contenido de la casilla
+ * ANTES de que el servidor confirme el efecto.
+ */
+function playOptimisticSound(posFinal, estadoJuego) {
+    if (!estadoJuego || !estadoJuego.tablero) return;
+
+    const casillaData = estadoJuego.tablero[posFinal];
+    if (!casillaData) return; // Casilla vacía
+
+    const tipoCasilla = casillaData.casilla_especial?.tipo;
+    const valorEnergia = casillaData.energia;
+
+    // Prioridad 1: Casillas Especiales
+    if (tipoCasilla === 'trampa') {
+        playSound('LandOnTrap', 0.2);
+    } else if (tipoCasilla === 'tesoro') {
+        playSound('LandOnTreasure', 0.2);
+    } else if (tipoCasilla === 'teletransporte' || tipoCasilla === 'intercambio' || tipoCasilla === 'retroceso_estrategico') {
+        playSound('Teleport', 0.3);
+    }
+    // Prioridad 2: Packs de Energía
+    else if (valorEnergia > 0) {
+        playSound('LandOnTreasure', 0.2); // Sonido positivo
+    } else if (valorEnergia < 0) {
+        playSound('LandOnTrap', 0.2); // Sonido negativo
+    }
+    // (No reproducir sonido si la casilla está vacía)
+}
