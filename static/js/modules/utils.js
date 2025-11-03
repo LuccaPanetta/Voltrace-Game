@@ -71,8 +71,8 @@ export function playSound(soundName, volume = 0.5) {
                 preloadSounds([
                     'ClickMouse', 'Dice', 'GameStart', 'OpenCloseModal', 
                     'LandOnTrap', 'LandOnTreasure', 'Collision', 'Teleport', 
-                    'MovementAbility', 'OffensiveAbility', 'DefensiveAbility', 
-                    'PerkActivate', 'GameWin', 'GameLost' 
+                    'MovementAbility', 'OffensiveAbility', 'DefensiveAbility',
+                    'GameWin', 'GameLost' 
                 ]);
             };
             interactionEvents.forEach(event => document.body.addEventListener(event, enableAudio, { once: true }));

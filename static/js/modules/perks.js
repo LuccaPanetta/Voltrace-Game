@@ -246,7 +246,7 @@ export function handlePerkActivated(data) {
     const notifContainer = document.getElementById('notificaciones');
 
     if (data.exito) {
-        playSound('PerkActivate', 0.4);
+        playSound('LandOnTreasure', 0.4);
         showNotification(data.mensaje || "Perk activado.", notifContainer, "success");
         if (modalPerksElement) modalPerksElement.style.display = "none"; // Cerrar modal
     } else {

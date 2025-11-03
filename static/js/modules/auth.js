@@ -207,22 +207,24 @@ async function handleLogout() {
 
 /** Llama a la API de login del servidor */
 async function loginAPI(email, password) {
-    const notifContainer = document.getElementById('notificaciones'); // Necesario por si hay error
+    const notifContainer = document.getElementById('notificaciones');
     try {
-        const response = await fetch("/register", {
+        const response = await fetch("/login", { 
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email, username, password }),
+            body: JSON.stringify({ email, password }),
         });
+        
         if (!response.ok) {
             const errorData = await response.json();
             return { success: false, message: errorData.message || `Error ${response.status}` };
         }
         return await response.json(); 
     } catch (error) {
-        console.error("Register API error:", error);
-        showNotification("Error de conexión al registrar.", notifContainer, "error");
-        return { success: false, message: "Error de conexión." }; // Devuelve objeto de error
+        // El log de error original estaba mal 
+        console.error("Login API error:", error); 
+        showNotification("Error de conexión al iniciar sesión.", notifContainer, "error");
+        return { success: false, message: "Error de conexión." };
     }
 }
 
