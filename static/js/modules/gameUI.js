@@ -239,117 +239,155 @@ function handleToggleGuia() {
 /** Renderiza el panel de estado de jugadores. */
 function updateJugadoresEstado(jugadores) {
     if (!jugadoresEstadoDisplay || !_mapaColores) return;
-    console.log("Renderizando jugadores con mapa:", _mapaColores.value);
-    jugadoresEstadoDisplay.innerHTML = "";
-    (jugadores || []).forEach((j) => {
-        const div = document.createElement("div");
-        div.className = "player-status-item";
-        div.style.cssText = "border-bottom: 1px solid #1f2937; padding: 8px 4px; margin-bottom: 5px;";
 
-        let efectosHtml = "";
-        if (j.efectos_activos?.length > 0) {
-            efectosHtml = '<span class="efectos-icons" style="margin-left: 8px; font-size: 0.9em; vertical-align: middle;">';
-            j.efectos_activos.forEach(efecto => {
-                let icono = "?";
-                switch (efecto.tipo) {
-                    case "pausa": icono = "⏸️"; break;
-                    case "escudo": icono = "🛡️"; break;
-                    case "turbo": icono = "⚡"; break;
-                    case "multiplicador": icono = "✨"; break;
-                    case "invisible": icono = "👻"; break;
-                    case "barrera": icono = "🔮"; break;
-                    case "doble_dado": icono = "🔄"; break; // Asumiendo que ahora se llama así
-                    case "bloqueo_energia": icono = "🚫"; break; // Añadido
-                    case "fase_activa": icono = "💨"; break; // Añadido
-                    case "sobrecarga_pendiente": icono = "🎲"; break; // Añadido
-                }
-                const duracion = efecto.turnos > 1 ? ` (${efecto.turnos}t)` : "";
-                const tooltip = `${efecto.tipo.charAt(0).toUpperCase() + efecto.tipo.slice(1)}${duracion}`;
-                efectosHtml += `<span title="${tooltip}" style="margin-right: 3px;">${icono}</span>`;
-            });
-            efectosHtml += "</span>";
+    const jugadoresViejos = _estadoJuego.jugadores || [];
+    const mapaColores = _mapaColores.value || {};
+    
+    // Crear un mapa del estado viejo para comparaciones rápidas
+    const viejosMap = new Map(jugadoresViejos.map(j => [j.nombre, j]));
+    
+    (nuevosJugadores || []).forEach((j) => {
+        const viejoJ = viejosMap.get(j.nombre);
+        const jugadorDOMId = `status-${j.nombre}`;
+        const jugadorDOM = document.getElementById(jugadorDOMId);
+        
+        // Comparar: Si el jugador no existía o sus datos cambiaron...
+        if (!viejoJ || !jugadorDOM || JSON.stringify(j) !== JSON.stringify(viejoJ)) {
+            let efectosHtml = "";
+            if (j.efectos_activos?.length > 0) {
+                efectosHtml = '<span class="efectos-icons" style="margin-left: 8px; font-size: 0.9em; vertical-align: middle;">';
+                j.efectos_activos.forEach(efecto => {
+                    let icono = "?";
+                    switch (efecto.tipo) {
+                        case "pausa": icono = "⏸️"; break;
+                        case "escudo": icono = "🛡️"; break;
+                        case "turbo": icono = "⚡"; break;
+                        case "multiplicador": icono = "✨"; break;
+                        case "invisible": icono = "👻"; break;
+                        case "barrera": icono = "🔮"; break;
+                        case "doble_dado": icono = "🔄"; break;
+                        case "bloqueo_energia": icono = "🚫"; break;
+                        case "fase_activa": icono = "💨"; break;
+                        case "sobrecarga_pendiente": icono = "🎲"; break;
+                    }
+                    const duracion = efecto.turnos > 1 ? ` (${efecto.turnos}t)` : "";
+                    const tooltip = `${efecto.tipo.charAt(0).toUpperCase() + efecto.tipo.slice(1)}${duracion}`;
+                    efectosHtml += `<span title="${tooltip}" style="margin-right: 3px;">${icono}</span>`;
+                });
+                efectosHtml += "</span>";
+            }
+
+            const color = mapaColores[j.nombre] || "#888";
+            const colorSwatch = `<span class="color-swatch" style="background-color: ${color};"></span>`;
+            
+            const nuevoHTML = `
+              <div style="display: flex; align-items: center; margin-bottom: 2px;">
+                ${colorSwatch}
+                <strong>${escapeHTML(j.nombre)}</strong>
+                ${efectosHtml}
+              </div>
+              <div style="font-size: 0.9em;">
+                <span style="color: var(--muted);">(Pos: ${j.posicion})</span>
+                <span style="margin-left: 10px; color: ${j.puntaje > 200 ? 'var(--success)' : j.puntaje > 0 ? 'var(--warning)' : 'var(--danger)'};">E: ${j.puntaje}</span>
+                <span style="margin-left: 10px; color: #f59e0b;">PM: ${j.pm || 0}</span>
+                ${j.activo ? '' : '<span style="color: var(--danger); font-weight: bold; margin-left: 10px;">[X]</span>'}
+              </div>`;
+              
+            if (jugadorDOM) {
+                // Si el jugador ya existe en el DOM, solo actualiza su contenido
+                jugadorDOM.innerHTML = nuevoHTML;
+            } else {
+                // Si es un jugador nuevo (improbable en mitad de partida, pero seguro)
+                const div = document.createElement("div");
+                div.id = jugadorDOMId;
+                div.className = "player-status-item";
+                div.style.cssText = "border-bottom: 1px solid #1f2937; padding: 8px 4px; margin-bottom: 5px;";
+                div.innerHTML = nuevoHTML;
+                jugadoresEstadoDisplay.appendChild(div);
+            }
         }
-
-        const color = _mapaColores.value[j.nombre] || "#888";
-        const colorSwatch = `<span class="color-swatch" style="background-color: ${color};"></span>`;
-
-        div.innerHTML = `
-          <div style="display: flex; align-items: center; margin-bottom: 2px;">
-            ${colorSwatch}
-            <strong>${escapeHTML(j.nombre)}</strong>
-            ${efectosHtml}
-          </div>
-          <div style="font-size: 0.9em;">
-            <span style="color: var(--muted);">(Pos: ${j.posicion})</span>
-            <span style="margin-left: 10px; color: ${j.puntaje > 200 ? 'var(--success)' : j.puntaje > 0 ? 'var(--warning)' : 'var(--danger)'};">E: ${j.puntaje}</span>
-            <span style="margin-left: 10px; color: #f59e0b;">PM: ${j.pm || 0}</span>
-            ${j.activo ? '' : '<span style="color: var(--danger); font-weight: bold; margin-left: 10px;">[X]</span>'}
-          </div>`;
-        jugadoresEstadoDisplay.appendChild(div);
+        // Si no cambió, no hacemos NADA.
     });
 }
 
 /** Renderiza el tablero de juego. */
 function updateTablero(tableroData) {
     if (!tableroElement || !_mapaColores || !_state || !_state.currentUser) {
-        console.warn("RenderTablero abortado: Falta el elemento DOM del tablero o la referencia de estado (_state.currentUser).");
+        console.warn("updateTablero abortado: Faltan dependencias.");
         return; 
     }
     
+    const tableroViejo = _estadoJuego.tablero || {};
     const mapaColores = _mapaColores.value || {};
-    
-    console.log("Renderizando tablero con mapa:", mapaColores);
-    tableroElement.innerHTML = "";
 
+    // Crear el tablero inicial si está vacío
+    if (tableroElement.children.length === 0) {
+        console.log("Creando tablero inicial...");
+        for (let i = 1; i <= 75; i++) {
+            const cell = document.createElement("div");
+            cell.className = "casilla";
+            cell.setAttribute("data-position", i);
+            cell.innerHTML = `<div><small>#${i}</small></div><div class="c-esp"></div><div class="c-ene"></div><div class="fichas-container"></div>`;
+            tableroElement.appendChild(cell);
+        }
+    }
+
+    // Iterar sobre las casillas y actualizar solo las que cambiaron
     for (let pos = 1; pos <= 75; pos++) {
-        const cell = document.createElement("div");
-        cell.className = "casilla";
-        cell.setAttribute("data-position", pos);
+        const dataNueva = nuevoTablero[pos] || { jugadores: [], casilla_especial: null, energia: null };
+        const dataVieja = tableroViejo[pos] || { jugadores: [], casilla_especial: null, energia: null };
 
-        const titulo = document.createElement("div");
-        titulo.innerHTML = `<small>#${pos}</small>`;
-        const esp = document.createElement("div");
-        const ene = document.createElement("div");
+        // Comparar
+        if (JSON.stringify(dataNueva) === JSON.stringify(dataVieja)) {
+            continue; // ¡Si la casilla no cambió, no hacer NADA!
+        }
 
-        const data = tableroData[pos] || { jugadores: [], casilla_especial: null, energia: null };
+        // Si cambió, encontrar el DOM de esa casilla y actualizarla
+        const cell = tableroElement.querySelector(`[data-position="${pos}"]`);
+        if (!cell) continue; 
+        
+        // Referencias a los elementos internos de la casilla
+        const fichasContainer = cell.querySelector(".fichas-container");
+        const esp = cell.querySelector(".c-esp");
+        const ene = cell.querySelector(".c-ene");
 
-        // Fichas
-        if (data.jugadores?.length > 0) {
-            const contenedorFichas = document.createElement("div");
-            contenedorFichas.className = "fichas-container";
-            data.jugadores.forEach((j) => {
-                if (j?.nombre) {
-                    const ficha = document.createElement("div");
-                    ficha.className = "ficha-jugador";
-                    ficha.textContent = escapeHTML(j.nombre[0].toUpperCase());
-                    
-                    ficha.style.backgroundColor = mapaColores[j.nombre] || "#888";
-                    
-                    if (_state.currentUser && j.nombre === _state.currentUser.username) {
-                        ficha.classList.add("mi-ficha");
+        // Actualizar Fichas
+        if (fichasContainer) {
+            fichasContainer.innerHTML = ""; // Limpiar solo las fichas
+            if (dataNueva.jugadores?.length > 0) {
+                dataNueva.jugadores.forEach((j) => {
+                    if (j?.nombre) {
+                        const ficha = document.createElement("div");
+                        ficha.className = "ficha-jugador";
+                        ficha.textContent = escapeHTML(j.nombre[0].toUpperCase());
+                        ficha.style.backgroundColor = mapaColores[j.nombre] || "#888";
+                        if (_state.currentUser && j.nombre === _state.currentUser.username) {
+                            ficha.classList.add("mi-ficha");
+                        }
+                        fichasContainer.appendChild(ficha);
                     }
-                    contenedorFichas.appendChild(ficha);
-                }
-            });
-            cell.appendChild(contenedorFichas);
+                });
+            }
+        }
+        
+        // Actualizar Casilla Especial
+        if (esp) {
+            if (dataNueva.casilla_especial) {
+                esp.textContent = dataNueva.casilla_especial.simbolo;
+                if (window.GameAnimations) window.GameAnimations.highlightSpecialTile(cell);
+            } else {
+                esp.textContent = "";
+            }
         }
 
-        // Casilla especial y Energía
-        if (data.casilla_especial) {
-            esp.className = "c-esp";
-            esp.textContent = data.casilla_especial.simbolo;
-            // Asumiendo que GameAnimations está global o importado
-            if (window.GameAnimations) window.GameAnimations.highlightSpecialTile(cell);
+        // Actualizar Energía
+        if (ene) {
+            if (typeof dataNueva.energia === "number" && dataNueva.energia !== 0) {
+                ene.textContent = dataNueva.energia > 0 ? `+${dataNueva.energia}` : `${dataNueva.energia}`;
+            } else {
+                ene.textContent = "";
+            }
         }
-        if (typeof data.energia === "number" && data.energia !== 0) {
-            ene.className = "c-ene";
-            ene.textContent = data.energia > 0 ? `+${data.energia}` : `${data.energia}`;
-        }
-
-        cell.appendChild(titulo);
-        cell.appendChild(esp);
-        cell.appendChild(ene);
-        tableroElement.appendChild(cell);
     }
 }
 
@@ -402,7 +440,7 @@ export function appendGameChatMessage(data) {
 
 /** Función principal que actualiza toda la UI del juego. */
 export function actualizarEstadoJuego(estado) {
-    // Validar que todo lo necesario exista
+    // 1. Validar que todo lo necesario exista
     if (!jugadoresEstadoDisplay || !tableroElement || !rondaActualDisplay || !turnoJugadorDisplay || !btnLanzarDado || !btnMostrarHab || 
         !_state || !_state.currentUser || !_state.currentUser.username || 
         !estado
