@@ -940,12 +940,15 @@ def terminar_movimiento(data):
                                 'total_rounds': sala.juego.ronda,
                                 'player_count': len(sala.jugadores),
                                 'colisiones': getattr(jugador_juego, 'colisiones_causadas', 0),
-                                'casillas_visitadas': len(getattr(jugador_juego, 'tipos_casillas_visitadas', set())),
+                                'special_tiles_activated': getattr(jugador_juego, 'tipos_casillas_visitadas', set()),
                                 'abilities_used': getattr(jugador_juego, 'habilidades_usadas_en_partida', 0),
                                 'treasures_this_game': getattr(jugador_juego, 'tesoros_recogidos', 0),
                                 'completed_without_traps': getattr(jugador_juego, 'trampas_evitadas', True),
                                 'precision_laser': getattr(jugador_juego, 'dado_perfecto_usado', 0),
-                                'messages_this_game': getattr(jugador_juego, 'game_messages_sent_this_match', 0)
+                                'messages_this_game': getattr(jugador_juego, 'game_messages_sent_this_match', 0),
+                                'only_active_player': sala.juego.ha_terminado() and len([j for j in sala.juego.jugadores if j.esta_activo()]) == 1,
+                                'never_eliminated': jugador_juego.esta_activo(),
+                                'energy_packs_collected': getattr(jugador_juego, 'energy_packs_collected', 0)
                             }
                             unlocked_achievements = achievement_system.check_achievement(username, 'game_finished', event_data)
                             if unlocked_achievements:
@@ -1429,10 +1432,10 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
     if jugador_data and jugador_data.get('nombre') == username_desconectado:
         print(f"Confirmado. Eliminando a {username_desconectado} de la sala {id_sala}.")
 
-        # 1. Remover jugador de la estructura de la sala
+        # Remover jugador de la estructura de la sala
         sala.remover_jugador(sid_original)
 
-        # 2. Notificar a los demás
+        # Notificar a los demás
         socketio.emit('jugador_desconectado', {
                 'jugador_nombre': username_desconectado,
                 'jugadores': len(sala.jugadores),
@@ -1441,7 +1444,7 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
                 'mensaje_desconexion': f"🔌 {username_desconectado} se desconectó."
             }, room=id_sala)
 
-        # 3. Marcarlo como inactivo en la LÓGICA DEL JUEGO 
+        # Marcarlo como inactivo en la LÓGICA DEL JUEGO 
         if sala.estado == 'jugando' and sala.juego:
             print(f"Marcando a {username_desconectado} como inactivo en la lógica del juego...")
 
@@ -1451,7 +1454,7 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
             
             sala.juego.marcar_jugador_inactivo(username_desconectado)
 
-            # 4. Comprobar si el juego termina (ESCENARIO 1: Queda 1 jugador)
+            # Comprobar si el juego termina (ESCENARIO 1: Queda 1 jugador)
             if sala.juego.ha_terminado():
                 print(f"--- JUEGO TERMINADO POR DESCONEXIÓN --- Sala: {id_sala}")
                 sala.estado = 'terminado'
@@ -1465,36 +1468,49 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
                     'estadisticas_finales': stats_finales_dict.get('lista_final'),
                     'mensaje': f"🔌 {username_desconectado} se desconectó. ¡Juego terminado!"
                 }, room=id_sala)
+                
+                return 
 
-            # 5. Si el juego continúa
+            # Si el juego continúa
             else:
                 print(f"El juego continúa. Verificando si el turno debe avanzar...")
 
-                # Si era el turno del jugador que se fue, avanzamos el turno
                 if turno_antes_de_desconexion == username_desconectado:
-                    print(f"¡Era el turno de {username_desconectado}! Avanzando al siguiente jugador activo...")
-                    sala.juego._avanzar_turno() # Forzamos el avance del turno
+                    print(f"¡Era el turno de {username_desconectado}! Forzando Paso 2 (efectos de casilla)...")
+                    try:
+                        # Ejecutar la lógica de la casilla donde aterrizó
+                        # Esta función YA llama a _avanzar_turno() internamente.
+                        sala.juego.paso_2_procesar_casilla_y_avanzar(username_desconectado)
+                    except Exception as e:
+                        print(f"!!! ERROR al forzar Paso 2 en desconexión: {e}")
+                        traceback.print_exc()
+                        if not sala.juego.ha_terminado():
+                             sala.juego._avanzar_turno()
                 
-                # Ahora sí, obtenemos el estado con el turno ya (potencialmente) actualizado
+                # Ahora, el estado del juego (incluido el turno) está actualizado.
                 colores_map = getattr(sala, 'colores_map', {})
                 nuevo_turno_actual = sala.juego.obtener_turno_actual() # Obtener el nuevo turno
                 
                 estado_juego_actualizado = {
                     'jugadores': sala.juego.obtener_estado_jugadores(),
                     'tablero': sala.juego.obtener_estado_tablero(),
-                    'turno_actual': nuevo_turno_actual, # <-- ¡Esto ahora es correcto!
+                    'turno_actual': nuevo_turno_actual, 
                     'ronda': sala.juego.ronda,
                     'estado': sala.estado,
                     'colores_jugadores': colores_map
                 }
                 
                 # Emitir el estado actualizado a los que quedan
+                eventos_recientes = [f"🔌 {username_desconectado} se desconectó."]
+                if nuevo_turno_actual:
+                     eventos_recientes.append(f"Es el turno de {nuevo_turno_actual}.")
+
                 socketio.emit('estado_juego_actualizado', {
                     'estado_juego': estado_juego_actualizado,
-                    'eventos_recientes': [f"🔌 {username_desconectado} se desconectó.", f"Es el turno de {nuevo_turno_actual}."]
+                    'eventos_recientes': eventos_recientes
                 }, room=id_sala)
 
-        # 6. Si la sala queda vacía, eliminarla (Esta lógica tuya ya es correcta)
+        # Si la sala queda vacía, eliminarla (Esta lógica tuya ya es correcta)
         if len(sala.jugadores) == 0:
             print(f"Sala {id_sala} vacía tras desconexión. Eliminando...")
             if id_sala in salas_activas:
@@ -1572,23 +1588,31 @@ def _crear_nueva_sala_revancha(id_sala_original):
     nueva_sala = salas_activas[nueva_id_sala]
 
     jugadores_a_unir = []
+    jugadores_rechazados = [] # Para notificar a los que están ocupados
+
     # Filtrar solo a los participantes originales que solicitaron revancha
     for p_data in info_revancha['participantes']:
         p_username = p_data['nombre']
         if p_username in info_revancha['solicitudes']:
-            # Encontrar el SID ACTUAL de este jugador (puede haber cambiado)
             p_sid_actual = social_system.presence_data.get(p_username, {}).get('extra_data', {}).get('sid')
-            if p_sid_actual:
+            
+            # Verificar el estado actual del jugador ANTES de unirlo
+            estado_actual = social_system._get_user_status(p_username)
+            
+            # Solo unir si tiene SID y está 'online' (no en otra sala o juego)
+            if p_sid_actual and estado_actual == 'online':
                 jugadores_a_unir.append({'sid': p_sid_actual, 'nombre': p_username})
             else:
-                print(f"WARN (Revancha): Jugador {p_username} solicitó pero no tiene SID activo.")
+                jugadores_rechazados.append({'sid': p_sid_actual, 'nombre': p_username})
+                print(f"WARN (Revancha): Jugador {p_username} solicitó pero su estado es '{estado_actual}'. No será unido.")
 
-    # Verificar mínimo de jugadores ANTES de unirlos
+    # Verificar mínimo de jugadores (ahora basado en los que SÍ pueden unirse)
     if len(jugadores_a_unir) < MIN_JUGADORES_REVANCHA:
-            print(f"REVANCHA CANCELADA (Sala {id_sala_original}): Solo {len(jugadores_a_unir)} jugadores solicitaron.")
-            # Notificar cancelación a los que sí solicitaron
-            for j in jugadores_a_unir:
-                socketio.emit('revancha_cancelada', {'mensaje': f'Revancha cancelada. Mínimo de {MIN_JUGADORES_REVANCHA} jugadores requerido.'}, room=j['sid'])
+            print(f"REVANCHA CANCELADA (Sala {id_sala_original}): Solo {len(jugadores_a_unir)} jugadores estaban disponibles.")
+            # Notificar cancelación a los que sí solicitaron Y a los que estaban ocupados
+            for j in (jugadores_a_unir + jugadores_rechazados):
+                if j.get('sid'): # Asegurarse que el SID existe
+                    socketio.emit('revancha_cancelada', {'mensaje': f'Revancha cancelada. Mínimo de {MIN_JUGADORES_REVANCHA} jugadores requerido.'}, room=j['sid'])
             if nueva_id_sala in salas_activas: del salas_activas[nueva_id_sala] # Eliminar sala nueva vacía
             return
 
@@ -1600,6 +1624,11 @@ def _crear_nueva_sala_revancha(id_sala_original):
             join_room(nueva_id_sala, sid=sid_a_unir) # Unir a la room de SocketIO
             socketio.emit('revancha_lista', {'nueva_id_sala': nueva_id_sala}, room=sid_a_unir) # Notificar al cliente
             social_system.update_user_presence(nombre_a_unir, 'in_lobby', {'room_id': nueva_id_sala, 'sid': sid_a_unir}) # Actualizar presencia
+
+    # Notificar a los que fueron rechazados
+    for jugador_info in jugadores_rechazados:
+         if jugador_info.get('sid'):
+            socketio.emit('revancha_cancelada', {'mensaje': 'Tu revancha se formó, pero ya estabas en otra sala.'}, room=jugador_info['sid'])
 
     if id_sala_original in salas_activas:
         del salas_activas[id_sala_original]

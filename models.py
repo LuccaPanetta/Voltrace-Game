@@ -137,15 +137,34 @@ class User(db.Model, UserMixin):
         return self.received_requests.filter(friend_request.c.sender_id == user.id).count() > 0
 
     def accept_friend_request(self, user):
-        if self.has_received_request_from(user):
-            self.received_requests.remove(user) # Eliminar de "Recibidas" del receptor
-            
-            if user.has_sent_request_to(self):
-                user.sent_requests.remove(self) # Eliminar de "Enviadas" del emisor
+        request_found = False
 
-            self.add_friend(user) # Añadir la amistad
-            return True
-        return False
+        # 1. Limpiar la solicitud entrante 
+        if self.has_received_request_from(user):
+            self.received_requests.remove(user) 
+            request_found = True
+
+        # 2. Limpiar la solicitud saliente del remitente 
+        if user.has_sent_request_to(self):
+            user.sent_requests.remove(self)
+            request_found = True
+
+        # 3. Limpiar la solicitud saliente "espejo"
+        if self.has_sent_request_to(user):
+            self.sent_requests.remove(user)
+            request_found = True
+
+        # 4. Limpiar la solicitud entrante "espejo"
+        if user.has_received_request_from(self):
+            user.received_requests.remove(self) 
+            request_found = True
+
+        # Si no había ninguna solicitud, no hacer nada
+        if not request_found:
+            return False
+
+        self.add_friend(user)
+        return True
 
     def reject_friend_request(self, user):
         # 'self' es el receptor, 'user' es el remitente

@@ -46,6 +46,7 @@ class JugadorWeb:
         # 4. FLAGS DE ESTADO ESPECIAL
         self.dado_forzado = None               
         self.habilidad_usada_este_turno = False 
+        self.dado_lanzado_este_turno = False
         self.oferta_perk_activa = None          
         
         # 5. FLAGS DEL PERK "ÚLTIMO ALIENTO" 
@@ -98,8 +99,8 @@ class JugadorWeb:
 
         # Se activa SI la energía va a ser 0 o menos, Y el perk está activo, Y no se ha usado ya
         if energia_final_calculada <= 0 and \
-           "ultimo_aliento" in self.perks_activos and \
-           not getattr(self, '_ultimo_aliento_usado', False):
+        "ultimo_aliento" in self.perks_activos and \
+        not getattr(self, '_ultimo_aliento_usado', False):
 
             print(f"DEBUG: {self.nombre} activó Último Aliento.") # Log útil
             # Marcar como usado
@@ -107,13 +108,21 @@ class JugadorWeb:
 
             # Sobrevive con 50 de energía
             self.__puntaje = 50
-            energia_cambiada = self.__puntaje - energia_anterior # Calcula el cambio real (ej. si tenía 10, cambió +40)
+            energia_cambiada = self.__puntaje - energia_anterior # Calcula el cambio real 
 
+            # Comprobar si el perk "Escudo Duradero" debe extender el escudo de "Último Aliento"
+            rondas_escudo = 3 # Rondas base de Último Aliento
+            
+            if "escudo_duradero" in self.perks_activos:
+                rondas_escudo += 1 # El perk añade 1 ronda
+                print(f"DEBUG: Último Aliento activado CON Escudo Duradero (Total {rondas_escudo} rondas).")
+            
             turnos_escudo = 3 # Fallback por si acaso
             if self.juego_actual and self.juego_actual.jugadores:
-                turnos_escudo = len(self.juego_actual.jugadores) * 3
+                # Calcular turnos totales basados en las rondas 
+                turnos_escudo = len(self.juego_actual.jugadores) * rondas_escudo
             
-            print(f"DEBUG: Último Aliento aplicando Escudo por {turnos_escudo} turnos (3 rondas).")
+            print(f"DEBUG: Último Aliento aplicando Escudo por {turnos_escudo} turnos ({rondas_escudo} rondas).")
             self.efectos_activos.append({"tipo": "escudo", "turnos": turnos_escudo})
 
             return int(energia_cambiada) # Devolver el cambio real
@@ -201,4 +210,8 @@ class JugadorWeb:
             'pm': self.pm, 
             'perks_activos': self.perks_activos
         }
+    
+    def reset_turn_flags(self):
+        self.habilidad_usada_este_turno = False
+        self.dado_lanzado_este_turno = False
         

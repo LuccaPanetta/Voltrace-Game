@@ -182,7 +182,14 @@ class JuegoOcaWeb:
         if not jugador:
             return {"exito": False, "mensaje": "Jugador no encontrado"}
         
+        # Marcar que el dado fue lanzado ANTES de cualquier otra lógica.
+        if hasattr(jugador, 'dado_lanzado_este_turno'):
+            jugador.dado_lanzado_este_turno = True
+
         if getattr(jugador, 'habilidad_usada_este_turno', False):
+            # Revertir el flag si la acción falla
+            if hasattr(jugador, 'dado_lanzado_este_turno'):
+                jugador.dado_lanzado_este_turno = False
             return {"exito": False, "mensaje": "Ya usaste una habilidad este turno. No puedes lanzar el dado."}
 
 
@@ -192,11 +199,14 @@ class JuegoOcaWeb:
         self.eventos_turno.extend(eventos_inicio_turno)
         
         if jugador.oferta_perk_activa:
+            if hasattr(jugador, 'dado_lanzado_este_turno'):
+                jugador.dado_lanzado_este_turno = False # Revertir
             self.eventos_turno.append(f"⚠️ {nombre_jugador} debe elegir un perk.")
             return {"exito": False, "mensaje": "Debes elegir un perk de la oferta pendiente.", "oferta_pendiente": True}
 
         # Verificar si está pausado
         if self._verificar_efecto_activo(jugador, "pausa"):
+            # Si está pausado, el turno termina, así que el flag del dado debe resetearse en el paso 2
             self.eventos_turno.append(f"⏸️ {nombre_jugador} pierde su turno por estar pausado")
             self._reducir_efectos_temporales(jugador) # Consume el turno de pausa
             self._avanzar_turno() # Avanza el turno INMEDIATAMENTE
@@ -223,7 +233,7 @@ class JuegoOcaWeb:
                     jugador.ganar_pm(1)
                     self.eventos_turno.append(f"✨ (Dado Cargado): ¡Ganas +1 PM!")
         else:
-            # Si no hay dado forzado, tirar normalmente
+            # Si no hay dado forzado, tirar normally
             dado1 = randint(1, 6)
             dado_final = dado1
 
@@ -311,11 +321,10 @@ class JuegoOcaWeb:
         self._reducir_efectos_temporales(jugador)
 
         # Limpiar flags de acción
-        if hasattr(jugador, 'habilidad_usada_este_turno'):
-            jugador.habilidad_usada_este_turno = False
-        if hasattr(jugador, 'dado_lanzado_este_turno'):
-            jugador.dado_lanzado_este_turno = False
+        jugador.reset_turn_flags()
         
+        jugador.limpiar_oferta_perk()
+
         # Avanzar Turno
         if not self.fin_juego:
             self._avanzar_turno() 
@@ -531,7 +540,7 @@ class JuegoOcaWeb:
                     # Procesar efectos/colisión en la nueva casilla
                 else:
                     self.eventos_turno.append("↩️ Rebote: Ya estás en la casilla 1.")
-                    
+
             elif tipo == "retroceso_estrategico": # Agujero Negro
                 if len(self.jugadores) > 1:
                     # Busca al jugador activo con la posición MÁS BAJA
