@@ -1524,6 +1524,46 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
             
             sala.juego.marcar_jugador_inactivo(username_desconectado)
 
+            try:
+                print(f"Actualizando estadísticas de abandono para {username_desconectado}...")
+                user_db = User.query.filter_by(username=username_desconectado).first()
+                jugador_juego = sala.juego._encontrar_jugador(username_desconectado) # Obtener su estado en el juego
+
+                if user_db and jugador_juego:
+                    user_db.games_played += 1
+                    # No sumar victoria 
+                    user_db.xp += 25 # Dar una pequeña cantidad de XP por participar
+                    db.session.commit()
+
+                    # Verificar logros de "fin de partida" para el que abandonó
+                    event_data = {
+                        'won': False, # Abandono nunca es victoria
+                        'final_energy': jugador_juego.get_puntaje(),
+                        'reached_position': jugador_juego.get_posicion(),
+                        'total_rounds': sala.juego.ronda,
+                        'player_count': len(sala.jugadores) + 1, 
+                        'colisiones': getattr(jugador_juego, 'colisiones_causadas', 0),
+                        'special_tiles_activated': getattr(jugador_juego, 'tipos_casillas_visitadas', set()),
+                        'abilities_used': getattr(jugador_juego, 'habilidades_usadas_en_partida', 0),
+                        'treasures_this_game': getattr(jugador_juego, 'tesoros_recogidos', 0),
+                        'completed_without_traps': getattr(jugador_juego, 'trampas_evitadas', True),
+                        'precision_laser': getattr(jugador_juego, 'dado_perfecto_usado', 0),
+                        'messages_this_game': getattr(jugador_juego, 'game_messages_sent_this_match', 0),
+                        'only_active_player': False,
+                        'never_eliminated': False, 
+                        'energy_packs_collected': getattr(jugador_juego, 'energy_packs_collected', 0)
+                    }
+                    unlocked_achievements = achievement_system.check_achievement(username_desconectado, 'game_finished', event_data)
+                    if unlocked_achievements:
+                        # No podemos emitir al SID original
+                        print(f"Logros de abandono guardados para {username_desconectado}.")
+                else:
+                    print(f"WARN: No se encontró el usuario {username_desconectado} en la DB o en el juego para actualizar stats de abandono.")
+            except Exception as e:
+                db.session.rollback()
+                print(f"!!! ERROR al actualizar stats de abandono: {e}")
+                traceback.print_exc()
+
             # Comprobar si el juego termina
             if sala.juego.ha_terminado():
                 print(f"--- JUEGO TERMINADO POR DESCONEXIÓN --- Sala: {id_sala}")

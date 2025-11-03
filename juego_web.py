@@ -933,11 +933,28 @@ class JuegoOcaWeb:
                 'cooldown_base': habilidad.cooldown_base, 'cooldown': cooldown_actual_retorno
             }
 
-            return { 
+            respuesta = { 
                 "exito": True, 
                 "eventos": self.eventos_turno, 
                 "habilidad": habilidad_dict_final 
             }
+
+            # Propagar los flags especiales si existen en el resultado_logica
+            if resultado_logica.get('es_movimiento'):
+                respuesta['es_movimiento'] = True
+                respuesta['resultado_movimiento'] = resultado_logica.get('resultado_movimiento')
+            
+            elif resultado_logica.get('es_movimiento_doble'):
+                respuesta['es_movimiento_doble'] = True
+                respuesta['resultado_movimiento_jugador'] = resultado_logica.get('resultado_movimiento_jugador')
+                respuesta['resultado_movimiento_objetivo'] = resultado_logica.get('resultado_movimiento_objetivo')
+            
+            elif resultado_logica.get('es_movimiento_otro'):
+                respuesta['es_movimiento_otro'] = True
+                respuesta['resultado_movimiento'] = resultado_logica.get('resultado_movimiento')
+
+            return respuesta
+
         else:
             # Habilidad fallida 
             if eventos_habilidad: 
