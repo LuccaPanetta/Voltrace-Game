@@ -189,11 +189,11 @@ class AchievementSystem:
         unlocked = []
         
         # Primera partida
-        if 'first_game' not in current_achievements and user_stats['games_played'] == 1:
+        if 'first_game' not in current_achievements and user_stats['games_played'] >= 1:
             unlocked.append('first_game')
         
         # Primera victoria
-        if 'first_win' not in current_achievements and event_data.get('won') and user_stats['games_won'] == 1:
+        if 'first_win' not in current_achievements and event_data.get('won') and user_stats['games_won'] >= 1:
             unlocked.append('first_win')
         
         # Demonio velocista
@@ -276,7 +276,7 @@ class AchievementSystem:
         unlocked = []
         
         # Primera habilidad
-        if 'first_ability' not in current_achievements and user_stats['abilities_used'] == 1:
+        if 'first_ability' not in current_achievements and user_stats['abilities_used'] >= 1:
             unlocked.append('first_ability')
         
         return unlocked
@@ -285,7 +285,7 @@ class AchievementSystem:
         unlocked = []
         
         # Primera sala
-        if 'first_room' not in current_achievements and user_stats['rooms_created'] == 1:
+        if 'first_room' not in current_achievements and user_stats['rooms_created'] >= 1:
             unlocked.append('first_room')
         
         # Anfitrión experto

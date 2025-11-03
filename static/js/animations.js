@@ -67,21 +67,18 @@ export class AnimationSystem {
       return;
     }
 
-    let pieceToMove = null;
-    const fichasEnOrigen = fromCell.querySelectorAll('.ficha-jugador');
-    fichasEnOrigen.forEach(ficha => {
-        if (ficha.textContent.toUpperCase() === playerName[0].toUpperCase()) {
-            pieceToMove = ficha;
-        }
-    });
+    const pieceToMove = fromCell.querySelector(`.ficha-jugador[data-username="${playerName}"]`);
 
     if (!pieceToMove) {
+        // No se encontró la ficha (probablemente ya se movió por updateTablero), no animar.
         if (callback) callback();
         return;
     }
 
+    // Clonar la ficha
     const animPiece = pieceToMove.cloneNode(true);
 
+    // Aplicar estilos de animación (sin borrar el color de fondo)
     animPiece.style.position = 'absolute';
     animPiece.style.zIndex = '1000';
     animPiece.style.pointerEvents = 'none';
@@ -106,7 +103,7 @@ export class AnimationSystem {
     setTimeout(() => {
       animPiece.remove(); 
       if (callback) callback();
-    }, 500); // 0.5s (debe coincidir con la transición CSS)
+    }, 500); // 0.5s
   }
 
   // Efecto shake para cuando caes en trampa

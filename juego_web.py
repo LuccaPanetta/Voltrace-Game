@@ -1553,7 +1553,7 @@ class JuegoOcaWeb:
 
     def _hab_rebote_controlado(self, jugador, habilidad, objetivo):
         eventos = []
-        pos_inicial = jugador.get_posicion()
+        pos_inicial = jugador.get_posicion() 
         
         pos_intermedia = max(1, pos_inicial - 2) 
         jugador.teletransportar_a(pos_intermedia)
@@ -1569,14 +1569,14 @@ class JuegoOcaWeb:
             meta_alcanzada = True
             eventos.append(f"🏆 ¡Llegaste a la meta con Rebote Controlado!")
 
-        # Devolver datos de movimiento
+        # Devolver la 'pos_inicial' correcta para la animación
         return {
             "exito": True, 
             "eventos": eventos,
             "es_movimiento": True,
             "resultado_movimiento": {
                 "dado": 9,
-                "pos_inicial": pos_intermedia, # Animamos desde la intermedia
+                "pos_inicial": pos_inicial, 
                 "pos_final": pos_final,
                 "meta_alcanzada": meta_alcanzada
             }
