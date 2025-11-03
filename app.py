@@ -996,7 +996,8 @@ def usar_habilidad(data):
         id_sala = id_sala_data
     indice_habilidad = data['indice_habilidad']
     objetivo = data.get('objetivo')
-    print(f"\n--- RECIBIDO EVENTO: usar_habilidad --- Sala: {id_sala}, SID: {request.sid}, Habilidad idx: {indice_habilidad}")
+    sid = request.sid # Guardamos el SID
+    print(f"\n--- RECIBIDO EVENTO: usar_habilidad --- Sala: {id_sala}, SID: {sid}, Habilidad idx: {indice_habilidad}")
 
     if id_sala not in salas_activas:
         emit('error', {'mensaje': 'Sala no encontrada'})
@@ -1008,7 +1009,7 @@ def usar_habilidad(data):
         return
 
     # Verificar que es el turno del jugador
-    nombre_jugador_emitente = sessions_activas.get(request.sid, {}).get('username') # Usar sessions_activas es más fiable
+    nombre_jugador_emitente = sessions_activas.get(sid, {}).get('username') # Usar sessions_activas es más fiable
     jugador_actual_obj = sala.juego.obtener_jugador_actual()
     nombre_jugador_actual = jugador_actual_obj.get_nombre() if jugador_actual_obj else None
     print(f"Verificando turno (habilidad): Esperado='{nombre_jugador_actual}', Emitente='{nombre_jugador_emitente}'")
@@ -1025,7 +1026,7 @@ def usar_habilidad(data):
 
         if resultado['exito']:
             # Actualizar XP y stats en DB, verificar logros
-            if request.sid in sessions_activas:
+            if sid in sessions_activas:
                 username = nombre_jugador_emitente # Ya lo tenemos
                 user_db = User.query.filter_by(username=username).first()
                 if user_db:
@@ -1035,27 +1036,63 @@ def usar_habilidad(data):
                 unlocked_achievements = achievement_system.check_achievement(username, 'ability_used')
                 if unlocked_achievements:
                     emit('achievements_unlocked', {
-                        'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_achievements]
+                        'achievements': unlocked_achievements # Ahora es una lista de dicts
                     })
 
-            # Preparar estado actualizado del juego
+            # Preparar estado actualizado del juego (solo para habilidades no-optimistas)
             colores_map = getattr(sala, 'colores_map', {})
             estado_juego = {
                 'jugadores': sala.juego.obtener_estado_jugadores(),
                 'tablero': sala.juego.obtener_estado_tablero(),
-                'turno_actual': sala.juego.obtener_turno_actual(), # Puede seguir siendo el mismo si la habilidad no avanza turno
+                'turno_actual': sala.juego.obtener_turno_actual(), 
                 'ronda': sala.juego.ronda,
                 'estado': sala.estado,
                 'colores_jugadores': colores_map
             }
             print(f"--- ESTADO A ENVIAR (habilidad) --- Turno: {estado_juego.get('turno_actual', 'N/A')}")
 
-            # Emitir resultado (diferenciando Invisibilidad si es necesario)
-            if resultado.get('habilidad', {}).get('nombre') == 'Invisibilidad':
-                    emit('habilidad_usada_privada', { 'jugador': nombre_jugador_emitente, 'habilidad': resultado['habilidad'], 'resultado': resultado, 'estado_juego': estado_juego }, to=request.sid)
-                    socketio.emit('habilidad_usada', { 'jugador': nombre_jugador_emitente, 'habilidad': {'nombre': 'Habilidad usada', 'tipo': 'defensiva', 'simbolo': '❔'}, 'resultado': {'exito': True, 'eventos': [f"{nombre_jugador_emitente} usó una habilidad."]}, 'estado_juego': estado_juego }, room=id_sala, include_self=False)
+            # CASO 1: Habilidad de Movimiento Simple (Cohete, Rebote)
+            if resultado.get('es_movimiento'):
+                print("--- Habilidad de Movimiento (Paso 1) detectada. Emitiendo 'paso_1_resultado_movimiento'.")
+                socketio.emit('paso_1_resultado_movimiento', {
+                    'jugador': nombre_jugador_emitente,
+                    'resultado': {
+                        **resultado['resultado_movimiento'],
+                        'eventos': resultado.get('eventos', [])
+                    }
+                }, room=id_sala)
+            
+            # CASO 2: Habilidad de Movimiento Doble (Intercambio Forzado)
+            elif resultado.get('es_movimiento_doble'):
+                print("--- Habilidad de Movimiento Doble (Paso 1) detectada. Emitiendo 'paso_1' para ambos.")
+                # Emitir para el jugador que usó la habilidad
+                socketio.emit('paso_1_resultado_movimiento', {
+                    'jugador': nombre_jugador_emitente,
+                    'resultado': {
+                        **resultado['resultado_movimiento_jugador'],
+                        'eventos': resultado.get('eventos', [])
+                    }
+                }, room=id_sala)
+                
+                # Emitir para el jugador objetivo
+                mov_obj = resultado['resultado_movimiento_objetivo']
+                socketio.emit('paso_1_resultado_movimiento', {
+                    'jugador': mov_obj['jugador'],
+                    'resultado': {
+                        **mov_obj,
+                        'eventos': [] # El log principal ya salió
+                    }
+                }, room=id_sala)
+
+            # CASO 3: Habilidad Normal (No-movimiento o ya procesada como Retroceso)
             else:
-                    socketio.emit('habilidad_usada', { 'jugador': nombre_jugador_emitente, 'habilidad': resultado['habilidad'], 'resultado': resultado, 'estado_juego': estado_juego }, room=id_sala)
+                print("--- Habilidad estándar detectada. Emitiendo 'habilidad_usada' (Paso Único).")
+                if resultado.get('habilidad', {}).get('nombre') == 'Invisibilidad':
+                        emit('habilidad_usada_privada', { 'jugador': nombre_jugador_emitente, 'habilidad': resultado['habilidad'], 'resultado': resultado, 'estado_juego': estado_juego }, to=sid)
+                        socketio.emit('habilidad_usada', { 'jugador': nombre_jugador_emitente, 'habilidad': {'nombre': 'Habilidad usada', 'tipo': 'defensiva', 'simbolo': '❔'}, 'resultado': {'exito': True, 'eventos': [f"{nombre_jugador_emitente} usó una habilidad."]}, 'estado_juego': estado_juego }, room=id_sala, include_self=False)
+                else:
+                        socketio.emit('habilidad_usada', { 'jugador': nombre_jugador_emitente, 'habilidad': resultado['habilidad'], 'resultado': resultado, 'estado_juego': estado_juego }, room=id_sala)
+            
         else:
             # Si la habilidad falló, enviar solo el mensaje de error al emisor
             emit('error', {'mensaje': resultado['mensaje']})

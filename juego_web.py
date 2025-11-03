@@ -1445,16 +1445,31 @@ class JuegoOcaWeb:
     def _hab_cohete(self, jugador, habilidad, objetivo):
         eventos = []
         avance = randint(3, 7)
-        nueva = min(jugador.get_posicion() + avance, self.posicion_meta)
+        pos_inicial = jugador.get_posicion() # Guardar pos inicial
+        
+        nueva = min(pos_inicial + avance, self.posicion_meta)
         jugador.teletransportar_a(nueva) 
+        
         eventos.append(f"🚀 Cohete: Avanzas {avance} casillas a la posición {nueva}.")
-        if nueva < self.posicion_meta:
-            self._procesar_efectos_posicion(jugador, nueva)
-            self._verificar_colision(jugador, nueva)
+        
+        meta_alcanzada = False
         if nueva >= self.posicion_meta:
             self.fin_juego = True
+            meta_alcanzada = True
             eventos.append(f"🏆 ¡{jugador.get_nombre()} llegó a la meta con Cohete!")
-        return {"exito": True, "eventos": eventos}
+
+        # Devolver datos de movimiento (sin procesar casilla)
+        return {
+            "exito": True, 
+            "eventos": eventos,
+            "es_movimiento": True, # Flag para el handler de app.py
+            "resultado_movimiento": {
+                "dado": avance, # Usamos 'dado' para el log
+                "pos_inicial": pos_inicial,
+                "pos_final": nueva,
+                "meta_alcanzada": meta_alcanzada
+            }
+        }
 
     def _hab_intercambio_forzado(self, jugador, habilidad, objetivo):
         eventos = []
@@ -1462,20 +1477,47 @@ class JuegoOcaWeb:
         if not obj or not obj.esta_activo():
             eventos.append("Objetivo inválido o no activo.")
             return {"exito": False, "eventos": eventos}
-        if not self._puede_ser_afectado(obj, habilidad): # Revisa invisibilidad
+        if not self._puede_ser_afectado(obj, habilidad):
              eventos.append(f"{obj.get_nombre()} está protegido.")
              return {"exito": False, "eventos": eventos}
 
         pos_j, pos_o = jugador.get_posicion(), obj.get_posicion()
+        
+        # Guardamos los datos del movimiento del *otro* jugador (Objetivo)
+        movimiento_objetivo = {
+             "jugador": obj.get_nombre(),
+             "pos_inicial": pos_o,
+             "pos_final": pos_j,
+             "meta_alcanzada": pos_j >= self.posicion_meta
+        }
+        
+        # Realizar el movimiento
         jugador.teletransportar_a(pos_o)
         obj.teletransportar_a(pos_j)
         eventos.append(f"🔄 Intercambias posición con {obj.get_nombre()}.")
-        # Procesar efectos de las nuevas casillas para ambos
-        self._procesar_efectos_posicion(jugador, pos_o)
-        self._verificar_colision(jugador, pos_o)
-        self._procesar_efectos_posicion(obj, pos_j)
-        self._verificar_colision(obj, pos_j)
-        return {"exito": True, "eventos": eventos}
+        
+        if movimiento_objetivo["meta_alcanzada"]:
+            self.fin_juego = True
+            eventos.append(f"🏆 ¡{obj.get_nombre()} llegó a la meta con Intercambio!")
+        
+        meta_alcanzada_jugador = pos_o >= self.posicion_meta
+        if meta_alcanzada_jugador:
+            self.fin_juego = True
+            eventos.append(f"🏆 ¡{jugador.get_nombre()} llegó a la meta con Intercambio!")
+
+        # Devolver datos de movimiento (esta habilidad es especial, mueve a dos)
+        return {
+            "exito": True, 
+            "eventos": eventos,
+            "es_movimiento_doble": True, # Flag especial
+            "resultado_movimiento_jugador": {
+                "dado": 0,
+                "pos_inicial": pos_j,
+                "pos_final": pos_o,
+                "meta_alcanzada": meta_alcanzada_jugador
+            },
+            "resultado_movimiento_objetivo": movimiento_objetivo
+        }
 
     def _hab_retroceso(self, jugador, habilidad, objetivo):
         eventos = []
@@ -1484,69 +1526,61 @@ class JuegoOcaWeb:
             eventos.append("Objetivo inválido o no activo.")
             return {"exito": False, "eventos": eventos}
         
-        # 1. Chequeo de protección (Anticipación/Invisibilidad/Escudo)
         if not self._puede_ser_afectado(obj, habilidad): 
              return {"exito": False, "eventos": self.eventos_turno} 
 
-        # 2. Determinar empuje base (basado en el LANZADOR)
         empuje_base = 7 if "retroceso_brutal" in jugador.perks_activos else 5
         empuje_final = empuje_base 
 
-        # 3. Aplicar reducción (basado en el OBJETIVO)
         if "desvio_cinetico" in obj.perks_activos:
             reduccion = empuje_final // 2 
             empuje_final -= reduccion
             eventos.append(f"🏃‍♂️ {obj.get_nombre()} desvía parte del Retroceso (Empuje reducido a {empuje_final}).")
 
-        # 4. Calcular y aplicar movimiento
-        nueva = max(1, obj.get_posicion() - empuje_final) # No retroceder más allá de 1
+        pos_inicial_obj = obj.get_posicion()
+        nueva = max(1, pos_inicial_obj - empuje_final) 
         
-        if nueva != obj.get_posicion():
+        if nueva != pos_inicial_obj:
             obj.teletransportar_a(nueva)
             eventos.append(f"⏪ {obj.get_nombre()} retrocede {empuje_final} casillas a {nueva}.")
-            # Procesar efectos/colisión en la nueva casilla
-            self._procesar_efectos_posicion(obj, nueva)
-            self._verificar_colision(obj, nueva)
         else:
             eventos.append(f"⏪ {obj.get_nombre()} ya está en la casilla 1.")
             
-        return {"exito": True, "eventos": eventos}
+        self._procesar_efectos_posicion(obj, nueva)
+        self._verificar_colision(obj, nueva)
+        
+        return {"exito": True, "eventos": eventos} 
 
     def _hab_rebote_controlado(self, jugador, habilidad, objetivo):
         eventos = []
-        pos_actual = jugador.get_posicion()
+        pos_inicial = jugador.get_posicion()
         
-        pos_intermedia = max(1, pos_actual - 2) 
+        pos_intermedia = max(1, pos_inicial - 2) 
         jugador.teletransportar_a(pos_intermedia)
         eventos.append(f"↩️ Rebote: Retrocedes 2 casillas a {pos_intermedia}.")
         
-        # Solo procesar si el jugador sigue activo y no llegó a la meta 
-        if jugador.esta_activo() and pos_intermedia < self.posicion_meta:
-            self.eventos_turno.extend(eventos) # Añadir evento de movimiento al log global
-            eventos = [] # Limpiar eventos locales
-            self._procesar_efectos_posicion(jugador, pos_intermedia)
-            self._verificar_colision(jugador, pos_intermedia)
-
-        # Si el jugador fue eliminado o pausado por la casilla intermedia, no avanzar
-        if not jugador.esta_activo() or self._verificar_efecto_activo(jugador, "pausa"):
-             return {"exito": True, "eventos": self.eventos_turno} # Salir temprano
-
-        pos_final = min(jugador.get_posicion() + 9, self.posicion_meta) # Usar get_posicion() por si la casilla intermedia lo movió
+        pos_final = min(jugador.get_posicion() + 9, self.posicion_meta)
         jugador.teletransportar_a(pos_final)
         eventos.append(f"⬆️ Controlado: Avanzas 9 casillas a {pos_final}.")
         
-        # Procesar efectos en la casilla final
-        if pos_final < self.posicion_meta:
-            self.eventos_turno.extend(eventos) # Añadir evento de avance
-            eventos = [] # Limpiar
-            self._procesar_efectos_posicion(jugador, pos_final)
-            self._verificar_colision(jugador, pos_final)
-        
+        meta_alcanzada = False
         if pos_final >= self.posicion_meta:
             self.fin_juego = True
+            meta_alcanzada = True
             eventos.append(f"🏆 ¡Llegaste a la meta con Rebote Controlado!")
-            
-        return {"exito": True, "eventos": eventos}
+
+        # Devolver datos de movimiento
+        return {
+            "exito": True, 
+            "eventos": eventos,
+            "es_movimiento": True,
+            "resultado_movimiento": {
+                "dado": 9,
+                "pos_inicial": pos_intermedia, # Animamos desde la intermedia
+                "pos_final": pos_final,
+                "meta_alcanzada": meta_alcanzada
+            }
+        }
 
     def _hab_dado_perfecto(self, jugador, habilidad, objetivo):
         eventos = []

@@ -250,32 +250,82 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
 
     _socket.on("paso_2_resultado_casilla", (data) => {
         try {
-            const eventosPaso2 = data.eventos || [];
+        const estado_nuevo = data.estado_juego;
+        const eventos_paso_2 = data.eventos || [];
 
-            // Reproducir EFECTOS VISUALES (shake) y sonidos de COLISIÓN
-            eventosPaso2.forEach(evento => {
-                if (typeof evento !== 'string') return;
-                const lowerEvent = evento.toLowerCase();
-                if (lowerEvent.includes("trampa") || lowerEvent.includes("💀")) { 
-                    if(_gameAnimations) _gameAnimations.shakeBoard(); 
-                }
-                else if (lowerEvent.includes("colisión") || lowerEvent.includes("💥")) { 
-                    playSound('Collision', 0.2); 
-                    if(_gameAnimations) _gameAnimations.shakeBoard(); 
-                }
-            });
-
-            // Actualizar TODA la UI con el estado final
-            actualizarEstadoJuego(data.estado_juego);
-
-            // Renderizar los eventos 
-            eventosPaso2.forEach(agregarAlLog); 
-
-        } catch (error) {
-            console.error("!!! ERROR DENTRO DEL LISTENER 'paso_2_resultado_casilla':", error);
-            agregarAlLog(`Error del cliente: ${error.message}`);
+        // Encontrar al jugador que acaba de terminar su Paso 1
+        const jugador_nombre_actual = _estadoJuego.turno_actual;
+        
+        if (!jugador_nombre_actual || !estado_nuevo) {
+            // No hay turno actual o estado, solo actualizar y salir
+            actualizarEstadoJuego(estado_nuevo);
+            renderEventos(eventos_paso_2);
+            return;
         }
-    });
+
+        // Encontrar la posición 'vieja' (donde aterrizó el dado) y 'nueva' (después del teleporter)
+        const jugador_viejo = _estadoJuego.jugadores.find(j => j.nombre === jugador_nombre_actual);
+        const jugador_nuevo = estado_nuevo.jugadores.find(j => j.nombre === jugador_nombre_actual);
+
+        if (!jugador_viejo || !jugador_nuevo) {
+            // No se encontró al jugador, solo actualizar
+            actualizarEstadoJuego(estado_nuevo);
+            renderEventos(eventos_paso_2);
+            return;
+        }
+
+        const pos_vieja = jugador_viejo.posicion;
+        const pos_nueva = jugador_nuevo.posicion;
+        
+        // Reproducir efectos visuales (shake) y sonidos de colisión
+        eventos_paso_2.forEach(evento => {
+            if (typeof evento !== 'string') return;
+            const lowerEvent = evento.toLowerCase();
+            if (lowerEvent.includes("trampa") || lowerEvent.includes("💀")) { 
+                if(_gameAnimations) _gameAnimations.shakeBoard(); 
+            }
+            else if (lowerEvent.includes("colisión") || lowerEvent.includes("💥")) { 
+                playSound('Collision', 0.2); 
+                if(_gameAnimations) _gameAnimations.shakeBoard(); 
+            }
+        });
+        
+        // Comprobar si hubo un movimiento forzado (Teleport, Rebote, Intercambio, etc.)
+        if (pos_vieja !== pos_nueva && pos_nueva < 75) {
+            console.log(`--- Movimiento encadenado detectado (Paso 2): ${pos_vieja} -> ${pos_nueva}. Animando...`);
+            
+            // Reproducir sonido optimista para la *nueva* casilla
+            playOptimisticSound(pos_nueva, estado_nuevo); 
+
+            if (_gameAnimations && _gameAnimations.isEnabled) {
+                // ¡Animar el "salto"!
+                _gameAnimations.animatePlayerMove(
+                    pos_vieja,
+                    pos_nueva,
+                    jugador_nombre_actual,
+                    () => {
+                        // Cuando la animación del teleporter TERMINA,
+                        // actualizar la UI al estado final.
+                        actualizarEstadoJuego(estado_nuevo);
+                        renderEventos(eventos_paso_2);
+                    }
+                );
+            } else {
+                // Animaciones desactivadas, solo actualizar
+                actualizarEstadoJuego(estado_nuevo);
+                renderEventos(eventos_paso_2);
+            }
+        } else {
+            // No hubo movimiento extra (ej. cayó en +70), solo actualizar.
+            actualizarEstadoJuego(estado_nuevo);
+            renderEventos(eventos_paso_2);
+        }
+
+    } catch (error) {
+        console.error("!!! ERROR DENTRO DEL LISTENER 'paso_2_resultado_casilla':", error);
+        agregarAlLog(`Error del cliente: ${error.message}`);
+    }
+});
 
     _socket.on("habilidad_usada", (data) => { // Habilidades públicas
         if (!_state || !_state.currentUser || !_state.currentUser.username) {

@@ -59,7 +59,6 @@ export class AnimationSystem {
       return;
     }
 
-    // Buscar las casillas DOM
     const fromCell = document.querySelector(`[data-position="${fromPosition}"]`);
     const toCell = document.querySelector(`[data-position="${toPosition}"]`);
     
@@ -68,50 +67,46 @@ export class AnimationSystem {
       return;
     }
 
-    // Buscar la ficha REAL del jugador en la casilla de origen
     let pieceToMove = null;
     const fichasEnOrigen = fromCell.querySelectorAll('.ficha-jugador');
     fichasEnOrigen.forEach(ficha => {
-        // Comparamos la inicial. Esto asume que tu .ficha-jugador tiene la 'P'
         if (ficha.textContent.toUpperCase() === playerName[0].toUpperCase()) {
             pieceToMove = ficha;
         }
     });
 
     if (!pieceToMove) {
-        // No se encontró la ficha, no hacer nada.
         if (callback) callback();
         return;
     }
 
-    // Preparar la ficha para la animación
+    const animPiece = pieceToMove.cloneNode(true);
+
+    animPiece.style.position = 'absolute';
+    animPiece.style.zIndex = '1000';
+    animPiece.style.pointerEvents = 'none';
+    animPiece.style.transition = 'all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+
     const fromRect = fromCell.getBoundingClientRect();
     const toRect = toCell.getBoundingClientRect();
     
-    // Clonar la ficha para animarla (la original desaparecerá con updateTablero)
-    const animPiece = pieceToMove.cloneNode(true);
-    animPiece.style.cssText = `
-      position: absolute;
-      left: ${fromRect.left + (fromRect.width / 2) - (animPiece.offsetWidth / 2)}px;
-      top: ${fromRect.top + (fromRect.height / 2) - (animPiece.offsetHeight / 2)}px;
-      z-index: 1000;
-      pointer-events: none;
-      transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    `;
+    // Setear posición inicial
+    animPiece.style.left = `${fromRect.left + (fromRect.width / 2) - (animPiece.offsetWidth / 2)}px`;
+    animPiece.style.top = `${fromRect.top + (fromRect.height / 2) - (animPiece.offsetHeight / 2)}px`;
     
     document.body.appendChild(animPiece);
 
-    // Animar movimiento
+    // Animar a la posición final
     requestAnimationFrame(() => {
         animPiece.style.left = `${toRect.left + (toRect.width / 2) - (animPiece.offsetWidth / 2)}px`;
         animPiece.style.top = `${toRect.top + (toRect.height / 2) - (animPiece.offsetHeight / 2)}px`;
     });
     
-    // Limpiar
+    // Limpiar el clon después de la animación
     setTimeout(() => {
-      animPiece.remove(); // Eliminar la ficha de animación
+      animPiece.remove(); 
       if (callback) callback();
-    }, 500); // Duración de la animación
+    }, 500); // 0.5s (debe coincidir con la transición CSS)
   }
 
   // Efecto shake para cuando caes en trampa
