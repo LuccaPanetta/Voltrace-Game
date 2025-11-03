@@ -552,16 +552,33 @@ class JuegoOcaWeb:
                 self.eventos_turno.append(f"⭐ Pozo de PM: ¡Ganas +3 PM!")
 
             elif tipo == "atraccion": # Imán
-                self.eventos_turno.append(f"🧲 Imán: Atraes a los demás jugadores 2 casillas.")
+                self.eventos_turno.append(f"🧲 Imán: Atrae a los demás jugadores 2 casillas.")
+                pos_iman = jugador.get_posicion() # Posición del jugador que activó el imán
+                
                 for j in self.jugadores:
                     if j != jugador and j.esta_activo():
                         pos_actual_j = j.get_posicion()
-                        # min() para no pasarse de la meta
-                        nueva_pos = min(pos_actual_j + 2, self.posicion_meta) 
+                        
+                        # Determinar la dirección del movimiento
+                        if pos_actual_j > pos_iman:
+                            direccion = -1
+                        # Si está MÁS ATRÁS, debe sumar
+                        else:
+                            direccion = 1 # Avanzar hacia el imán
+                        
+                        # Mover 2 casillas en esa dirección, sin pasarse del imán
+                        movimiento_max = 2
+                        if abs(pos_actual_j - pos_iman) == 1:
+                            movimiento_max = 1
+                            
+                        nueva_pos = pos_actual_j + (direccion * movimiento_max)
+
                         if nueva_pos != pos_actual_j:
                             j.teletransportar_a(nueva_pos)
                             self.eventos_turno.append(f"🧲 {j.get_nombre()} es atraído a {nueva_pos}.")
                             # Procesar efectos Y colisión en la nueva casilla
+                            self._procesar_efectos_posicion(j, nueva_pos)
+                            self._verificar_colision(j, nueva_pos)
             
             elif tipo == "intercambio_recurso": # Chatarrería 
                 energia_cambio = jugador.procesar_energia(-50)
@@ -1546,10 +1563,18 @@ class JuegoOcaWeb:
         else:
             eventos.append(f"⏪ {obj.get_nombre()} ya está en la casilla 1.")
             
-        self._procesar_efectos_posicion(obj, nueva)
-        self._verificar_colision(obj, nueva)
-        
-        return {"exito": True, "eventos": eventos} 
+        return {
+            "exito": True, 
+            "eventos": eventos,
+            "es_movimiento_otro": True, 
+            "resultado_movimiento": {
+                "jugador_movido": obj.get_nombre(),
+                "dado": empuje_final,
+                "pos_inicial": pos_inicial_obj,
+                "pos_final": nueva,
+                "meta_alcanzada": False
+            }
+    }
 
     def _hab_rebote_controlado(self, jugador, habilidad, objetivo):
         eventos = []

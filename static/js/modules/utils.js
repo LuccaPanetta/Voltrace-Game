@@ -255,15 +255,21 @@ export function manejarInvitacion(data, container, socket, state, setLoadingFunc
 export function showAchievementNotification(achievement, container) {
     if (!achievement || !container) return;
 
+    // Leer las propiedades correctas del objeto 'achievement'
+    const icon = achievement.icon || "🏆";
+    const name = achievement.name || "Logro Desbloqueado";
+    const desc = achievement.desc || "¡Sigue así!";
+    const xp = achievement.xp_reward || 0;
+
     const notification = document.createElement("div");
-    notification.className = "achievement-notification"; // Usa la clase CSS existente
+    notification.className = "achievement-notification"; 
     notification.innerHTML = `
       <div style="display: flex; align-items: center; gap: 12px;">
-        <span class="achievement-icon" style="font-size: 24px;">${achievement.icon || "🏆"}</span>
+        <span class="achievement-icon" style="font-size: 24px;">${icon}</span>
         <div>
           <h4 style="margin: 0 0 4px 0; font-size: 1em;">🏆 ¡Logro Desbloqueado!</h4>
-          <p style="margin: 0; font-size: 0.9em;">${escapeHTML(achievement.name)}</p>
-          <small style="opacity: 0.8; font-size: 0.8em;">${escapeHTML(achievement.desc)} (+${achievement.xp_reward || 0} XP)</small>
+          <p style="margin: 0; font-size: 0.9em;">${escapeHTML(name)}</p>
+          <small style="opacity: 0.8; font-size: 0.8em;">${escapeHTML(desc)} (+${xp} XP)</small>
         </div>
       </div>
     `;
@@ -271,14 +277,12 @@ export function showAchievementNotification(achievement, container) {
     playSound('OpenCloseModal', 0.2);
     container.appendChild(notification);
 
-    // Animar entrada usando la clase CSS
     setTimeout(() => notification.classList.add("show"), 100);
 
-    // Configurar cierre usando la clase CSS
     setTimeout(() => {
         notification.classList.add("hide");
-        setTimeout(() => notification.remove(), 500); // Esperar animación de salida
-    }, 4000); // Duración
+        setTimeout(() => notification.remove(), 500); 
+    }, 4000);
 }
 
 /**

@@ -565,3 +565,27 @@ export function mostrarModalFinJuego(data) {
 
     modalFinalElement.style.display = "flex";
 }
+
+// En gameUI.js (añadir esta nueva función)
+
+/**
+ * Actualiza la UI de cooldowns para un jugador específico
+ * (llamado por socketHandlers cuando una habilidad optimista se usa)
+ */
+export function actualizarCooldownsUI(username, habilidadUsada) {
+    if (!habilidadUsada || !_estadoJuego || !_estadoJuego.jugadores) return;
+
+    // Actualizar el estado del juego local
+    const jugador = _estadoJuego.jugadores.find(j => j.nombre === username);
+    if (!jugador) return;
+
+    const habIndex = jugador.habilidades.findIndex(h => h.nombre === habilidadUsada.nombre);
+    if (habIndex > -1) {
+        jugador.habilidades[habIndex].cooldown = habilidadUsada.cooldown;
+    }
+    
+    // Si el modal de habilidades está abierto, refrescarlo
+    if (modalHabElement?.style.display === 'flex' && username === _state.currentUser.username) {
+        handleMostrarHabilidades(); 
+    }
+}

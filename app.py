@@ -1066,11 +1066,11 @@ def usar_habilidad(data):
                     user_db.xp += 10
                     user_db.abilities_used = getattr(user_db, 'abilities_used', 0) + 1
                     db.session.commit()
-                unlocked_achievements = achievement_system.check_achievement(username, 'ability_used')
-                if unlocked_achievements:
+                unlocked_achievements_list = achievement_system.check_achievement(username, 'ability_used')
+                if unlocked_achievements_list: 
                     emit('achievements_unlocked', {
-                        'achievements': unlocked_achievements # Ahora es una lista de dicts
-                    })
+                        'achievements': unlocked_achievements_list 
+                    }, to=sid)
 
             # Preparar estado actualizado del juego (solo para habilidades no-optimistas)
             colores_map = getattr(sala, 'colores_map', {})
