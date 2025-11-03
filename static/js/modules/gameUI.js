@@ -237,7 +237,7 @@ function handleToggleGuia() {
 // --- Funciones de Renderizado ---
 
 /** Renderiza el panel de estado de jugadores. */
-export function renderJugadoresEstado(jugadores) {
+function updateJugadoresEstado(jugadores) {
     if (!jugadoresEstadoDisplay || !_mapaColores) return;
     console.log("Renderizando jugadores con mapa:", _mapaColores.value);
     jugadoresEstadoDisplay.innerHTML = "";
@@ -290,7 +290,7 @@ export function renderJugadoresEstado(jugadores) {
 }
 
 /** Renderiza el tablero de juego. */
-export function renderTablero(tableroData) {
+function updateTablero(tableroData) {
     if (!tableroElement || !_mapaColores || !_state || !_state.currentUser) {
         console.warn("RenderTablero abortado: Falta el elemento DOM del tablero o la referencia de estado (_state.currentUser).");
         return; 
