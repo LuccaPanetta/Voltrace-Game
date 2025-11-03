@@ -23,6 +23,8 @@ let _estadoJuego = null;
 let _mapaColores = null; 
 let _habilidadUsadaTurno = null;
 let _gameAnimations = null;
+let btnLanzarDado = null;
+let btnMostrarHab = null;
 
 // Referencias DOM específicas necesarias aquí
 let codigoSalaActualDisplay = null;
@@ -64,6 +66,8 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
     codigoSalaActualDisplay = document.getElementById("codigo-sala-actual");
     resultadoDadoDisplay = document.getElementById("resultado-dado");
     jugadoresEstadoDisplay = document.getElementById("jugadores-estado");
+    btnLanzarDado = document.getElementById("btn-lanzar-dado"); 
+    btnMostrarHab = document.getElementById("btn-mostrar-habilidades");
     modalPrivateChatElement = document.getElementById("modal-private-chat");
     privateChatSendBtn = document.getElementById("private-chat-send");
     modalSocialElement = document.getElementById("modal-social");
