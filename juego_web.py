@@ -307,6 +307,8 @@ class JuegoOcaWeb:
         # Reducir efectos temporales (siempre se ejecuta)
         self._reducir_efectos_temporales(jugador)
 
+        fue_por_dado = getattr(jugador, 'dado_lanzado_este_turno', False)
+
         # (La lógica de "Rebote Controlado" se arregla aquí)
         fue_por_dado = getattr(jugador, 'dado_lanzado_este_turno', False)
         
@@ -316,9 +318,10 @@ class JuegoOcaWeb:
         
         # Avanzar Turno SOLO SI FUE POR UN DADO
         if not self.fin_juego and fue_por_dado:
+            print(f"DEBUG: Fin de Paso 2 (Dado). Avanzando turno.")
             self._avanzar_turno()
         elif not self.fin_juego:
-            # No avanzar el turno, fue una habilidad.
+            # No avanzar el turno, fue una habilidad (como Rebote).
             print(f"DEBUG: Fin de Paso 2 (Habilidad). No se avanza el turno.")
         
         return {"exito": True, "eventos": self.eventos_turno}

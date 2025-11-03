@@ -200,6 +200,7 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
             
             renderEventos(eventosPaso1); 
             
+            // Solo animar el dado si NO fue una habilidad
             if (res.dado !== undefined && !habilidad_usada) {
                 if (_gameAnimations && _gameAnimations.isEnabled) { 
                     _gameAnimations.animateDiceRoll(resultadoDadoDisplay, res.dado, () => { 
@@ -209,22 +210,14 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
                     if (resultadoDadoDisplay) resultadoDadoDisplay.textContent = `🎲 ${res.dado}`;
                 }
             } else {
+                // Si fue una habilidad (Rebote) o no hubo dado (Pausa), limpiar el display.
                 if (resultadoDadoDisplay) resultadoDadoDisplay.textContent = ""; 
             }
             
-            // Actualizar UI de Cooldown si fue una habilidad
             if (habilidad_usada && jugadorNombre === _state.currentUser.username) {
                 actualizarCooldownsUI(jugadorNombre, habilidad_usada);
             }
-            
-            if (res.meta_alcanzada) {
-                if (_gameAnimations && _gameAnimations.isEnabled) { 
-                    _gameAnimations.animatePlayerMove(res.pos_inicial, res.pos_final, jugadorNombre, () => {});
-                }
-                return; 
-            }
 
-            // Almacena la posición intermedia
             _intermediatePosition[jugadorNombre] = res.pos_final;
             
             // Iniciar animación 
@@ -245,7 +238,7 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
             if (jugadorDelTurno === _state.currentUser.username) {
                 _socket.emit('paso_2_terminar_movimiento', { 
                     id_sala: _idSala.value,
-                    jugador_movido: jugadorNombre 
+                    jugador_movido: jugadorNombre
                 });
             }
 
