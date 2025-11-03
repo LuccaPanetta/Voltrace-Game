@@ -1454,14 +1454,59 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
             
             sala.juego.marcar_jugador_inactivo(username_desconectado)
 
-            # Comprobar si el juego termina (ESCENARIO 1: Queda 1 jugador)
+            # Comprobar si el juego termina
             if sala.juego.ha_terminado():
                 print(f"--- JUEGO TERMINADO POR DESCONEXIÓN --- Sala: {id_sala}")
                 sala.estado = 'terminado'
                 
-                sala.juego.determinar_ganador()
+                ganador_obj = sala.juego.determinar_ganador()
+                ganador_nombre = ganador_obj.get_nombre() if ganador_obj else None
                 
-                stats_finales_dict = sala.juego.obtener_estadisticas_finales() # Ahora esto leerá los puntajes correctos
+                for sid, jugador_data_loop in list(sala.jugadores.items()):
+                    if sid in sessions_activas: 
+                        username = sessions_activas[sid]['username']
+                        jugador_nombre_loop = jugador_data_loop['nombre']
+                        jugador_juego = sala.juego._encontrar_jugador(jugador_nombre_loop)
+
+                        if jugador_juego:
+                            is_winner = (jugador_nombre_loop == ganador_nombre)
+
+                            # Actualizar estadísticas en la DB
+                            user_db = User.query.filter_by(username=username).first()
+                            if user_db:
+                                user_db.games_played += 1
+                                if is_winner: user_db.games_won += 1
+                                user_db.xp += 50 + (25 if is_winner else 0) # XP base + bonus
+                                db.session.commit()
+
+                                # Verificar logros
+                                event_data = {
+                                    'won': is_winner,
+                                    'final_energy': jugador_juego.get_puntaje(),
+                                    'reached_position': jugador_juego.get_posicion(),
+                                    'total_rounds': sala.juego.ronda,
+                                    'player_count': len(sala.jugadores) + 1,
+                                    'colisiones': getattr(jugador_juego, 'colisiones_causadas', 0),
+                                    'special_tiles_activated': getattr(jugador_juego, 'tipos_casillas_visitadas', set()),
+                                    'abilities_used': getattr(jugador_juego, 'habilidades_usadas_en_partida', 0),
+                                    'treasures_this_game': getattr(jugador_juego, 'tesoros_recogidos', 0),
+                                    'completed_without_traps': getattr(jugador_juego, 'trampas_evitadas', True),
+                                    'precision_laser': getattr(jugador_juego, 'dado_perfecto_usado', 0),
+                                    'messages_this_game': getattr(jugador_juego, 'game_messages_sent_this_match', 0),
+                                    'only_active_player': True, 
+                                    'never_eliminated': jugador_juego.esta_activo(),
+                                    'energy_packs_collected': getattr(jugador_juego, 'energy_packs_collected', 0)
+                                }
+                                unlocked_achievements = achievement_system.check_achievement(username, 'game_finished', event_data)
+                                if unlocked_achievements:
+                                    socketio.emit('achievements_unlocked', {
+                                        'achievements': unlocked_achievements
+                                    }, to=sid)
+                            
+                            # Actualizar presencia a 'online'
+                            social_system.update_user_presence(username, 'online', {'sid': sid})
+
+                stats_finales_dict = sala.juego.obtener_estadisticas_finales()
                 
                 socketio.emit('juego_terminado', {
                     'ganador': stats_finales_dict.get('ganador'),
@@ -1469,7 +1514,7 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
                     'mensaje': f"🔌 {username_desconectado} se desconectó. ¡Juego terminado!"
                 }, room=id_sala)
                 
-                return 
+                return # Salir 
 
             # Si el juego continúa
             else:
@@ -1478,8 +1523,6 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
                 if turno_antes_de_desconexion == username_desconectado:
                     print(f"¡Era el turno de {username_desconectado}! Forzando Paso 2 (efectos de casilla)...")
                     try:
-                        # Ejecutar la lógica de la casilla donde aterrizó
-                        # Esta función YA llama a _avanzar_turno() internamente.
                         sala.juego.paso_2_procesar_casilla_y_avanzar(username_desconectado)
                     except Exception as e:
                         print(f"!!! ERROR al forzar Paso 2 en desconexión: {e}")
@@ -1500,7 +1543,6 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
                     'colores_jugadores': colores_map
                 }
                 
-                # Emitir el estado actualizado a los que quedan
                 eventos_recientes = [f"🔌 {username_desconectado} se desconectó."]
                 if nuevo_turno_actual:
                      eventos_recientes.append(f"Es el turno de {nuevo_turno_actual}.")
@@ -1510,7 +1552,7 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
                     'eventos_recientes': eventos_recientes
                 }, room=id_sala)
 
-        # Si la sala queda vacía, eliminarla (Esta lógica tuya ya es correcta)
+        # Si la sala queda vacía, eliminarla
         if len(sala.jugadores) == 0:
             print(f"Sala {id_sala} vacía tras desconexión. Eliminando...")
             if id_sala in salas_activas:

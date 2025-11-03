@@ -186,13 +186,6 @@ class JuegoOcaWeb:
         if hasattr(jugador, 'dado_lanzado_este_turno'):
             jugador.dado_lanzado_este_turno = True
 
-        if getattr(jugador, 'habilidad_usada_este_turno', False):
-            # Revertir el flag si la acción falla
-            if hasattr(jugador, 'dado_lanzado_este_turno'):
-                jugador.dado_lanzado_este_turno = False
-            return {"exito": False, "mensaje": "Ya usaste una habilidad este turno. No puedes lanzar el dado."}
-
-
         # Procesar Cooldowns y Efectos de Inicio de Turno
         eventos_inicio_turno = self._procesar_inicio_turno(jugador)
         self.eventos_turno = [] # Limpiar eventos
@@ -832,7 +825,7 @@ class JuegoOcaWeb:
     # ===================================================================
 
     def usar_habilidad_jugador(self, nombre_jugador, indice_habilidad, objetivo=None):
-        # 1. Validaciones Iniciales
+        # Validaciones Iniciales
         jugador = self._encontrar_jugador(nombre_jugador)
         if not jugador:
             return {"exito": False, "mensaje": "Jugador no encontrado"}
@@ -856,11 +849,8 @@ class JuegoOcaWeb:
 
         if getattr(jugador, 'habilidad_usada_este_turno', False):
             return {"exito": False, "mensaje": "Ya usaste una habilidad en este turno."}
-        
-        if getattr(jugador, 'dado_lanzado_este_turno', False):
-            return {"exito": False, "mensaje": "Ya lanzaste el dado este turno. No puedes usar una habilidad."}
 
-        # 2. Despacho a la Función Específica
+        # Despacho a la Función Específica
         try:
             # Limpiar nombre para despacho (incluyendo tildes)
             habilidad_nombre_limpio = habilidad.nombre.lower().replace(' ', '_').replace('é', 'e').replace('ó', 'o').replace('í', 'i')
@@ -886,7 +876,7 @@ class JuegoOcaWeb:
             self.eventos_turno.append(f"!!! ERROR al usar {habilidad.nombre}: {e}")
             return {"exito": False, "mensaje": f"Error interno del servidor al ejecutar {habilidad.nombre}."}
 
-        # 3. Lógica de Cierre (Cooldown, PM, Retorno)
+        # Lógica de Cierre (Cooldown, PM, Retorno)
         if exito:
             jugador.habilidades_usadas_en_partida += 1
             # Aplicar Cooldown y marcar habilidad como usada en el turno

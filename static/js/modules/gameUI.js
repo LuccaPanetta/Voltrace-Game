@@ -402,27 +402,29 @@ export function appendGameChatMessage(data) {
 
 /** Función principal que actualiza toda la UI del juego. */
 export function actualizarEstadoJuego(estado) {
-    if (!jugadoresEstadoDisplay || !tableroElement || !rondaActualDisplay || !turnoJugadorDisplay || !btnLanzarDado || !btnMostrarHab || // Verifica elementos DOM
-        !_state || !_state.currentUser || !_state.currentUser.username || // Verifica estado del usuario
-        !estado // Verifica que el estado recibido no sea nulo/undefined
+    if (!jugadoresEstadoDisplay || !tableroElement || !rondaActualDisplay || !turnoJugadorDisplay || !btnLanzarDado || !btnMostrarHab || 
+        !_state || !_state.currentUser || !_state.currentUser.username || 
+        !estado
        ) {
-        console.warn("actualizarEstadoJuego llamado, pero elementos DOM o estado (currentUser/estado recibido) no están listos. Abortando actualización.");
+        console.warn("actualizarEstadoJuego llamado, pero elementos DOM o estado no están listos. Abortando actualización.");
         return; 
     }
 
     // Guardar nombre del turno anterior ANTES de actualizar _estadoJuego
     const jugadorTurnoAnterior = _estadoJuego ? _estadoJuego.turno_actual : null;
 
-    // Actualizar el estado referenciado
+    // LLAMAR A LAS FUNCIONES DE RENDER PRIMERO.
+    renderJugadoresEstado(estado.jugadores); 
+    renderTablero(estado.tablero || {});    
+
+    // ACTUALIZAR EL ESTADO LOCAL
     Object.assign(_estadoJuego, estado);
 
-    // Renderizar componentes
-    renderJugadoresEstado(estado.jugadores);
-    renderTablero(estado.tablero || {});
+    // Renderizar componentes simples 
     rondaActualDisplay.textContent = estado.ronda ?? "-";
     turnoJugadorDisplay.textContent = escapeHTML(estado.turno_actual ?? "-");
 
-    // Habilitar/deshabilitar botones
+    // Habilitar/deshabilitar botones 
     const esMiTurno = estado.turno_actual === _state.currentUser.username;
     const juegoActivo = estado.estado === "jugando";
 
@@ -433,9 +435,9 @@ export function actualizarEstadoJuego(estado) {
     }
 
     btnLanzarDado.disabled = !esMiTurno || !juegoActivo;
-    btnMostrarHab.disabled = !juegoActivo; // Se puede ver fuera de turno
+    btnMostrarHab.disabled = !juegoActivo; 
 
-    // Botón Comprar Perks
+    // Botón Comprar Perks 
     const controlesTurno = document.querySelector(".controles-turno");
     let btnAbrirPerks = document.getElementById("btn-abrir-perks");
     if (esMiTurno && juegoActivo && controlesTurno && _openPerkModalFunc) {
@@ -445,10 +447,11 @@ export function actualizarEstadoJuego(estado) {
             btnAbrirPerks.className = "btn-secondary";
             btnAbrirPerks.textContent = "⭐ Comprar Perks";
             btnAbrirPerks.style.marginLeft = "10px";
-            btnAbrirPerks.onclick = _openPerkModalFunc; // Llama a la función referenciada
+            btnAbrirPerks.onclick = _openPerkModalFunc;
             btnLanzarDado.insertAdjacentElement('afterend', btnAbrirPerks);
         }
         btnAbrirPerks.style.display = "inline-block";
+        btnAbrirPerks.disabled = false;
     } else if (btnAbrirPerks) {
         btnAbrirPerks.style.display = "none";
     }
