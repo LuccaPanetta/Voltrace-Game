@@ -29,13 +29,17 @@ db = SQLAlchemy()
 # Modelo de tabla de asociación para Amigos (relación muchos-a-muchos)
 friendship = db.Table('friendship',
     db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
-    db.Column('friend_id', db.Integer, db.ForeignKey('user.id'), primary_key=True)
+    db.Column('friend_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
+    db.Index('idx_friendship_user_friend', 'user_id', 'friend_id'),
+    db.Index('idx_friendship_friend_user', 'friend_id', 'user_id')
 )
 
 # Modelo de tabla de asociación para Solicitudes de Amistad
 friend_request = db.Table('friend_request',
     db.Column('sender_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
-    db.Column('receiver_id', db.Integer, db.ForeignKey('user.id'), primary_key=True)
+    db.Column('receiver_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
+    db.Index('idx_friend_request_sender_receiver', 'sender_id', 'receiver_id'),
+    db.Index('idx_friend_request_receiver_sender', 'receiver_id', 'sender_id')
 )
 
 # Modelo de tabla de asociación para Logros de Usuario
