@@ -52,9 +52,11 @@ class UserAchievement(db.Model):
 class User(db.Model, UserMixin):
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password_hash = db.Column(db.String(256)) # Aumentado a 256
+    
+    email = db.Column(db.String(120), unique=True, nullable=False, index=True)
+    username = db.Column(db.String(80), unique=True, nullable=False, index=True)
+
+    password_hash = db.Column(db.String(256))
     
     # Estadísticas del jugador
     level = db.Column(db.Integer, default=1)
@@ -139,22 +141,22 @@ class User(db.Model, UserMixin):
     def accept_friend_request(self, user):
         request_found = False
 
-        # 1. Limpiar la solicitud entrante 
+        # Limpiar la solicitud entrante 
         if self.has_received_request_from(user):
             self.received_requests.remove(user) 
             request_found = True
 
-        # 2. Limpiar la solicitud saliente del remitente 
+        # Limpiar la solicitud saliente del remitente 
         if user.has_sent_request_to(self):
             user.sent_requests.remove(self)
             request_found = True
 
-        # 3. Limpiar la solicitud saliente "espejo"
+        # Limpiar la solicitud saliente "espejo"
         if self.has_sent_request_to(user):
             self.sent_requests.remove(user)
             request_found = True
 
-        # 4. Limpiar la solicitud entrante "espejo"
+        # Limpiar la solicitud entrante "espejo"
         if user.has_received_request_from(self):
             user.received_requests.remove(self) 
             request_found = True

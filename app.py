@@ -312,9 +312,9 @@ class SalaJuego:
 @app.route('/')
 def index():
     # Ruta principal que sirve el archivo HTML del juego
-    if current_user.is_authenticated:
+    if 'user_id' in session and 'username' in session:
         is_auth = True
-        username = current_user.username
+        username = session['username']
     else:
         is_auth = False
         username = None
@@ -350,7 +350,8 @@ def register():
     try:
         db.session.add(new_user)
         db.session.commit()
-        login_user(new_user) # Inicia sesión automáticamente
+        login_user(new_user) # Inicia sesión
+        session['username'] = new_user.username 
         return jsonify({"success": True, "username": new_user.username})
     except Exception as e:
         db.session.rollback()
@@ -379,7 +380,8 @@ def login():
                 return jsonify({"success": False, "message": "Email o contraseña incorrectos."}), 401
             
             # Login exitoso
-            login_user(user)
+            login_user(user) 
+            session['username'] = user.username
             # ¡Devuelve JSON de éxito!
             return jsonify({"success": True, "username": user.username})
 
@@ -454,6 +456,7 @@ def reset_token(token):
 @app.route('/logout', methods=['POST'])
 @login_required # Requiere que el usuario esté logueado
 def logout():
+    session.pop('username', None)
     logout_user() # Cierra la sesión
     return jsonify({'success': True, 'message': 'Sesión cerrada'})
 
