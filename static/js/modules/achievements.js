@@ -45,35 +45,47 @@ function closeAchievementsModal() {
     if(modalAchievementsElement) modalAchievementsElement.style.display = 'none';
 }
 
-/** Abre el modal de logros y carga los datos del usuario (usando caché). */
-async function openAchievementsModal() {
+/**
+ * Abre el modal de logros. Ahora solo lee del caché.
+ */
+function openAchievementsModal() {
     playSound('OpenCloseModal', 0.3);
-    const notifContainer = document.getElementById('notificaciones'); // Necesario para showNotification
+    const notifContainer = document.getElementById('notificaciones'); 
 
     if (!modalAchievementsElement || !_state || !_state.currentUser || !_state.currentUser.username) {
          if (!_state || !_state.currentUser) {
             showNotification("Debes iniciar sesión para ver los logros.", notifContainer, "warning");
          }
-        return; // Salir si no hay usuario o elementos
+        return; 
     }
 
     modalAchievementsElement.style.display = 'flex';
     
-    // Si ya lo tenemos en caché, renderizar al instante
     if (achievementsCache.isLoaded && achievementsCache.data) {
         console.log("Cargando logros desde caché...");
         renderAchievements(achievementsCache.data);
-        return;
+    } else {
+        // Si no está cargado (precarga en curso o fallida), muestra 'Cargando...'
+        console.log("Renderizando estado 'Cargando...' para logros.");
+        if(achievementsListDisplay) achievementsListDisplay.innerHTML = '<p style="text-align:center; color: var(--muted);">Cargando logros...</p>';
+        if (achievementsSummaryDisplay) achievementsSummaryDisplay.textContent = 'Cargando resumen...';
+        
+        if (!achievementsCache.isLoading) {
+            loadAchievementsData();
+        }
     }
+}
 
-    // Si ya está cargando, no hacer nada
-    if (achievementsCache.isLoading) return;
+/**
+ * Función para cargar los datos de logros.
+ * Llamada por 'main.js' durante la precarga.
+ */
+export async function loadAchievementsData() {
+    if (achievementsCache.isLoading || achievementsCache.isLoaded) return;
+    if (!_state.currentUser || !_state.currentUser.username) return;
 
-    // Si no está en caché, buscarlo
-    console.log("Buscando logros desde la red...");
+    console.log("Iniciando precarga de datos de logros...");
     achievementsCache.isLoading = true;
-    if(achievementsListDisplay) achievementsListDisplay.innerHTML = '<p style="text-align:center; color: var(--muted);">Cargando logros...</p>';
-    if (achievementsSummaryDisplay) achievementsSummaryDisplay.textContent = 'Cargando resumen...';
 
     try {
         const response = await fetch(`/profile/${_state.currentUser.username}`);
@@ -83,15 +95,22 @@ async function openAchievementsModal() {
         if (data.achievements && !data.achievements.error) {
             achievementsCache.data = data.achievements; // Guardar en caché
             achievementsCache.isLoaded = true;
-            renderAchievements(data.achievements);
+            console.log("Caché de logros cargado exitosamente.");
+            
+            // Si el modal está abierto, renderizarlo
+            if (modalAchievementsElement?.style.display === 'flex') {
+                renderAchievements(achievementsCache.data);
+            }
         } else {
             throw new Error(data.achievements?.error || "No se pudieron cargar los logros.");
         }
     } catch (error) {
         console.error("Error al cargar logros:", error);
-        if(achievementsListDisplay) achievementsListDisplay.innerHTML = `<p style="text-align:center; color: var(--danger);">Error al cargar: ${error.message}</p>`;
-        if (achievementsSummaryDisplay) achievementsSummaryDisplay.textContent = 'Error al cargar';
         achievementsCache.isLoaded = false; // Permitir reintentar
+        if (modalAchievementsElement?.style.display === 'flex') {
+            if(achievementsListDisplay) achievementsListDisplay.innerHTML = `<p style="text-align:center; color: var(--danger);">Error al cargar: ${error.message}</p>`;
+            if (achievementsSummaryDisplay) achievementsSummaryDisplay.textContent = 'Error al cargar';
+        }
     } finally {
         achievementsCache.isLoading = false;
     }
@@ -100,21 +119,15 @@ async function openAchievementsModal() {
 /** Renderiza la lista de logros en el modal. */
 function renderAchievements(progressData) {
     if (!achievementsListDisplay || !progressData || !progressData.achievements) return;
-
-    // Actualizar resumen
     if (achievementsSummaryDisplay) {
         achievementsSummaryDisplay.textContent = `Completado: ${progressData.unlocked}/${progressData.total} (${progressData.percentage.toFixed(1)}%)`;
     }
-
-    achievementsListDisplay.innerHTML = ""; // Limpiar
-
+    achievementsListDisplay.innerHTML = ""; 
     progressData.achievements.forEach(ach => {
         const item = document.createElement("div");
         item.className = `achievement-item ${ach.unlocked ? 'unlocked' : 'locked'}`;
-
         const progressPercent = ach.target_value > 0 ? (ach.current_value / ach.target_value) * 100 : (ach.unlocked ? 100 : 0);
-        const progressBarWidth = Math.min(100, progressPercent); // Asegurar que no pase de 100
-
+        const progressBarWidth = Math.min(100, progressPercent); 
         item.innerHTML = `
             <div class="achievement-header">
                 <div class="achievement-icon">${ach.icon || '🏆'}</div>
@@ -150,4 +163,10 @@ export function invalidateAchievementsCache() {
     console.log("Invalidando caché de logros...");
     achievementsCache.isLoaded = false;
     achievementsCache.data = null;
+    
+    // Si el modal está abierto, recargarlo
+    if (modalAchievementsElement?.style.display === 'flex') {
+        console.log("Modal de logros abierto, forzando recarga de datos...");
+        loadAchievementsData(); 
+    }
 }
