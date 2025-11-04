@@ -33,7 +33,7 @@ PERKS_CONFIG = {
         "id": "impulso_inestable",
         "nombre": "Impulso Inestable",
         "tier": "basico",
-        "desc": "Tras tirar dado, 50% de +1 casilla, 50% de -1 casilla."
+        "desc": "Tras tirar dado, 50% de +2 casillas, 50% de -1 casilla."
     },
     "chatarrero": {
         "id": "chatarrero",
@@ -45,7 +45,7 @@ PERKS_CONFIG = {
         "id": "presencia_intimidante",
         "nombre": "Presencia Intimidante",
         "tier": "basico",
-        "desc": "Jugadores que colisionan contigo (cuando tú no te mueves) pierden 10 energía extra."
+        "desc": "Jugadores que colisionan contigo (cuando tú no te mueves) pierden 25 energía extra."
     },
     "descuento_habilidad": {
         "id": "descuento_habilidad",
@@ -65,7 +65,7 @@ PERKS_CONFIG = {
         "id": "acumulador_de_pm",
         "nombre": "Acumulador de PM",
         "tier": "basico",
-        "desc": "Ganas +1 PM adicional cada vez que obtienes PM de cualquier fuente."
+        "desc": "Ganas +1 PM adicional cada vez que obtienes PM de casillas especiales (Pozo/Chatarrería)."
     },
     "retroceso_brutal": {
         "id": "retroceso_brutal",

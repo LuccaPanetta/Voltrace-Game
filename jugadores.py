@@ -151,14 +151,17 @@ class JugadorWeb:
     def get_pm(self):
         return self.pm
 
-    def ganar_pm(self, cantidad):
+    def ganar_pm(self, cantidad, fuente="habilidad"):
         if not self.__activo or cantidad <= 0: return
         cantidad_final = cantidad
-        if "acumulador_de_pm" in self.perks_activos:
+        
+        fuentes_especiales_pm = ["casilla_pozo_pm", "casilla_chatarreria", "perk_chatarrero"]
+        if "acumulador_de_pm" in self.perks_activos and fuente in fuentes_especiales_pm:
             cantidad_final += 1
             self.juego_actual.eventos_turno.append(f"✨ Acumulador: +1 PM extra para {self.get_nombre()}")
+            
         self.pm += cantidad_final
-        print(f"DEBUG: {self.get_nombre()} ganó {cantidad_final} PM. Total: {self.pm}")
+        print(f"DEBUG: {self.get_nombre()} ganó {cantidad_final} PM (Fuente: {fuente}). Total: {self.pm}")
 
     def gastar_pm(self, cantidad):
         print(f"DEBUG gastar_pm: Intentando gastar {cantidad} PM. Actuales: {self.pm}")

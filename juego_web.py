@@ -77,13 +77,13 @@ class JuegoOcaWeb:
             {"tipo": "multiplicador", "simbolo": "✨", "nombre": "Amplificador", "id_unico": "amplificador"}, 
             {"tipo": "intercambio", "simbolo": "🔄", "nombre": "Cámara de Intercambio", "id_unico": "intercambio"},
             {"tipo": "tesoro", "simbolo": "🤑", "valor": 120, "nombre": "Tesoro Mayor", "id_unico": "tesoro_mayor"}, 
-            {"tipo": "pausa", "simbolo": "⏸️", "nombre": "Zona de Pausa", "id_unico": "pausa"}, 
+            {"tipo": "pausa", "simbolo": "💸", "nombre": "Peaje Costoso", "id_unico": "pausa", "valor_energia": -75, "valor_pm": -3}, 
             {"tipo": "trampa", "simbolo": "☠️", "valor": -150, "nombre": "Trampa Peligrosa", "id_unico": "trampa_peligrosa"}, 
             {"tipo": "turbo", "simbolo": "⚡", "nombre": "Acelerador", "id_unico": "acelerador"}, 
             {"tipo": "teletransporte", "simbolo": "💠", "avance": (5, 8), "nombre": "Portal Avanzado", "id_unico": "portal_avanzado"}, 
             {"tipo": "vampiro", "simbolo": "🧛", "porcentaje": 15, "nombre": "Drenaje de Energía", "id_unico": "vampiro"}, 
             {"tipo": "rebote", "simbolo": "↩️", "nombre": "Trampolín Inverso", "id_unico": "rebote"}, 
-            {"tipo": "retroceso_estrategico", "simbolo": "⚫", "nombre": "Agujero Negro", "id_unico": "agujero_negro"},
+            {"tipo": "retroceso_estrategico", "simbolo": "⚫", "nombre": "Agujero Negro", "id_unico": "agujero_negro", "retroceso": 20},
             {"tipo": "recurso", "simbolo": "⭐", "nombre": "Pozo de PM", "id_unico": "pozo_pm"},
             {"tipo": "atraccion", "simbolo": "🧲", "nombre": "Imán", "id_unico": "iman"},
             {"tipo": "intercambio_recurso", "simbolo": "⚙️", "nombre": "Chatarrería", "id_unico": "chatarreria"},
@@ -230,7 +230,7 @@ class JuegoOcaWeb:
                     else:
                         self.eventos_turno.append(f"🚫 (Dado Cargado): Bloqueado (+10 Energía).")
                 elif 4 <= dado1 <= 6:
-                    jugador.ganar_pm(1)
+                    jugador.ganar_pm(1, fuente="perk_dado_cargado") # Fuente específica
                     self.eventos_turno.append(f"✨ (Dado Cargado): ¡Ganas +1 PM!")
         else:
             # Si no hay dado forzado, tirar normally
@@ -264,13 +264,13 @@ class JuegoOcaWeb:
         elif multiplicador > 1:
             self.eventos_turno.append(f"⚡ ¡Turbo activado! ({dado_final} x 2) = {avance_total} casillas")
         
-        # Aplicar Impulso Inestable (Perk Básico)
+        # Aplicar Impulso Inestable 
         if "impulso_inestable" in jugador.perks_activos:
             if random.random() < 0.50:
-                avance_total += 1
-                self.eventos_turno.append("🌀 Impulso Inestable: +1 casilla!")
+                avance_total += 2 
+                self.eventos_turno.append("🌀 Impulso Inestable: +2 casillas!")
             else:
-                avance_total = max(0, avance_total - 1) # No ir a posición negativa
+                avance_total = max(0, avance_total - 1)
                 self.eventos_turno.append("🌀 Impulso Inestable: -1 casilla!")
         
         # Mover y Verificar Meta 
@@ -295,7 +295,7 @@ class JuegoOcaWeb:
             "pos_final": pos_final,
             "meta_alcanzada": meta_alcanzada,
             "pausado": False, # Asegurarnos que siempre esté
-            "consecutive_sixes": consecutive_sixes_count # --- INCLUIR DATO DEL LOGRO ---
+            "consecutive_sixes": consecutive_sixes_count 
         }
 
     def paso_2_procesar_casilla_y_avanzar(self, nombre_jugador):
@@ -423,8 +423,9 @@ class JuegoOcaWeb:
 
             if tipo == "tesoro":
                 energia_intentada = casilla["valor"]
-                energia_ganada_real = jugador.procesar_energia(energia_intentada)
-
+                
+                energia_modificada = energia_intentada # Empezar con el valor base
+                
                 if self._verificar_efecto_activo(jugador, "multiplicador"):
                     energia_modificada *= 2
                     self.eventos_turno.append("✨ ¡Multiplicador! Valor del tesoro duplicado.")
@@ -437,12 +438,13 @@ class JuegoOcaWeb:
                 if energia_intentada > 0 and "eficiencia_energetica" in jugador.perks_activos:
                     energia_modificada = int(energia_modificada * 1.20)
                     self.eventos_turno.append("⚡ Eficiencia Energética: +20% en Tesoro!")
+                
+                energia_ganada_real = jugador.procesar_energia(energia_modificada)
 
                 # Comprobar Bloqueo Energético antes de dar el tesoro
                 if energia_ganada_real > 0:
-                    # Usa el valor real ganado en el mensaje
                     self.eventos_turno.append(f"💰 +{energia_ganada_real} energía")
-                    jugador.ganar_pm(2) # PM por recoger tesoro
+                    jugador.ganar_pm(2, fuente="casilla_tesoro") # PM por recoger tesoro
                     jugador.tesoros_recogidos += 1
                 elif energia_intentada > 0: # Si intentó ganar pero no pudo (cambio real fue 0)
                     self.eventos_turno.append(f"🚫 {jugador.get_nombre()} no pudo recoger el Tesoro (+{energia_intentada} E) por Bloqueo.")
@@ -482,7 +484,6 @@ class JuegoOcaWeb:
                     nombre_propietario = casilla["colocada_por"]
                     propietario = self._encontrar_jugador(nombre_propietario)
                     
-                    # Comprobación Crítica: El PROPIETARIO de la mina debe tener el perk
                     if propietario and "recompensa_de_mina" in propietario.perks_activos: 
                         recompensa = abs(energia_perdida_final) // 2 
                         if propietario.esta_activo(): 
@@ -495,15 +496,14 @@ class JuegoOcaWeb:
 
                 # Aplicar Perk 'Chatarrero' (si aplica)
                 if "chatarrero" in jugador.perks_activos:
-                    jugador.ganar_pm(1)
+                    jugador.ganar_pm(1, fuente="perk_chatarrero")
                     self.eventos_turno.append("⚙️ +1 PM (Chatarrero)")
 
             elif tipo == "teletransporte":
                 avance = randint(casilla["avance"][0], casilla["avance"][1])
                 nueva_pos = min(jugador.get_posicion() + avance, self.posicion_meta)
                 jugador.teletransportar_a(nueva_pos)
-                self.eventos_turno.append(f"🌀 Teletransporte: avanzas {avance} a {nueva_pos}")
-                # Procesar efectos/colisión en la nueva casilla   
+                self.eventos_turno.append(f"🌀 Teletransporte: avanzas {avance} a {nueva_pos}") 
 
             elif tipo == "multiplicador":
                 duracion_turnos = len(self.jugadores) + 1
@@ -511,9 +511,21 @@ class JuegoOcaWeb:
                 self.eventos_turno.append(f"×2 Tu próxima energía se duplicará (Efecto dura {duracion_turnos} turnos)")
 
             elif tipo == "pausa":
-                duracion_turnos = 1
-                jugador.efectos_activos.append({"tipo": "pausa", "turnos": duracion_turnos})
-                self.eventos_turno.append(f"⏸️ Pierdes tu próximo turno (Efecto dura {duracion_turnos} turnos)")
+                energia_perdida = casilla.get("valor_energia", -75)
+                pm_perdidos = casilla.get("valor_pm", -3)
+                
+                # Aplicar pérdida de energía (respeta Aislamiento, Último Aliento, etc.)
+                energia_perdida_real = energia_perdida
+                if "aislamiento" in jugador.perks_activos:
+                    energia_perdida_real = int(energia_perdida_real * 0.80)
+                    self.eventos_turno.append("🛡️ Aislamiento reduce pérdida de Peaje.")
+                
+                jugador.procesar_energia(energia_perdida_real)
+                self.eventos_turno.append(f"💸 Peaje Costoso: Pierdes {abs(energia_perdida_real)} E.")
+                
+                # Aplicar pérdida de PM (directa)
+                jugador.gastar_pm(abs(pm_perdidos))
+                self.eventos_turno.append(f"💸 Peaje Costoso: Pierdes {abs(pm_perdidos)} PM.")
 
             elif tipo == "turbo":
                 duracion_turnos = len(self.jugadores) + 1
@@ -521,7 +533,6 @@ class JuegoOcaWeb:
                 self.eventos_turno.append(f"⚡ Tu próximo movimiento se duplicará (Efecto dura {duracion_turnos} turnos)")
 
             elif tipo == "vampiro":
-                # Asegurarse que el cálculo no cause error si el puntaje es negativo (no debería pasar)
                 drenaje = max(0, jugador.get_puntaje() * casilla.get("porcentaje", 0) // 100)
                 if drenaje > 0:
                     jugador.procesar_energia(-drenaje)
@@ -532,10 +543,9 @@ class JuegoOcaWeb:
                 if otros:
                     objetivo = random.choice(otros)
                     
-                    pos_j_original = jugador.get_posicion() # Guardar posición original
+                    pos_j_original = jugador.get_posicion() 
                     pos_o_original = objetivo.get_posicion()
 
-                    # Realizar el intercambio
                     jugador.teletransportar_a(pos_o_original)
                     objetivo.teletransportar_a(pos_j_original)
                     self.eventos_turno.append(f"🔄 Intercambias posición con {objetivo.get_nombre()} (al azar). Ahora estás en {pos_o_original} y {objetivo.get_nombre()} en {pos_j_original}.")
@@ -544,93 +554,80 @@ class JuegoOcaWeb:
 
             elif tipo == "rebote":
                 retroceso = randint(5, 10)
-                nueva_pos = max(1, jugador.get_posicion() - retroceso) # No ir más allá de 1
+                nueva_pos = max(1, jugador.get_posicion() - retroceso) 
                 if nueva_pos != jugador.get_posicion():
                     jugador.teletransportar_a(nueva_pos)
                     self.eventos_turno.append(f"↩️ Rebote: retrocedes {retroceso} a {nueva_pos}")
-                    # Procesar efectos/colisión en la nueva casilla
                 else:
                     self.eventos_turno.append("↩️ Rebote: Ya estás en la casilla 1.")
 
             elif tipo == "retroceso_estrategico": # Agujero Negro
-                if len(self.jugadores) > 1:
-                    # Busca al jugador activo con la posición MÁS BAJA
-                    jugador_ultimo = min([j for j in self.jugadores if j.esta_activo()], key=lambda x: x.get_posicion())
-                    if jugador_ultimo != jugador:
-                        nueva_pos = jugador_ultimo.get_posicion()
-                        jugador.teletransportar_a(nueva_pos)
-                        self.eventos_turno.append(f"⚫ Agujero Negro: Eres enviado a la posición del último jugador ({nueva_pos}).")
-                        # Procesar colisión en la nueva casilla (muy importante)
-                        self._verificar_colision(jugador, nueva_pos) 
-                    else:
-                        self.eventos_turno.append(f"⚫ Agujero Negro: ¡Ya ibas último! No pasa nada.")
+                retroceso_fijo = casilla.get("retroceso", 20)
+                pos_actual = jugador.get_posicion()
+                nueva_pos = max(1, pos_actual - retroceso_fijo)
+                
+                if nueva_pos != pos_actual:
+                    jugador.teletransportar_a(nueva_pos)
+                    self.eventos_turno.append(f"⚫ Agujero Negro: Retrocedes {retroceso_fijo} casillas a {nueva_pos}.")
+                    # Procesar colisión en la nueva casilla
+                    self._verificar_colision(jugador, nueva_pos) 
+                else:
+                    self.eventos_turno.append(f"⚫ Agujero Negro: Retrocedes {pos_actual - 1} casillas a {nueva_pos}.")
             
             elif tipo == "recurso": # Pozo de PM
-                jugador.ganar_pm(3)
+                jugador.ganar_pm(3, fuente="casilla_pozo_pm") # Fuente específica
                 self.eventos_turno.append(f"⭐ Pozo de PM: ¡Ganas +3 PM!")
 
             elif tipo == "atraccion": # Imán
                 self.eventos_turno.append(f"🧲 Imán: Atrae a los demás jugadores 2 casillas.")
-                pos_iman = jugador.get_posicion() # Posición del jugador que activó el imán
+                pos_iman = jugador.get_posicion() 
                 
                 for j in self.jugadores:
                     if j != jugador and j.esta_activo():
                         pos_actual_j = j.get_posicion()
                         
-                        # Determinar la dirección del movimiento
-                        if pos_actual_j > pos_iman:
-                            direccion = -1
-                        # Si está MÁS ATRÁS, debe sumar
-                        else:
-                            direccion = 1 # Avanzar hacia el imán
+                        if pos_actual_j > pos_iman: direccion = -1
+                        else: direccion = 1 
                         
-                        # Mover 2 casillas en esa dirección, sin pasarse del imán
                         movimiento_max = 2
-                        if abs(pos_actual_j - pos_iman) == 1:
-                            movimiento_max = 1
+                        if abs(pos_actual_j - pos_iman) == 1: movimiento_max = 1
                             
                         nueva_pos = pos_actual_j + (direccion * movimiento_max)
 
                         if nueva_pos != pos_actual_j:
                             j.teletransportar_a(nueva_pos)
                             self.eventos_turno.append(f"🧲 {j.get_nombre()} es atraído a {nueva_pos}.")
-                            # Procesar efectos Y colisión en la nueva casilla
                             self._procesar_efectos_posicion(j, nueva_pos)
                             self._verificar_colision(j, nueva_pos)
             
             elif tipo == "intercambio_recurso": # Chatarrería 
                 energia_cambio = jugador.procesar_energia(-50)
-                jugador.ganar_pm(3)
-                # abs(energia_cambio) mostrará 50 (o 40 si tiene Aislamiento)
+                jugador.ganar_pm(3, fuente="casilla_chatarreria") # Fuente específica
                 self.eventos_turno.append(f"⚙️ Chatarrería: Pierdes {abs(energia_cambio)} E pero ganas +3 PM.")
         
         
         # --- PACKS DE ENERGÍA ---
-        # Llamar a _buscar_energia_en_posicion solo si no está en fase Y si la casilla no es negativa (para evitar doble penalización)
         puede_recoger_pack = True
         if esta_en_fase:
             pack_info = next((pack for pack in self.energia_packs if pack['posicion'] == posicion and pack['valor'] != 0), None)
             if pack_info and pack_info['valor'] < 0:
                  self.eventos_turno.append(f"👻 {jugador.get_nombre()} ignora el pack negativo (Fase).")
-                 puede_recoger_pack = False # Ignorar pack negativo
+                 puede_recoger_pack = False 
             elif pack_info and pack_info['valor'] > 0:
                  self.eventos_turno.append(f"👻 {jugador.get_nombre()} recoge pack positivo (Fase).")
-                 # Continuar para recogerlo
 
-        energia_cambio_pack = 0 # Inicializar por si no puede recoger
+        energia_cambio_pack = 0 
         if puede_recoger_pack:
-            # Esta función ya añade los eventos de ganancia/pérdida/bloqueo/chatarrero
-            energia_cambio_pack = self._buscar_energia_en_posicion(jugador, posicion)
+            energia_cambio_pack = self._buscar_energia_en_posicion(jugador, posicion) 
 
             if energia_cambio_pack < 0:
-                 jugador_afectado = jugador # Renombrar para que el bloque funcione
-                 if not jugador_afectado.esta_activo(): # ¿Fue eliminado?
+                 jugador_afectado = jugador 
+                 if not jugador_afectado.esta_activo(): 
                      mensaje_elim = f"💀 ¡{jugador_afectado.get_nombre()} ha sido eliminado (por pack de energía)!"
-                     # Evitar mensajes duplicados si ya fue eliminado por otra causa en el mismo turno
                      if mensaje_elim not in self.eventos_turno:
                           self.eventos_turno.append(mensaje_elim)
                  elif getattr(jugador_afectado, '_ultimo_aliento_usado', False) and \
-                      not getattr(jugador_afectado, '_ultimo_aliento_notificado', False): # ¿Se activó Último Aliento AHORA?
+                      not getattr(jugador_afectado, '_ultimo_aliento_notificado', False): 
                      self.eventos_turno.append(f"❤️‍🩹 ¡Último Aliento salvó a {jugador_afectado.get_nombre()}! Sobrevive con 50 E y Escudo (3 Turnos).")
                      jugador_afectado._ultimo_aliento_notificado = True
 
@@ -666,13 +663,13 @@ class JuegoOcaWeb:
 
                 if energia_cambio_real > 0: # Ganó energía
                     self.eventos_turno.append(f"💚 +{energia_cambio_real} energía")
-                    jugador.ganar_pm(1)
+                    jugador.ganar_pm(1, fuente="pack_energia") 
                 elif energia_modificada > 0: # Intentó ganar (modificada > 0) pero cambio_real fue 0
                     self.eventos_turno.append(f"🚫 {jugador.get_nombre()} no pudo recoger el pack (+{energia_modificada}) por Bloqueo.")
                 elif energia_cambio_real < 0: # Perdió energía
                     self.eventos_turno.append(f"💀 {energia_cambio_real} energía")
                     if "chatarrero" in jugador.perks_activos:
-                        jugador.ganar_pm(1)
+                        jugador.ganar_pm(1, fuente="perk_chatarrero")
                         self.eventos_turno.append("⚙️ +1 PM (Chatarrero)")
                         
                 jugador_afectado = jugador
@@ -731,16 +728,16 @@ class JuegoOcaWeb:
                 if es_el_que_se_movio:
                     for j_estatico in jugadores_en_posicion: # Iterar sobre los que estaban quietos
                          if "presencia_intimidante" in j_estatico.perks_activos:
-                             # Aplicar penalización extra SOLO al que se movió
-                             energia_perdida -= 10 
-                             self.eventos_turno.append(f"  {j_estatico.get_nombre()} intimida a {j_afectado.get_nombre()} (-10 E extra)!")
+                             penalizacion_extra = 25 
+                             energia_perdida -= penalizacion_extra 
+                             self.eventos_turno.append(f"  {j_estatico.get_nombre()} intimida a {j_afectado.get_nombre()} (-{penalizacion_extra} E extra)!")
                              break # Solo se aplica una vez 
 
                 # Verificar Escudo o Amortiguación del afectado
                 if self._verificar_efecto_activo(j_afectado, "escudo") or \
                    ("sombra_fugaz" in j_afectado.perks_activos and self._verificar_efecto_activo(j_afectado, "invisible")): # Añadir chequeo Sombra Fugaz
                     self.eventos_turno.append(f"  {j_afectado.get_nombre()}: 🛡️ protegido")
-                    j_afectado.ganar_pm(2) # PM por sobrevivir
+                    j_afectado.ganar_pm(2, fuente="colision") # Colisión NO activa Acumulador
                     continue 
 
                 elif "amortiguacion" in j_afectado.perks_activos:
@@ -749,7 +746,7 @@ class JuegoOcaWeb:
 
                 j_afectado.procesar_energia(energia_perdida)
                 self.eventos_turno.append(f"  {j_afectado.get_nombre()}: {energia_perdida} energía")
-                j_afectado.ganar_pm(2) # PM por sobrevivir 
+                j_afectado.ganar_pm(2, fuente="colision") # Colisión NO activa Acumulador
 
                 # Aplicar Drenaje por Colisión 
                 if "drenaje_colision" in j_afectado.perks_activos:
