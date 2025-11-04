@@ -902,16 +902,7 @@ class JuegoOcaWeb:
         # 3. Lógica de Cierre 
         if exito:
             jugador.habilidades_usadas_en_partida += 1
-            
-            es_accion_de_turno = resultado_logica.get('es_movimiento')
-            
-            if es_accion_de_turno:
-                # Esta habilidad (Cohete, Rebote) cuenta como la acción principal
-                jugador.dado_lanzado_este_turno = True 
-                jugador.habilidad_usada_este_turno = False 
-            else:
-                # Esta habilidad (Control, Ofensiva, Defensiva) NO consume el turno
-                jugador.habilidad_usada_este_turno = True
+            jugador.habilidad_usada_este_turno = True
 
             # Aplicar Cooldown
             if hasattr(jugador, 'habilidades_cooldown'):
@@ -967,6 +958,10 @@ class JuegoOcaWeb:
             elif resultado_logica.get('es_movimiento_multiple'):
                 respuesta['es_movimiento_multiple'] = True
                 respuesta['movimientos'] = resultado_logica.get('movimientos')
+
+            # Burbujear la celda actualizada si existe
+            if resultado_logica.get('celda_actualizada'):
+                 respuesta['celda_actualizada'] = resultado_logica.get('celda_actualizada')
 
             return respuesta
 
@@ -1672,18 +1667,25 @@ class JuegoOcaWeb:
             eventos.append(f"La posición {pos_actual} ya tiene una casilla especial.")
             return {"exito": False, "eventos": eventos}
 
-        # Colocar la Mina
-        self.casillas_especiales[pos_actual] = {
+        # Crear la nueva casilla
+        nueva_casilla_data = {
             "nombre": "Mina de Energía", 
             "tipo": "trampa", 
             "simbolo": "💣",
             "valor": -50, 
             "colocada_por": jugador.get_nombre() # Guardar quién la puso
         }
+
+        # Colocar la Mina en el juego
+        self.casillas_especiales[pos_actual] = nueva_casilla_data
         eventos.append(f"💣 Mina Colocada en {pos_actual} (-50 E).")
         
-        # Devuelve éxito y los eventos generados
-        return {"exito": True, "eventos": eventos}
+        # Devolver el "delta" del tablero
+        return {
+            "exito": True, 
+            "eventos": eventos,
+            "celda_actualizada": {pos_actual: nueva_casilla_data} # Informa qué celda cambió
+        }
 
     def _hab_doble_turno(self, jugador, habilidad, objetivo):
         eventos = []

@@ -497,6 +497,68 @@ export function actualizarEstadoJuego(estado) {
     }
 }
 
+/**
+ * Actualiza la UI con estado PARCIAL (solo jugadores y log).
+ * No toca el tablero. Es más rápido que actualizarEstadoJuego.
+ */
+export function actualizarEstadoParcial(estadoParcial) {
+    if (!jugadoresEstadoDisplay || !rondaActualDisplay || !turnoJugadorDisplay || !_state || !_state.currentUser) {
+        console.warn("actualizarEstadoParcial abortado: elementos DOM o estado no listos.");
+        return; 
+    }
+
+    const jugadorTurnoAnterior = _estadoJuego ? _estadoJuego.turno_actual : null;
+
+    // RENDERIZAR JUGADORES 
+    updateJugadoresEstado(estadoParcial.jugadores);
+
+    // ACTUALIZAR ESTADO LOCAL PARCIALMENTE
+    Object.assign(_estadoJuego, estadoParcial);
+
+    // RENDERIZAR COMPONENTES SIMPLES
+    rondaActualDisplay.textContent = estadoParcial.ronda ?? "-";
+    turnoJugadorDisplay.textContent = escapeHTML(estadoParcial.turno_actual ?? "-");
+
+    // LÓGICA DE BOTONES Y LOG
+    const esMiTurno = estadoParcial.turno_actual === _state.currentUser.username;
+    const juegoActivo = estadoParcial.estado === "jugando";
+    const esTurnoNuevo = estadoParcial.turno_actual !== jugadorTurnoAnterior;
+
+    // Limpiar el log de eventos SI es un turno nuevo
+    if (esTurnoNuevo && juegoActivo && eventosListaDisplay) {
+        eventosListaDisplay.innerHTML = ''; // Limpiar log
+        agregarAlLog(`➡️ Turno de ${escapeHTML(estadoParcial.turno_actual ?? "-")}`);
+    }
+
+    // Resetear flag de habilidad si es un nuevo turno para mí
+    if (esMiTurno && esTurnoNuevo) {
+        _habilidadUsadaTurno.value = false;
+    }
+    
+    // Habilitar/Deshabilitar botones
+    btnLanzarDado.disabled = !esMiTurno || !juegoActivo;
+    btnMostrarHab.disabled = !juegoActivo; 
+
+    const controlesTurno = document.querySelector(".controles-turno");
+    let btnAbrirPerks = document.getElementById("btn-abrir-perks");
+    
+    if (esMiTurno && juegoActivo && controlesTurno && _openPerkModalFunc) {
+        if (!btnAbrirPerks) {
+            btnAbrirPerks = document.createElement("button");
+            btnAbrirPerks.id = "btn-abrir-perks";
+            btnAbrirPerks.className = "btn-secondary";
+            btnAbrirPerks.textContent = "⭐ Comprar Perks";
+            btnAbrirPerks.style.marginLeft = "10px";
+            btnAbrirPerks.onclick = _openPerkModalFunc;
+            btnLanzarDado.insertAdjacentElement('afterend', btnAbrirPerks);
+        }
+        btnAbrirPerks.style.display = "inline-block";
+        btnAbrirPerks.disabled = false; 
+    } else if (btnAbrirPerks) {
+        btnAbrirPerks.style.display = "none";
+    }
+}
+
 /** Muestra el modal de fin de juego. */
 export function mostrarModalFinJuego(data) {
     if (!modalFinalElement || !resultadosFinalesDisplay || !btnNuevaPartida || !btnVolverLobby || !_state || !_state.currentUser) {

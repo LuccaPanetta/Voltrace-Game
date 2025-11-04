@@ -39,6 +39,7 @@ import threading              # Para tareas en background
 import time                   # Para delays y timers
 import traceback
 import os
+import math                   
 
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
@@ -149,6 +150,61 @@ login_manager.init_app(app)
 def load_user(user_id):
     # Le dice a flask_login cómo encontrar un usuario por su ID
     return User.query.get(int(user_id))
+
+XP_BASE_PARA_NIVEL = 500 # XP necesaria para Nivel 2
+
+def calculate_level_from_xp(xp):
+    if xp < XP_BASE_PARA_NIVEL:
+        return 1
+    level = int(xp // XP_BASE_PARA_NIVEL) + 1
+    return level
+
+def update_xp_and_level(user, xp_to_add):
+    if not user or xp_to_add == 0:
+        return False
+
+    try:
+        # Asegurarse que los valores no sean None
+        current_level = user.level or 1
+        user.xp = (user.xp or 0) + xp_to_add
+        
+        new_level = calculate_level_from_xp(user.xp)
+        
+        level_up = False
+        if new_level > current_level:
+            user.level = new_level
+            level_up = True
+        
+        db.session.commit()
+        return level_up
+    except Exception as e:
+        db.session.rollback()
+        print(f"!!! ERROR al actualizar XP/Nivel para {user.username}: {e}")
+        return False
+
+def _procesar_habilidad_db_async(app, sid, username):
+    with app.app_context():
+        try:
+            print(f"--- THREAD: Procesando XP/Logros de habilidad para: {username}")
+            user_db = User.query.filter_by(username=username).first()
+            if user_db:
+                # Actualizar XP y Nivel
+                user_db.abilities_used = getattr(user_db, 'abilities_used', 0) + 1
+                level_up = update_xp_and_level(user_db, 10) # 10 XP por usar habilidad
+                if level_up:
+                    socketio.emit('level_up', {'new_level': user_db.level, 'xp': user_db.xp}, to=sid)
+            
+            # Verificar Logros
+            unlocked_list = achievement_system.check_achievement(username, 'ability_used', {})
+            if unlocked_list:
+                socketio.emit('achievements_unlocked', {
+                    'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_list]
+                }, to=sid)
+            
+            print(f"--- THREAD: Fin de procesamiento para: {username}")
+        except Exception as e:
+            print(f"!!! ERROR FATAL en _procesar_habilidad_db_async: {e}")
+            traceback.print_exc()
 
 # --- Configurar SocketIO ---
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -638,9 +694,12 @@ def crear_sala(data):
         # Track room creation y Logros (Usando DB)
         user_db = User.query.filter_by(username=username).first()
         if user_db:
-            user_db.xp += 5 # Pequeño bonus por crear sala
             user_db.rooms_created = getattr(user_db, 'rooms_created', 0) + 1 
-            db.session.commit() # Guardar el cambio
+            level_up = update_xp_and_level(user_db, 5) # Añade 5 XP y recalcula
+            
+            if level_up:
+                emit('level_up', {'new_level': user_db.level, 'xp': user_db.xp})
+
             unlocked_achievements = achievement_system.check_achievement(username, 'room_created')
             if unlocked_achievements:
                 emit('achievements_unlocked', {
@@ -657,7 +716,7 @@ def crear_sala(data):
         })
     else:
         emit('error', {'mensaje': 'Error al agregar jugador a la sala recién creada.'})
-        if id_sala in salas_activas: del salas_activas[id_sala] # Limpiar si falló
+        if id_sala in salas_activas: del salas_activas[id_sala]
 
 @socketio.on('unirse_sala')
 def unirse_sala(data):
@@ -872,91 +931,66 @@ def terminar_movimiento(data):
             emit('error', {'mensaje': 'El juego no está activo (Paso 2)'})
             return
 
-        # Obtener el nombre del jugador que terminó (enviado por el cliente)
         nombre_jugador_que_termino = data.get('jugador_que_termino')
-        
-        # Intentar obtener el jugador actual (puede ser None si el juego terminó)
         jugador_actual_obj = sala.juego.obtener_jugador_actual()
-        
-        # Determinar el nombre del jugador a procesar
         nombre_jugador_a_procesar = None
         if jugador_actual_obj:
-            # Caso normal: El juego no ha terminado, usamos el turno del servidor
             nombre_jugador_a_procesar = jugador_actual_obj.get_nombre()
         elif nombre_jugador_que_termino:
             nombre_jugador_a_procesar = nombre_jugador_que_termino
         
-        # Fallar si AÚN no lo encontramos
         if not nombre_jugador_a_procesar:
             print("--- ERROR PASO 2: No se pudo determinar el jugador (ni por servidor ni por cliente).")
             emit('error', {'mensaje': 'Error interno: Jugador no encontrado (Paso 2)'})
             return
             
         print(f"Procesando casilla para: {nombre_jugador_a_procesar}")
-
-        # Usar 'nombre_jugador_a_procesar'
+        
+        # Esta función ahora solo avanza el turno si fue un dado
         resultado = sala.juego.paso_2_procesar_casilla_y_avanzar(nombre_jugador_a_procesar)
         
         if sala.juego.ha_terminado():
             print(f"--- JUEGO TERMINADO (PASO 2) --- Sala: {id_sala}")
             sala.estado = 'terminado'
 
-            # Procesar estadísticas y logros para cada jugador
-            for sid, jugador_data in sala.jugadores.items():
-                if sid in sessions_activas:
-                    username = sessions_activas[sid]['username']
-                    jugador_nombre_loop = jugador_data['nombre']
-                    jugador_juego = sala.juego._encontrar_jugador(jugador_nombre_loop) # Usar método interno seguro
-
-                    if jugador_juego:
-                        ganador_obj = sala.juego.determinar_ganador() # Calcula puntajes y determina ganador
-                        ganador_nombre = ganador_obj.get_nombre() if ganador_obj else None
-                        is_winner = jugador_nombre_loop == ganador_nombre
-
-                        # Actualizar estadísticas en la DB
-                        user_db = User.query.filter_by(username=username).first()
-                        if user_db:
-                            user_db.games_played += 1
-                            if is_winner: user_db.games_won += 1
-                            user_db.xp += 50 + (25 if is_winner else 0) # XP base + bonus
-                            db.session.commit()
-
-                            # Verificar logros
-                            event_data = {
-                                'won': is_winner,
-                                'final_energy': jugador_juego.get_puntaje(),
-                                'reached_position': jugador_juego.get_posicion(),
-                                'total_rounds': sala.juego.ronda,
-                                'player_count': len(sala.jugadores),
-                                'colisiones': getattr(jugador_juego, 'colisiones_causadas', 0),
-                                'special_tiles_activated': getattr(jugador_juego, 'tipos_casillas_visitadas', set()),
-                                'abilities_used': getattr(jugador_juego, 'habilidades_usadas_en_partida', 0),
-                                'treasures_this_game': getattr(jugador_juego, 'tesoros_recogidos', 0),
-                                'completed_without_traps': getattr(jugador_juego, 'trampas_evitadas', True),
-                                'precision_laser': getattr(jugador_juego, 'dado_perfecto_usado', 0),
-                                'messages_this_game': getattr(jugador_juego, 'game_messages_sent_this_match', 0),
-                                'only_active_player': sala.juego.ha_terminado() and len([j for j in sala.juego.jugadores if j.esta_activo()]) == 1,
-                                'never_eliminated': jugador_juego.esta_activo(),
-                                'energy_packs_collected': getattr(jugador_juego, 'energy_packs_collected', 0)
-                            }
-                            unlocked_achievements = achievement_system.check_achievement(username, 'game_finished', event_data)
-                            if unlocked_achievements:
-                                socketio.emit('achievements_unlocked', {
-                                    'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_achievements]
-                                }, to=sid)
-                        # Actualizar presencia a 'online'
-                        social_system.update_user_presence(username, 'online', {'sid': sid})
-
-            # Obtener las estadísticas finales (ya calculadas por determinar_ganador)
+            # 1. Obtener las estadísticas finales (esto es rápido, solo calcula)
+            ganador_obj = sala.juego.determinar_ganador()
+            ganador_nombre = ganador_obj.get_nombre() if ganador_obj else None
             stats_finales_dict = sala.juego.obtener_estadisticas_finales()
 
-            # Emitir evento de juego terminado a todos en la sala
+            # 2. Emitir el modal de fin de juego INMEDIATAMENTE
+            print("--- Emitiendo 'juego_terminado' al cliente AHORA.")
             socketio.emit('juego_terminado', {
                 'ganador': stats_finales_dict.get('ganador'),
                 'estadisticas_finales': stats_finales_dict.get('lista_final')
             }, room=id_sala)
-            return
 
+            # 3. Preparar los datos para el hilo (copiar datos)
+            jugadores_items_copia = list(sala.jugadores.items())
+            ronda_copia = sala.juego.ronda
+            player_count_copia = len(sala.jugadores)
+            juego_obj_copia = sala.juego # El objeto juego ya no se modificará
+
+            # 4. Iniciar el hilo para procesar DB (lento) en segundo plano
+            print("--- Iniciando hilo para procesar estadísticas de DB en segundo plano...")
+            stats_thread = threading.Thread(
+                target=_procesar_estadisticas_fin_juego_async,
+                args=(
+                    current_app._get_current_object(), 
+                    jugadores_items_copia,
+                    ganador_nombre,
+                    ronda_copia,
+                    player_count_copia,
+                    juego_obj_copia
+                )
+            )
+            stats_thread.start()
+            
+            # 5. Salir inmediatamente
+            return
+        
+
+        # Si el juego NO ha terminado, enviar la actualización normal
         colores_map = getattr(sala, 'colores_map', {})
         socketio.emit('paso_2_resultado_casilla', {
             'estado_juego': {
@@ -1011,114 +1045,129 @@ def usar_habilidad(data):
     # Ejecutar la lógica de la habilidad en JuegoOcaWeb
     print("--- TURNO VÁLIDO: Llamando a sala.juego.usar_habilidad_jugador ---")
     try:
+        # 1. EJECUTAR LÓGICA DEL JUEGO (Esto es rápido)
         resultado = sala.juego.usar_habilidad_jugador(nombre_jugador_emitente, indice_habilidad, objetivo)
 
         if resultado['exito']:
-            # Actualizar XP y stats en DB, verificar logros
-            if sid in sessions_activas:
-                username = nombre_jugador_emitente # Ya lo tenemos
-                user_db = User.query.filter_by(username=username).first()
-                if user_db:
-                    user_db.xp += 10
-                    user_db.abilities_used = getattr(user_db, 'abilities_used', 0) + 1
-                    db.session.commit()
-                unlocked_achievements_list = achievement_system.check_achievement(username, 'ability_used')
-                if unlocked_achievements_list: 
-                    emit('achievements_unlocked', {
-                        'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_achievements_list]
-                    }, to=sid)
-
-            # Preparar estado actualizado del juego (solo para habilidades no-optimistas)
-            colores_map = getattr(sala, 'colores_map', {})
-            estado_juego = {
-                'jugadores': sala.juego.obtener_estado_jugadores(),
-                'tablero': sala.juego.obtener_estado_tablero(),
-                'turno_actual': sala.juego.obtener_turno_actual(), 
-                'ronda': sala.juego.ronda,
-                'estado': sala.estado,
-                'colores_jugadores': colores_map
-            }
-            print(f"--- ESTADO A ENVIAR (habilidad) --- Turno: {estado_juego.get('turno_actual', 'N/A')}")
-
-            # CASO 1: Habilidad de Movimiento Simple (Cohete, Rebote)
-            if resultado.get('es_movimiento'):
-                print("--- Habilidad de Movimiento (Paso 1) detectada. Emitiendo 'paso_1_resultado_movimiento'.")
-                socketio.emit('paso_1_resultado_movimiento', {
-                    'jugador': nombre_jugador_emitente,
-                    'resultado': {
-                        **resultado['resultado_movimiento'],
-                        'eventos': resultado.get('eventos', [])
-                    },
-                    'habilidad_usada': resultado.get('habilidad') 
-                }, room=id_sala)
             
-            # CASO 2: Habilidad de Movimiento Doble (Intercambio Forzado)
-            elif resultado.get('es_movimiento_doble'):
-                print("--- Habilidad de Movimiento Doble (Paso 1) detectada. Emitiendo 'paso_1' para ambos.")
-                # Emitir para el jugador que usó la habilidad
-                socketio.emit('paso_1_resultado_movimiento', {
-                    'jugador': nombre_jugador_emitente,
-                    'resultado': {
-                        **resultado['resultado_movimiento_jugador'],
-                        'eventos': resultado.get('eventos', []) 
-                    },
-                    'habilidad_usada': resultado.get('habilidad')
-                }, room=id_sala)
-                
-                # Emitir para el jugador objetivo
-                mov_obj = resultado['resultado_movimiento_objetivo']
-                socketio.emit('paso_1_resultado_movimiento', {
-                    'jugador': mov_obj['jugador'],
-                    'resultado': {
-                        **mov_obj,
-                        'eventos': [] # Sin log duplicado
-                    },
-                    'habilidad_usada': None # Sin cooldown para el objetivo
-                }, room=id_sala)
+            # 2. VERIFICAR SI ES HABILIDAD DE MOVIMIENTO O NO
+            es_habilidad_movimiento = (resultado.get('es_movimiento') or 
+                                       resultado.get('es_movimiento_doble') or 
+                                       resultado.get('es_movimiento_otro') or 
+                                       resultado.get('es_movimiento_multiple'))
 
-            # CASO 3: Habilidad de Movimiento de Otro 
-            elif resultado.get('es_movimiento_otro'):
-                print("--- Habilidad de Movimiento de Otro (Paso 1) detectada. Emitiendo 'paso_1'.")
-                mov_obj = resultado['resultado_movimiento']
-                socketio.emit('paso_1_resultado_movimiento', {
-                    'jugador': mov_obj['jugador_movido'], # El jugador objetivo es el que se mueve
-                    'resultado': {
-                        **mov_obj,
-                        'eventos': resultado.get('eventos', []) 
-                    },
-                    'habilidad_usada': resultado.get('habilidad') 
-                }, room=id_sala)
-
-            # CASO 4: Habilidad de Movimiento Múltiple (Caos)
-            elif resultado.get('es_movimiento_multiple'):
-                print("--- Habilidad de Movimiento Múltiple (Paso 1) detectada. Emitiendo 'paso_1' para todos.")
+            # --- CASO A: HABILIDAD DE MOVIMIENTO (Cohete, Caos, etc.) ---
+            if es_habilidad_movimiento:
                 
-                eventos_principales = resultado.get('eventos', [])
-                
-                for i, mov in enumerate(resultado.get('movimientos', [])):
-                    eventos_a_enviar = eventos_principales if i == 0 else []
-                    
+                # CASO 1: Movimiento Simple (Cohete, Rebote)
+                if resultado.get('es_movimiento'):
+                    print("--- Habilidad de Movimiento (Paso 1) detectada. Emitiendo 'paso_1_resultado_movimiento'.")
                     socketio.emit('paso_1_resultado_movimiento', {
-                        'jugador': mov['jugador'],
-                        'resultado': {
-                            **mov,
-                            'eventos': eventos_a_enviar
-                        },
-                        'habilidad_usada': resultado.get('habilidad') 
+                        'jugador': nombre_jugador_emitente,
+                        'resultado': { **resultado['resultado_movimiento'], 'eventos': resultado.get('eventos', []) },
+                        'habilidad_usada': resultado.get('habilidad')
+                    }, room=id_sala)
+                
+                # CASO 2: Movimiento Doble (Intercambio Forzado)
+                elif resultado.get('es_movimiento_doble'):
+                    print("--- Habilidad de Movimiento Doble (Paso 1) detectada. Emitiendo 'paso_1' para ambos.")
+                    socketio.emit('paso_1_resultado_movimiento', {
+                        'jugador': nombre_jugador_emitente,
+                        'resultado': { **resultado['resultado_movimiento_jugador'], 'eventos': resultado.get('eventos', []) },
+                        'habilidad_usada': resultado.get('habilidad')
+                    }, room=id_sala)
+                    mov_obj = resultado['resultado_movimiento_objetivo']
+                    socketio.emit('paso_1_resultado_movimiento', {
+                        'jugador': mov_obj['jugador'],
+                        'resultado': { **mov_obj, 'eventos': [] },
+                        'habilidad_usada': None
                     }, room=id_sala)
 
-            # CASO 5: Habilidad Normal (No-movimiento)
+                # CASO 3: Movimiento de Otro (Retroceso)
+                elif resultado.get('es_movimiento_otro'):
+                    print("--- Habilidad de Movimiento de Otro (Paso 1) detectada. Emitiendo 'paso_1'.")
+                    mov_obj = resultado['resultado_movimiento']
+                    socketio.emit('paso_1_resultado_movimiento', {
+                        'jugador': mov_obj['jugador_movido'],
+                        'resultado': { **mov_obj, 'eventos': resultado.get('eventos', []) },
+                        'habilidad_usada': resultado.get('habilidad')
+                    }, room=id_sala)
+
+                # CASO 4: Movimiento Múltiple (Caos)
+                elif resultado.get('es_movimiento_multiple'):
+                    print("--- Habilidad de Movimiento Múltiple (Paso 1) detectada. Emitiendo 'paso_1' para todos.")
+                    eventos_principales = resultado.get('eventos', [])
+                    for i, mov in enumerate(resultado.get('movimientos', [])):
+                        eventos_a_enviar = eventos_principales if i == 0 else []
+                        socketio.emit('paso_1_resultado_movimiento', {
+                            'jugador': mov['jugador'],
+                            'resultado': { **mov, 'eventos': eventos_a_enviar },
+                            'habilidad_usada': resultado.get('habilidad')
+                        }, room=id_sala)
+
+            # --- CASO B: HABILIDAD DE NO-MOVIMIENTO (Escudo, Bomba, etc.) ---
             else:
-                print("--- Habilidad estándar detectada. Emitiendo 'habilidad_usada' (Paso Único).")
-                if resultado.get('habilidad', {}).get('nombre') == 'Invisibilidad':
-                        emit('habilidad_usada_privada', { 'jugador': nombre_jugador_emitente, 'habilidad': resultado['habilidad'], 'resultado': resultado, 'estado_juego': estado_juego }, to=sid)
-                        socketio.emit('habilidad_usada', { 'jugador': nombre_jugador_emitente, 'habilidad': {'nombre': 'Habilidad usada', 'tipo': 'defensiva', 'simbolo': '❔'}, 'resultado': {'exito': True, 'eventos': [f"{nombre_jugador_emitente} usó una habilidad."]}, 'estado_juego': estado_juego }, room=id_sala, include_self=False)
+                print("--- Habilidad estándar (No-Mov) detectada. Procesando DB en hilo.")
+                
+                # 3. INICIAR HILO PARA DB
+                if sid in sessions_activas:
+                    threading.Thread(
+                        target=_procesar_habilidad_db_async,
+                        args=(
+                            current_app._get_current_object(),
+                            sid,
+                            nombre_jugador_emitente
+                        )
+                    ).start()
+                
+                # 4. ENVIAR RESPUESTA DEL JUEGO INMEDIATAMENTE 
+                colores_map = getattr(sala, 'colores_map', {})
+                celda_actualizada = resultado.get('celda_actualizada')
+
+                if celda_actualizada:
+                    # CASO B1: Habilidad que SÍ cambia el tablero 
+                    print("--- (Habilidad No-Mov) Celda actualizada detectada. Enviando FULL state.")
+                    estado_juego_full = {
+                        'jugadores': sala.juego.obtener_estado_jugadores(),
+                        'tablero': sala.juego.obtener_estado_tablero(), 
+                        'turno_actual': sala.juego.obtener_turno_actual(), 
+                        'ronda': sala.juego.ronda,
+                        'estado': sala.estado,
+                        'colores_jugadores': colores_map
+                    }
+                    socketio.emit('habilidad_usada_full', { 
+                        'jugador': nombre_jugador_emitente, 
+                        'habilidad': resultado['habilidad'], 
+                        'resultado': resultado, 
+                        'estado_juego': estado_juego_full 
+                    }, room=id_sala)
+                
                 else:
-                        socketio.emit('habilidad_usada', { 'jugador': nombre_jugador_emitente, 'habilidad': resultado['habilidad'], 'resultado': resultado, 'estado_juego': estado_juego }, room=id_sala)
-            
+                    # CASO B2: Habilidad que NO cambia el tablero (Escudo, Curar, Bomba, etc.)
+                    print("--- (Habilidad No-Mov) Sin cambio de celda. Enviando PARTIAL state.")
+                    estado_juego_parcial = {
+                        'jugadores': sala.juego.obtener_estado_jugadores(),
+                        'turno_actual': sala.juego.obtener_turno_actual(), 
+                        'ronda': sala.juego.ronda,
+                        'estado': sala.estado,
+                        'colores_jugadores': colores_map
+                    }
+                    
+                    if resultado.get('habilidad', {}).get('nombre') == 'Invisibilidad':
+                        emit('habilidad_usada_privada', { 'jugador': nombre_jugador_emitente, 'habilidad': resultado['habilidad'], 'resultado': resultado, 'estado_juego_parcial': estado_juego_parcial }, to=sid)
+                        socketio.emit('habilidad_usada_parcial', { 'jugador': nombre_jugador_emitente, 'habilidad': {'nombre': 'Habilidad usada', 'tipo': 'defensiva', 'simbolo': '❔'}, 'resultado': {'exito': True, 'eventos': [f"{nombre_jugador_emitente} usó una habilidad."]}, 'estado_juego_parcial': estado_juego_parcial }, room=id_sala, include_self=False)
+                    else:
+                        socketio.emit('habilidad_usada_parcial', { 
+                            'jugador': nombre_jugador_emitente, 
+                            'habilidad': resultado['habilidad'], 
+                            'resultado': resultado, 
+                            'estado_juego_parcial': estado_juego_parcial 
+                        }, room=id_sala)
+
         else:
             # Si la habilidad falló, enviar solo el mensaje de error al emisor
             emit('error', {'mensaje': resultado['mensaje']})
+    
     except Exception as e:
             print(f"!!! ERROR GRAVE en 'usar_habilidad': {e}")
             traceback.print_exc()
@@ -1259,9 +1308,9 @@ def manejar_mensaje(data):
             username = sessions_activas[request.sid]['username']
             user_db = User.query.filter_by(username=username).first()
             if user_db:
-                user_db.game_messages_sent = getattr(user_db, 'game_messages_sent', 0) + 1 # <-- CORREGIDO
-                user_db.xp += 1 # Pequeño bonus de XP por chatear
-                db.session.commit()
+                user_db.game_messages_sent = getattr(user_db, 'game_messages_sent', 0) + 1
+                # No notificar level up por chat, pero sí calcularlo
+                update_xp_and_level(user_db, 1) # Añade 1 XP
             
             # Incrementar el contador de la partida actual en JuegoOcaWeb
             if sala.juego:
@@ -1283,6 +1332,7 @@ def manejar_mensaje(data):
         }, room=id_sala)
     else:
         emit('error', {'mensaje': 'No se pudo enviar el mensaje (sala no encontrada o no perteneces).'})
+
 @socketio.on('mark_chat_as_read')
 def mark_chat_as_read(data):
     # Handler para cuando el cliente recibe un mensaje en una ventana ya abierta
@@ -1522,8 +1572,7 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
                 if user_db and jugador_juego:
                     user_db.games_played += 1
                     # No sumar victoria 
-                    user_db.xp += 25 # Dar una pequeña cantidad de XP por participar
-                    db.session.commit()
+                    update_xp_and_level(user_db, 25) # Dar una pequeña cantidad de XP por participar
 
                     # Verificar logros de "fin de partida" para el que abandonó
                     event_data = {
@@ -1821,6 +1870,57 @@ def limpiar_salas_inactivas():
                             del revanchas_pendientes[id_sala]
             else:
                 print("No se encontraron salas inactivas para eliminar.")
+
+def _procesar_estadisticas_fin_juego_async(app, jugadores_items, ganador_nombre, ronda, player_count_db, juego_obj):
+    with app.app_context():
+        print(f"--- THREAD: Iniciando procesamiento de estadísticas para {len(jugadores_items)} jugadores...")
+        try:
+            for sid, jugador_data in jugadores_items:
+                if sid in sessions_activas:
+                    username = sessions_activas[sid]['username']
+                    jugador_nombre_loop = jugador_data['nombre']
+                    jugador_juego = juego_obj._encontrar_jugador(jugador_nombre_loop) # Usar método interno seguro
+
+                    if jugador_juego:
+                        is_winner = jugador_nombre_loop == ganador_nombre
+                        user_db = User.query.filter_by(username=username).first()
+                        if user_db:
+                            user_db.games_played += 1
+                            if is_winner: user_db.games_won += 1
+                            xp_ganada = 50 + (25 if is_winner else 0)
+                            level_up = update_xp_and_level(user_db, xp_ganada) # Esto hace db.session.commit()
+                            
+                            if level_up:
+                                socketio.emit('level_up', {'new_level': user_db.level, 'xp': user_db.xp}, to=sid)
+                            
+                            event_data = {
+                                'won': is_winner,
+                                'final_energy': jugador_juego.get_puntaje(),
+                                'reached_position': jugador_juego.get_posicion(),
+                                'total_rounds': ronda,
+                                'player_count': player_count_db, # Usar el count pasado
+                                'colisiones': getattr(jugador_juego, 'colisiones_causadas', 0),
+                                'special_tiles_activated': getattr(jugador_juego, 'tipos_casillas_visitadas', set()),
+                                'abilities_used': getattr(jugador_juego, 'habilidades_usadas_en_partida', 0),
+                                'treasures_this_game': getattr(jugador_juego, 'tesoros_recogidos', 0),
+                                'completed_without_traps': getattr(jugador_juego, 'trampas_evitadas', True),
+                                'precision_laser': getattr(jugador_juego, 'dado_perfecto_usado', 0),
+                                'messages_this_game': getattr(jugador_juego, 'game_messages_sent_this_match', 0),
+                                'only_active_player': len([j for j in juego_obj.jugadores if j.esta_activo()]) == 1,
+                                'never_eliminated': jugador_juego.esta_activo(),
+                                'energy_packs_collected': getattr(jugador_juego, 'energy_packs_collected', 0)
+                            }
+                            # check_achievement también hace db.session.commit()
+                            unlocked_achievements = achievement_system.check_achievement(username, 'game_finished', event_data) 
+                            if unlocked_achievements:
+                                socketio.emit('achievements_unlocked', {
+                                    'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_achievements]
+                                }, to=sid)
+                        social_system.update_user_presence(username, 'online', {'sid': sid})
+            print("--- THREAD: Procesamiento de estadísticas COMPLETO.")
+        except Exception as e:
+            print(f"!!! ERROR FATAL en hilo _procesar_estadisticas_fin_juego: {e}")
+            traceback.print_exc()
 
 # Iniciar el hilo de limpieza en segundo plano
 hilo_limpieza = threading.Thread(target=limpiar_salas_inactivas, daemon=True)

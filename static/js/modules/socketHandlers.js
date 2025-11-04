@@ -6,7 +6,8 @@
 import { show, setLoading, showNotification, manejarInvitacion, showAchievementNotification, playSound, escapeHTML } from './utils.js';
 import { updateProfileUI, fetchAndUpdateUserProfile } from './auth.js';
 import { updateWaitingRoomUI, appendLobbyChatMessage, loadTopPlayers } from './lobby.js';
-import { actualizarEstadoJuego, renderEventos, agregarAlLog, appendGameChatMessage, mostrarModalFinJuego, actualizarCooldownsUI } from './gameUI.js';
+// --- MODIFICACIÓN: Importar la nueva función ---
+import { actualizarEstadoJuego, renderEventos, agregarAlLog, appendGameChatMessage, mostrarModalFinJuego, actualizarCooldownsUI, actualizarEstadoParcial } from './gameUI.js';
 import { displayPerkOffer, handlePerkActivated, updatePerkPrices } from './perks.js';
 import { appendPrivateMessage, updateSocialNotificationIndicator } from './social.js';
 
@@ -30,11 +31,11 @@ let _intermediatePosition = {};
 // Referencias DOM específicas necesarias aquí
 let codigoSalaActualDisplay = null;
 let resultadoDadoDisplay = null;
-let jugadoresEstadoDisplay = null; // Para animaciones
+let jugadoresEstadoDisplay = null; 
 let modalPrivateChatElement = null;
 let privateChatSendBtn = null;
 let modalSocialElement = null;
-let socialFriendsListDisplay = null; // Para reactivar botón de invitar
+let socialFriendsListDisplay = null; 
 let modalFinalElement = null;
 let btnNuevaPartida = null;
 let btnVolverLobby = null;
@@ -102,7 +103,6 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
     _socket.on("disconnect", (reason) => {
         setLoading(true, _loadingElement);
         showNotification(`Desconectado: ${reason}. Intentando reconectar...`, _notificacionesContainer, "error", 10000);
-        // Podrías intentar limpiar el estado del juego aquí si es necesario
     });
 
     _socket.on("conectado", () => { // Confirmación inicial del servidor
@@ -112,7 +112,6 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
 
      _socket.on('authenticated', (data) => {
         console.log(`Socket autenticado como: ${data.username}`);
-        // Podríamos pedir estado social aquí si es necesario al (re)conectar
     });
 
     _socket.on("error", (data) => {
@@ -148,13 +147,11 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
     _socket.on("jugador_desconectado", (data) => {
         updateWaitingRoomUI(data); // Actualiza UI
         showNotification(data.mensaje_desconexion || `${escapeHTML(data.jugador_nombre)} se desconectó.`, _notificacionesContainer, "warning");
-        // No necesita pedir estado, updateWaitingRoomUI ya lo hace
     });
 
     _socket.on("sala_abandonada", (data) => {
         setLoading(false, _loadingElement);
         _idSala.value = null; // Limpia estado global
-        // _currentUser sigue siendo el mismo
         Object.assign(_estadoJuego, {}); // Limpia estado del juego
         _habilidadUsadaTurno.value = false;
         show("lobby", _screens); // Vuelve al lobby
@@ -216,7 +213,6 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
                     if (resultadoDadoDisplay) resultadoDadoDisplay.textContent = `🎲 ${res.dado}`;
                 }
             } else {
-                // Si fue una habilidad (Rebote) o no hubo dado (Pausa), limpiar el display.
                 if (resultadoDadoDisplay) resultadoDadoDisplay.textContent = ""; 
             }
             
@@ -270,7 +266,6 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
                     if (j_viejo && j_nuevo.posicion !== j_viejo.posicion) {
                         jugador_movido_nombre = j_nuevo.nombre;
                         
-                        // Usar la posición intermedia
                         pos_vieja_real = _intermediatePosition[j_nuevo.nombre] || j_viejo.posicion;
                         pos_nueva_real = j_nuevo.posicion;
                         
@@ -297,14 +292,13 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
             actualizarEstadoJuego(estado_nuevo);
             renderEventos(eventos_paso_2); // (Que ahora apendiza, no limpia)
 
-            // Comprobar si hubo un movimiento forzado (Teleport, etc.)
+            // Comprobar si hubo un movimiento forzado
             if (jugador_movido_nombre && pos_vieja_real !== pos_nueva_real && pos_nueva_real < 75) {
                 console.log(`--- Movimiento encadenado (Paso 2): ${pos_vieja_real} -> ${pos_nueva_real}. Animando...`);
                 
                 playOptimisticSound(pos_nueva_real, estado_nuevo); 
 
                 if (_gameAnimations && _gameAnimations.isEnabled) {
-                    // ¡Animar el "salto"!
                     _gameAnimations.animatePlayerMove(
                         pos_vieja_real,
                         pos_nueva_real,
@@ -320,20 +314,42 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
         }
     });
 
-    _socket.on("habilidad_usada", (data) => { // Habilidades públicas
+    // Handler para habilidades que cambian el tablero (ej. Mina)
+    _socket.on("habilidad_usada_full", (data) => {
         if (!_state || !_state.currentUser || !_state.currentUser.username) {
-            console.warn("Habilidad usada ignorada: Estado del usuario no disponible.");
+            console.warn("Habilidad (full) ignorada: Estado del usuario no disponible.");
             return; 
         }
-
         if (data.resultado?.exito) {
             _habilidadUsadaTurno.value = (data.jugador === _state.currentUser.username); 
         }
 
+        // Llama a la función de actualización COMPLETA
         actualizarEstadoJuego(data.estado_juego);
         renderEventos(data.resultado?.eventos);
 
-        // Animación 
+        // Animación
+        if (window.GameAnimations && data.habilidad && data.resultado?.exito && jugadoresEstadoDisplay) {
+            const playerElement = Array.from(jugadoresEstadoDisplay.children).find(el => el.textContent.includes(data.jugador));
+            if (playerElement) window.GameAnimations.animateAbilityUse(data.habilidad.tipo || "magic", playerElement);
+        }
+    });
+
+    // Handler para habilidades que NO cambian el tablero (ej. Escudo, Curar)
+    _socket.on("habilidad_usada_parcial", (data) => {
+        if (!_state || !_state.currentUser || !_state.currentUser.username) {
+            console.warn("Habilidad (parcial) ignorada: Estado del usuario no disponible.");
+            return; 
+        }
+        if (data.resultado?.exito) {
+            _habilidadUsadaTurno.value = (data.jugador === _state.currentUser.username); 
+        }
+
+        // Llama a la NUEVA función de actualización PARCIAL
+        actualizarEstadoParcial(data.estado_juego_parcial);
+        renderEventos(data.resultado?.eventos);
+
+        // Animación
         if (window.GameAnimations && data.habilidad && data.resultado?.exito && jugadoresEstadoDisplay) {
             const playerElement = Array.from(jugadoresEstadoDisplay.children).find(el => el.textContent.includes(data.jugador));
             if (playerElement) window.GameAnimations.animateAbilityUse(data.habilidad.tipo || "magic", playerElement);
@@ -344,17 +360,18 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
         if (data.resultado?.exito) {
             _habilidadUsadaTurno.value = (data.jugador === _state.currentUser?.username);
         }
-        actualizarEstadoJuego(data.estado_juego);
+        // Las habilidades privadas (Invis) nunca cambian el tablero
+        actualizarEstadoParcial(data.estado_juego_parcial);
         renderEventos(data.resultado?.eventos); // Muestra el evento solo a mí
 
-         // Animación (tipo 'stealth')
+         // Animación 
         if (window.GameAnimations && data.habilidad && data.resultado?.exito && jugadoresEstadoDisplay) {
             const playerElement = Array.from(jugadoresEstadoDisplay.children).find(el => el.textContent.includes(data.jugador));
             if (playerElement) window.GameAnimations.animateAbilityUse("stealth", playerElement);
         }
     });
 
-    _socket.on("estado_juego_actualizado", (data) => { // Forzar actualización (ej. post-perk)
+    _socket.on("estado_juego_actualizado", (data) => { // Forzar actualización 
         if (data.estado_juego) {
             actualizarEstadoJuego(data.estado_juego);
         }
@@ -369,12 +386,11 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
             displayPerkOffer(data);
         } else {
              console.warn("Oferta de perk recibida pero modal cerrado.");
-             // Podríamos guardar la oferta pendiente aquí si fuera necesario reabrirla
         }
     });
 
     _socket.on("perk_activado", (data) => {
-        handlePerkActivated(data); // Llama a la función del módulo perks
+        handlePerkActivated(data); 
     });
 
     _socket.on("achievements_unlocked", (data) => {
@@ -382,49 +398,58 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
             data.achievements.forEach(ach => {
                 if(ach) showAchievementNotification(ach, _notificacionesContainer);
             });
-            // Actualizar perfil en segundo plano para reflejar XP/Nivel
             if (_currentUser.value) fetchAndUpdateUserProfile(_currentUser.value.username);
+        }
+    });
+
+    _socket.on("level_up", (data) => {
+        if (!data) return;
+        
+        showNotification(
+            `🎉 ¡Subiste de Nivel! Eres Nivel ${data.new_level}`, 
+            _notificacionesContainer, 
+            "success", 
+            5000
+        );
+
+        const userLevelDisplay = document.getElementById("user-level");
+        const userXpDisplay = document.getElementById("user-xp");
+        if (userLevelDisplay) userLevelDisplay.textContent = `⭐ Nivel ${data.new_level}`;
+        if (userXpDisplay) userXpDisplay.textContent = `${data.xp} XP`;
+        
+        if (_state.currentUser && _state.currentUser.username) {
+             fetchAndUpdateUserProfile(_state.currentUser.username);
         }
     });
 
     // --- Fin de Juego y Revancha ---
     _socket.on("juego_terminado", (data) => {
         mostrarModalFinJuego(data);
-        Object.assign(_estadoJuego, {}); // Limpia estado del juego local
+        Object.assign(_estadoJuego, {}); 
         if (_habilidadUsadaTurno) _habilidadUsadaTurno.value = false;
     });
 
     _socket.on('revancha_lista', (data) => {
         console.log("Revancha lista, uniéndose a nueva sala:", data.nueva_id_sala);
-        if (modalFinalElement) modalFinalElement.style.display = 'none'; // Ocultar modal final
+        if (modalFinalElement) modalFinalElement.style.display = 'none'; 
 
-        // Restaurar botones del modal final
         if (btnNuevaPartida) { btnNuevaPartida.disabled = false; btnNuevaPartida.textContent = "🎮 Nueva Partida"; }
         if (btnVolverLobby) btnVolverLobby.disabled = false;
         const waitingMsg = document.getElementById('rematch-waiting-msg');
         if(waitingMsg) waitingMsg.remove();
 
-        // Verifica que _state y _state.idSala existan antes de asignar el nuevo ID
         if (_state && _state.idSala) {
-            _state.idSala.value = data.nueva_id_sala; // Actualiza el valor dentro del objeto 'state'
+            _state.idSala.value = data.nueva_id_sala; 
             console.log(`ID de sala (revancha) actualizado a: ${_state.idSala.value}`);
         } else {
-            // Informa si algo anda mal
             console.error("Error en 'revancha_lista': _state o _state.idSala no están definidos correctamente. No se pudo actualizar idSala.");
             showNotification("Error al procesar la revancha.", _notificacionesContainer, "error");
-            return; // Salir si no podemos actualizar el ID
+            return; 
         }
 
-        // Actualiza la UI con el nuevo ID
         if(codigoSalaActualDisplay) codigoSalaActualDisplay.textContent = data.nueva_id_sala;
-
-        // Muestra la pantalla de espera
         show("waiting", _screens);
-
-        // Pide el estado de la nueva sala
         _socket.emit("obtener_estado_sala", { id_sala: data.nueva_id_sala });
-
-        // Muestra notificación de éxito
         showNotification("¡Revancha lista! Esperando jugadores...", _notificacionesContainer, "success");
     });
 
@@ -436,15 +461,12 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
             console.warn("Revancha cancelada recibida, pero _state o _state.idSala no están definidos.");
         }
 
-        // Notificación y limpieza de UI
         showNotification(data.mensaje || "La revancha fue cancelada.", _notificacionesContainer, "warning");
         console.log("Revancha cancelada:", data.mensaje);
 
-        // Habilitar botones de nuevo
         if (btnNuevaPartida) { btnNuevaPartida.disabled = false; btnNuevaPartida.textContent = "🎮 Nueva Partida"; }
         if (btnVolverLobby) btnVolverLobby.disabled = false;
 
-        // Busca el mensaje de espera por ID
         const waitingMsg = document.getElementById('rematch-waiting-msg');
         if(waitingMsg) waitingMsg.remove();
     });
@@ -453,7 +475,6 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
     _socket.on("new_friend_request", (data) => {
         showNotification(`👥 ${escapeHTML(data.from_user)} te envió una solicitud.`, _notificacionesContainer, "info", 5000);
         updateSocialNotificationIndicator(true);
-        // Podríamos recargar la tab de requests si está abierta
     });
 
     _socket.on("friend_status_update", (data) => {
@@ -461,7 +482,6 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
         let message = `👤 Estado de ${friendName} actualizado.`;
         if (data.type === "accepted") { message = `🎉 ¡Ahora eres amigo de ${friendName}!`; }
         showNotification(message, _notificacionesContainer, "info");
-        // Podríamos recargar la tab de amigos si está abierta
     });
 
     _socket.on("new_private_message", (data) => {
@@ -470,22 +490,22 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
         const isChattingWithSender = document.getElementById('chat-with-username')?.textContent === data.sender;
 
         if (privateChatIsOpen && isChattingWithSender) {
-            appendPrivateMessage(data); // Añade al chat abierto
+            appendPrivateMessage(data); 
             _socket.emit('mark_chat_as_read', { sender: data.sender });
         } else {
             showNotification(`💬 Nuevo mensaje de ${escapeHTML(data.sender)}`, _notificacionesContainer, "info", 5000);
-            updateSocialNotificationIndicator(true); // Marca botón social
+            updateSocialNotificationIndicator(true); 
         }
     });
 
-    _socket.on("message_sent_confirm", (data) => { // Confirmación de MI mensaje enviado
+    _socket.on("message_sent_confirm", (data) => { 
         const privateChatIsOpen = modalPrivateChatElement?.style.display === 'flex';
         const isChattingWithRecipient = document.getElementById('chat-with-username')?.textContent === data.recipient;
 
         if (privateChatIsOpen && isChattingWithRecipient) {
-            appendPrivateMessage(data); // Añade mi mensaje a mi ventana
+            appendPrivateMessage(data); 
         }
-        if (privateChatSendBtn) { // Reactiva botón
+        if (privateChatSendBtn) { 
             privateChatSendBtn.disabled = false;
             privateChatSendBtn.textContent = "Enviar";
         }
@@ -493,24 +513,22 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
 
     _socket.on("invite_sent_confirm", (data) => {
         showNotification(`Invitación enviada a ${escapeHTML(data.to)}.`, _notificacionesContainer, "success");
-        // Reactivar botón de invitar en modal social si está abierto
         if (modalSocialElement?.style.display === 'flex' && socialFriendsListDisplay) {
             const inviteButton = socialFriendsListDisplay.querySelector(`.social-list-item[data-username="${data.to}"] .btn-invite-friend`);
             if (inviteButton) {
                 inviteButton.disabled = false;
-                inviteButton.textContent = "🎮"; // Restaurar icono
+                inviteButton.textContent = "🎮"; 
             }
         }
     });
 
-    _socket.on('room_invite', (data) => { // Recibo una invitación
+    _socket.on('room_invite', (data) => { 
         if (!_state) {
         console.warn("Invitación ignorada: Objeto de estado (_state) no inicializado.");
         return;
         }   
-        // Pasamos todas las dependencias necesarias a manejarInvitacion
         manejarInvitacion(data, _notificacionesContainer, _socket,
-                        _state, // Pasa la referencia al objeto _state
+                        _state, 
                         setLoading, show, _screens);
     });
 
@@ -518,6 +536,7 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
     console.log("Socket handlers configurados.");
 } 
 // Fin de setupSocketHandlers
+
 /**
  * Reproduce un sonido "optimista" basado en el contenido de la casilla
  * ANTES de que el servidor confirme el efecto.
@@ -545,5 +564,4 @@ function playOptimisticSound(posFinal, estadoJuego) {
     } else if (valorEnergia < 0) {
         playSound('LandOnTrap', 0.2); // Sonido negativo
     }
-    // (No reproducir sonido si la casilla está vacía)
 }
