@@ -673,3 +673,51 @@ function handleUsarHabilidadClick(e) {
     });
     if(modalHabElement) modalHabElement.style.display = "none";
 }
+
+/**
+ * Actualiza el modal de fin de juego con el estado de la revancha.
+ * Llamado por 'revancha_actualizada' desde socketHandlers.
+ */
+export function actualizarEstadoRevancha(data) {
+    const resultadosContainer = document.getElementById("resultados-finales");
+    if (!resultadosContainer || !data) return;
+
+    // Encontrar o crear el elemento de estado de la revancha
+    let waitingMsgElement = document.getElementById("rematch-waiting-msg");
+    if (!waitingMsgElement) {
+        waitingMsgElement = document.createElement('p');
+        waitingMsgElement.id = 'rematch-waiting-msg';
+        waitingMsgElement.style.cssText = "text-align: center; margin-top: 15px; font-size: 0.9em;";
+        resultadosContainer.appendChild(waitingMsgElement);
+    }
+    
+    // Determinar quiénes aceptaron y quiénes faltan
+    const solicitudes = data.lista_solicitudes || [];
+    const participantes = data.lista_participantes || [];
+    
+    const aceptaron = participantes.filter(nombre => solicitudes.includes(nombre));
+    const faltan = participantes.filter(nombre => !solicitudes.includes(nombre));
+
+    // Construir el HTML del estado
+    let html = "";
+    if (aceptaron.length > 0) {
+        html += `<strong style="color: var(--success);">Aceptaron:</strong> ${escapeHTML(aceptaron.join(', '))}<br>`;
+    }
+    if (faltan.length > 0) {
+        html += `<span style="color: var(--muted);">Esperando a:</span> ${escapeHTML(faltan.join(', '))}...`;
+    }
+
+    if (html === "") {
+        html = "Esperando respuesta de otros jugadores..."; // Fallback
+    }
+
+    // Actualizar la UI
+    waitingMsgElement.innerHTML = html;
+
+    // Deshabilitar botón para el jugador actual si ya aceptó
+    const btnNuevaPartida = document.getElementById("btn-nueva-partida");
+    if (btnNuevaPartida && _state.currentUser && solicitudes.includes(_state.currentUser.username)) {
+        btnNuevaPartida.disabled = true;
+        btnNuevaPartida.textContent = "Esperando...";
+    }
+}

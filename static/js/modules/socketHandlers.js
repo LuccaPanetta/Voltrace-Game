@@ -5,7 +5,7 @@
 import { show, setLoading, showNotification, manejarInvitacion, showAchievementNotification, playSound, escapeHTML } from './utils.js';
 import { updateProfileUI, fetchAndUpdateUserProfile } from './auth.js';
 import { updateWaitingRoomUI, appendLobbyChatMessage, loadTopPlayers } from './lobby.js';
-import { actualizarEstadoJuego, renderEventos, agregarAlLog, appendGameChatMessage, mostrarModalFinJuego, actualizarCooldownsUI, actualizarEstadoParcial } from './gameUI.js';
+import { actualizarEstadoJuego, renderEventos, agregarAlLog, appendGameChatMessage, mostrarModalFinJuego, actualizarCooldownsUI, actualizarEstadoParcial, actualizarEstadoRevancha } from './gameUI.js';
 import { displayPerkOffer, handlePerkActivated, updatePerkPrices } from './perks.js';
 import { appendPrivateMessage, updateSocialNotificationIndicator, invalidateSocialCache } from './social.js';
 import { invalidateAchievementsCache } from './achievements.js'; 
@@ -357,6 +357,11 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
         if (btnVolverLobby) btnVolverLobby.disabled = false;
         const waitingMsg = document.getElementById('rematch-waiting-msg');
         if(waitingMsg) waitingMsg.remove();
+    });
+
+    _socket.on('revancha_actualizada', (data) => {
+        console.log("Estado de revancha actualizado:", data);
+        actualizarEstadoRevancha(data);
     });
 
     // --- Social y Chat ---

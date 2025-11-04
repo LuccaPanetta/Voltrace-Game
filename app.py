@@ -299,6 +299,7 @@ class SalaJuego:
         self.creado_en = datetime.now()
         self.turno_actual = 0 # (No usado directamente aquí, se maneja en JuegoOcaWeb)
         self.log_eventos = [] # Log para la sala de espera
+        self.turn_timer = None
 
     def agregar_jugador(self, sid, nombre):
         if len(self.jugadores) < 4 and sid not in self.jugadores:
@@ -930,6 +931,10 @@ def lanzar_dado(data):
     try:
         id_sala = data['id_sala']
         print(f"\n--- PASO 1: RECIBIDO 'lanzar_dado' --- Sala: {id_sala}, SID: {request.sid}")
+        
+        # Si el jugador actúa, cancelar el timer de inactividad
+        _cancelar_temporizador_turno(id_sala)
+        
         if id_sala not in salas_activas:
             emit('error', {'mensaje': 'Sala no encontrada'})
             return
@@ -982,6 +987,10 @@ def lanzar_dado(data):
                 },
                 'eventos': resultado.get('eventos', [])
             }, room=id_sala)
+            
+            nuevo_jugador_turno = sala.juego.obtener_turno_actual()
+            if nuevo_jugador_turno:
+                _iniciar_temporizador_turno(id_sala, nuevo_jugador_turno)
             return
 
         # Emitir el resultado del movimiento 
@@ -1086,6 +1095,7 @@ def terminar_movimiento(data):
         
         if sala.juego.ha_terminado():
             print(f"--- JUEGO TERMINADO (PASO 2) --- Sala: {id_sala}")
+            _cancelar_temporizador_turno(id_sala)
             sala.estado = 'terminado'
 
             # Obtener las estadísticas finales (esto es rápido, solo calcula)
@@ -1099,7 +1109,7 @@ def terminar_movimiento(data):
                 'ganador': stats_finales_dict.get('ganador'),
                 'estadisticas_finales': stats_finales_dict.get('lista_final')
             }, room=id_sala)
-
+            
             # Preparar los datos para el hilo (copiar datos)
             jugadores_items_copia = list(sala.jugadores.items())
             ronda_copia = sala.juego.ronda
@@ -1123,7 +1133,6 @@ def terminar_movimiento(data):
             
             # Salir inmediatamente
             return
-        
 
         # Si el juego NO ha terminado, enviar la actualización normal
         colores_map = getattr(sala, 'colores_map', {})
@@ -1138,7 +1147,9 @@ def terminar_movimiento(data):
             },
             'eventos': resultado.get('eventos', [])
         }, room=id_sala)
-
+        nuevo_jugador_turno = sala.juego.obtener_turno_actual()
+        if nuevo_jugador_turno:
+            _iniciar_temporizador_turno(id_sala, nuevo_jugador_turno)
     except Exception as e:
         print(f"!!! ERROR GRAVE en 'terminar_movimiento' (PASO 2): {e}")
         traceback.print_exc()
@@ -1156,6 +1167,7 @@ def usar_habilidad(data):
     objetivo = data.get('objetivo')
     sid = request.sid # Guardamos el SID
     print(f"\n--- RECIBIDO EVENTO: usar_habilidad --- Sala: {id_sala}, SID: {sid}, Habilidad idx: {indice_habilidad}")
+    _cancelar_temporizador_turno(id_sala)
 
     if id_sala not in salas_activas:
         emit('error', {'mensaje': 'Sala no encontrada'})
@@ -1453,6 +1465,38 @@ def seleccionar_perk(data):
         print(f"--- SELECCIONAR PERK ERROR: Sala {id_sala} no encontrada o SID {sid} no está en la sala ---")
         emit('error', {'mensaje': 'Sala no encontrada o no estás en ella.'})
 
+@socketio.on('solicitar_precios_perks')
+def solicitar_precios_perks(data):
+    id_sala = data.get('id_sala')
+    sid = request.sid
+    print(f"\n--- RECIBIDO EVENTO: solicitar_precios_perks --- SID: {sid}, Sala: {id_sala}")
+
+    if not id_sala or id_sala not in salas_activas:
+        emit('error', {'mensaje': 'Sala no encontrada al pedir precios.'})
+        return
+
+    sala = salas_activas[id_sala]
+    costes = {"basico": 4, "intermedio": 8, "avanzado": 12} # Precios base
+
+    try:
+        # Comprobar si el evento global está activo
+        if sala.juego and sala.juego.evento_global_activo == "Mercado Negro":
+            print(f"--- Evento 'Mercado Negro' ACTIVO. Enviando precios con descuento. ---")
+            costes = {
+                "basico": max(1, costes["basico"] // 2),
+                "intermedio": max(1, costes["intermedio"] // 2),
+                "avanzado": max(1, costes["avanzado"] // 2)
+            }
+        else:
+             print(f"--- Evento 'Mercado Negro' INACTIVO. Enviando precios normales. ---")
+
+        # Enviar los precios actualizados SOLO al jugador que preguntó
+        emit('precios_perks_actualizados', costes, to=sid)
+
+    except Exception as e:
+        print(f"!!! ERROR al solicitar precios de perks: {e}")
+        emit('error', {'mensaje': 'Error al obtener precios de perks.'})
+
 # ===================================================================
 # --- 5. HANDLERS DE SOCKET.IO (Chat y Social) ---
 # ===================================================================
@@ -1653,6 +1697,20 @@ def solicitar_revancha(data):
     info_revancha['solicitudes'].add(username)
     print(f"Revancha Sala {id_sala_original}: {len(info_revancha['solicitudes'])} solicitudes de {len(info_revancha['participantes'])} participantes.")
 
+    # Notificar a TODOS en la sala sobre el estado actualizado de la revancha
+    try:
+        lista_solicitudes = list(info_revancha['solicitudes'])
+        # (Nombres de los participantes originales)
+        lista_participantes = [p['nombre'] for p in info_revancha['participantes']] 
+        
+        socketio.emit('revancha_actualizada', {
+            'lista_solicitudes': lista_solicitudes,
+            'lista_participantes': lista_participantes
+        }, room=id_sala_original) # Emitir a la sala de juego original
+        print(f"Emitiendo 'revancha_actualizada' a sala {id_sala_original}")
+    except Exception as e:
+        print(f"!!! ERROR al emitir 'revancha_actualizada': {e}")
+
     # Iniciar timer si se alcanza el mínimo y aún no ha empezado
     if len(info_revancha['solicitudes']) >= MIN_JUGADORES_REVANCHA and info_revancha['timer'] is None:
         iniciar_timer_revancha(id_sala_original)
@@ -1775,6 +1833,7 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
             # Comprobar si el juego termina
             if sala.juego.ha_terminado():
                 print(f"--- JUEGO TERMINADO POR DESCONEXIÓN --- Sala: {id_sala}")
+                _cancelar_temporizador_turno(id_sala)
                 sala.estado = 'terminado'
                 
                 ganador_obj = sala.juego.determinar_ganador()
@@ -1869,7 +1928,8 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
                     'estado_juego': estado_juego_actualizado,
                     'eventos_recientes': eventos_recientes
                 }, room=id_sala)
-
+                if nuevo_turno_actual:
+                    _iniciar_temporizador_turno(id_sala, nuevo_turno_actual)
         # Si la sala queda vacía, eliminarla
         if len(sala.jugadores) == 0:
             print(f"Sala {id_sala} vacía tras desconexión. Eliminando...")
@@ -1927,9 +1987,13 @@ def iniciar_juego_sala(id_sala):
         # Emitir el estado inicial a TODOS los jugadores en la sala
         print(f"EMITIENDO 'juego_iniciado' a sala {id_sala}")
         socketio.emit('juego_iniciado', estado_juego, room=id_sala)
+        
+        # Iniciar el timer para el *primer* jugador
+        primer_jugador_turno = estado_juego.get('turno_actual')
+        if primer_jugador_turno:
+            _iniciar_temporizador_turno(id_sala, primer_jugador_turno)
     else:
         print(f"ERROR: sala.iniciar_juego() devolvió False. Jugadores: {len(sala.jugadores)}, Estado: {sala.estado}")
-        # Podrías emitir un error a la sala aquí si falla el inicio
 
 def _crear_nueva_sala_revancha(id_sala_original):
     # Intentar obtener Y eliminar la info de revancha atómicamente.
@@ -2012,6 +2076,71 @@ def iniciar_timer_revancha(id_sala_original):
     # Guardar la referencia al timer por si necesitamos cancelarlo
     if id_sala_original in revanchas_pendientes:
             revanchas_pendientes[id_sala_original]['timer'] = timer
+
+# --- Funciones de Timer ---
+TURNO_TIMEOUT_SEGUNDOS = 90 # 90 segundos para que un jugador actúe
+
+def _cancelar_temporizador_turno(id_sala):
+    if id_sala in salas_activas:
+        sala = salas_activas[id_sala]
+        if sala.turn_timer:
+            sala.turn_timer.cancel()
+            sala.turn_timer = None
+            print(f"--- TIMER CANCELADO --- Sala: {id_sala}")
+
+def _expulsar_por_inactividad(id_sala, nombre_jugador_expulsado, turno_ronda_expulsion):
+    with app.app_context(): # Necesario para usar socketio y db dentro del hilo del timer
+        print(f"--- TIMER EXPIRADO --- Sala: {id_sala}, Jugador: {nombre_jugador_expulsado}")
+        sala = salas_activas.get(id_sala)
+        if not sala or not sala.juego or sala.estado != 'jugando':
+            print(f"Timer expirado: Sala {id_sala} no encontrada o juego no activo. Ignorando.")
+            return
+
+        # Safety Check: Asegurarse que el turno no haya avanzado mientras el timer corría
+        jugador_actual_juego = sala.juego.obtener_turno_actual()
+        ronda_actual_juego = sala.juego.ronda
+        if jugador_actual_juego != nombre_jugador_expulsado or ronda_actual_juego != turno_ronda_expulsion:
+            print(f"Timer expirado: El turno ya avanzó. Esperado: {nombre_jugador_expulsado} (R{turno_ronda_expulsion}), Actual: {jugador_actual_juego} (R{ronda_actual_juego}). Ignorando.")
+            return
+
+        # Encontrar el SID del jugador a expulsar
+        sid_a_expulsar = None
+        for sid, data in sala.jugadores.items():
+            if data['nombre'] == nombre_jugador_expulsado:
+                sid_a_expulsar = sid
+                break
+        
+        if not sid_a_expulsar:
+            print(f"Timer expirado: No se encontró SID para {nombre_jugador_expulsado}.")
+            return
+
+        # Notificar a todos en la sala
+        socketio.emit('error', {
+            'mensaje': f"⏳ ¡{nombre_jugador_expulsado} ha sido expulsado por inactividad! Avanzando turno..."
+        }, room=id_sala)
+        
+        # Usar la función de desconexión existente para manejar la expulsión
+        _finalizar_desconexion(sid_a_expulsar, id_sala, nombre_jugador_expulsado)
+
+def _iniciar_temporizador_turno(id_sala, nombre_jugador_turno):
+    _cancelar_temporizador_turno(id_sala) # Cancelar cualquier timer anterior por si acaso
+    
+    sala = salas_activas.get(id_sala)
+    if not sala or not sala.juego:
+        return
+
+    print(f"--- TIMER INICIADO --- Sala: {id_sala}, Jugador: {nombre_jugador_turno}, Duración: {TURNO_TIMEOUT_SEGUNDOS}s")
+    
+    # Guardamos la ronda actual para el safety check
+    ronda_actual = sala.juego.ronda 
+    
+    timer = threading.Timer(
+        TURNO_TIMEOUT_SEGUNDOS,
+        _expulsar_por_inactividad,
+        args=[id_sala, nombre_jugador_turno, ronda_actual]
+    )
+    sala.turn_timer = timer
+    timer.start()
 
 def limpiar_salas_inactivas():
     # Función periódica para limpiar salas vacías
