@@ -19,11 +19,22 @@ let privateChatMessagesDisplay, privateChatInput, privateChatSendBtn;
 let _socket = null;
 let _state = null; 
 
+// --- INICIO DE MODIFICACIÓN: Caché Social ---
+// Aquí guardaremos la lista de amigos y solicitudes para no pedirlas al servidor cada vez.
+const socialCache = {
+    friends: [],
+    pending_received: [],
+    pending_sent: [],
+    isLoaded: false, // Se vuelve 'true' después de la primera carga exitosa
+    isLoading: false, // Previene cargas múltiples simultáneas
+};
+// --- FIN DE MODIFICACIÓN ---
+
+
 /**
  * Inicializa el módulo social.
  * @param {object} socketRef - Instancia de Socket.IO.
- * @param {object} currentUserRef - Referencia al usuario actual.
- * @param {object} idSalaRef - Referencia al ID de la sala actual.
+ * @param {object} stateRef - Referencia al estado global.
  */
 export function initSocial(socketRef, stateRef) {
     _socket = socketRef;
@@ -60,9 +71,9 @@ export function initSocial(socketRef, stateRef) {
     btnCerrarSocial?.addEventListener("click", closeSocialModal);
     modalSocialElement?.addEventListener('click', (e) => { if (e.target === modalSocialElement) closeSocialModal(); }); // Clic fuera
 
-    socialTabFriends?.addEventListener("click", () => loadSocialTab("friends"));
-    socialTabRequests?.addEventListener("click", () => loadSocialTab("requests"));
-    socialTabSearch?.addEventListener("click", () => loadSocialTab("search"));
+    socialTabFriends?.addEventListener("click", () => switchSocialTab("friends"));
+    socialTabRequests?.addEventListener("click", () => switchSocialTab("requests"));
+    socialTabSearch?.addEventListener("click", () => switchSocialTab("search"));
 
     socialSearchButton?.addEventListener("click", handleSearchUsers);
     socialSearchInput?.addEventListener("keypress", (e) => { if (e.key === 'Enter') handleSearchUsers(); });
@@ -76,6 +87,22 @@ export function initSocial(socketRef, stateRef) {
     btnCerrarPrivateChat?.addEventListener("click", closePrivateChat);
     privateChatSendBtn?.addEventListener("click", handleSendPrivateMessage);
     privateChatInput?.addEventListener("keypress", (e) => { if (e.key === 'Enter') handleSendPrivateMessage(); });
+
+    _socket?.on("friend_status_update", (data) => {
+        // Un amigo fue aceptado o eliminado. Invalidar caché.
+        socialCache.isLoaded = false; 
+        // Si el modal está abierto, recargarlo
+        if (modalSocialElement?.style.display === "flex") {
+            loadSocialData(true); // Forzar recarga
+        }
+    });
+    _socket?.on("new_friend_request", (data) => {
+        // Recibiste una nueva solicitud. Invalidar caché.
+        socialCache.isLoaded = false;
+        if (modalSocialElement?.style.display === "flex") {
+            loadSocialData(true); // Forzar recarga
+        }
+    });
 }
 
 // --- Lógica del Modal Social ---
@@ -91,15 +118,67 @@ function openSocialModal() {
     modalSocialElement.style.display = "flex";
     btnSocialGlobal?.classList.remove("has-notification");
     btnSocialWaiting?.classList.remove("has-notification");
-    loadSocialTab("friends", _state.currentUser.username);
+    
+    if (!socialCache.isLoaded) {
+        loadSocialData(); 
+    } else {
+        // Si ya está cargado, simplemente muestra la pestaña de amigos (instantáneo)
+        switchSocialTab("friends");
+    }
 }
 function closeSocialModal() {
     playSound('OpenCloseModal', 0.2);
     if (modalSocialElement) modalSocialElement.style.display = 'none';
 }
 
-async function loadSocialTab(tabName) {
+/**
+ * Función central para cargar todos los datos sociales (amigos y solicitudes) desde la API.
+ * Esto ahora se llama solo una vez, o cuando el caché se invalida.
+ */
+async function loadSocialData(forceReload = false) {
+    if ((socialCache.isLoaded && !forceReload) || socialCache.isLoading) return;
     if (!_state.currentUser || !_state.currentUser.username) return;
+
+    socialCache.isLoading = true;
+    
+    // Mostrar 'Cargando...' en ambas pestañas
+    if (socialFriendsListDisplay) socialFriendsListDisplay.innerHTML = '<p style="text-align: center; color: var(--muted);">Cargando...</p>';
+    if (socialRequestsListDisplay) socialRequestsListDisplay.innerHTML = '<p style="text-align: center; color: var(--muted);">Cargando...</p>';
+
+    const endpoint = `/social/amigos/${_state.currentUser.username}`;
+    try {
+        const response = await fetch(endpoint);
+        if (!response.ok) throw new Error(`Network response error ${response.status}`);
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+
+        // Guardar datos en el caché
+        socialCache.friends = data.friends || [];
+        socialCache.pending_received = data.pending_received || [];
+        socialCache.pending_sent = data.pending_sent || [];
+        socialCache.isLoaded = true;
+
+        // Renderizar las listas con los datos del caché
+        renderFriendsList(socialCache.friends);
+        renderRequestsList(socialCache.pending_received);
+
+        // Mostrar la pestaña de amigos por defecto
+        switchSocialTab("friends");
+
+    } catch (error) {
+        console.error(`Error al cargar datos sociales:`, error);
+        const errorHTML = `<p style="text-align: center; color: var(--danger);">Error al cargar: ${error.message}</p>`;
+        if (socialFriendsListDisplay) socialFriendsListDisplay.innerHTML = errorHTML;
+        if (socialRequestsListDisplay) socialRequestsListDisplay.innerHTML = errorHTML;
+    } finally {
+        socialCache.isLoading = false;
+    }
+}
+
+/**
+ * Cambia la pestaña visible. Ahora solo renderiza desde el caché (es instantáneo).
+ */
+function switchSocialTab(tabName) {
     if (!socialTabFriends || !socialContentFriends) return; // Verificar elementos
     playSound('ClickMouse', 0.3);
 
@@ -107,53 +186,31 @@ async function loadSocialTab(tabName) {
     [socialTabFriends, socialTabRequests, socialTabSearch].forEach(btn => btn?.classList.remove("active"));
     [socialContentFriends, socialContentRequests, socialContentSearch].forEach(content => content?.classList.remove("active"));
 
-    const loadingHTML = '<p style="text-align: center; color: var(--muted);">Cargando...</p>';
-    let targetListElement, endpoint = null, renderFunction, activeTabButton, activeContent;
+    let activeTabButton, activeContent;
 
     if (tabName === "friends") {
-        targetListElement = socialFriendsListDisplay;
-        endpoint = `/social/amigos/${_state.currentUser.username}`;
-        renderFunction = (data) => renderFriendsList(data.friends);
         activeTabButton = socialTabFriends;
         activeContent = socialContentFriends;
+        // Renderizar desde el caché
+        renderFriendsList(socialCache.friends);
     } else if (tabName === "requests") {
-        targetListElement = socialRequestsListDisplay;
-        endpoint = `/social/amigos/${_state.currentUser.username}`;
-        renderFunction = (data) => renderRequestsList(data.pending_received);
         activeTabButton = socialTabRequests;
         activeContent = socialContentRequests;
+        // Renderizar desde el caché
+        renderRequestsList(socialCache.pending_received);
     } else if (tabName === "search") {
-        targetListElement = socialSearchResultsDisplay;
         activeTabButton = socialTabSearch;
         activeContent = socialContentSearch;
         if(socialSearchInput) socialSearchInput.value = "";
-        targetListElement.innerHTML = '<p style="text-align: center; color: var(--muted);">Ingresa un nombre para buscar.</p>';
-        activeTabButton?.classList.add("active");
-        activeContent?.classList.add("active");
-        return; // No fetch inicial para búsqueda
+        if (socialSearchResultsDisplay) socialSearchResultsDisplay.innerHTML = '<p style="text-align: center; color: var(--muted);">Ingresa un nombre para buscar.</p>';
     } else {
         return; // Tab desconocida
     }
 
-    if (!targetListElement || !activeTabButton || !activeContent) return; // Salir si falta algún elemento
+    if (!activeTabButton || !activeContent) return; // Salir si falta algún elemento
 
-    targetListElement.innerHTML = loadingHTML;
     activeTabButton.classList.add("active");
     activeContent.classList.add("active");
-
-    // Fetch para friends o requests
-    if (endpoint) {
-        try {
-            const response = await fetch(endpoint);
-            if (!response.ok) throw new Error(`Network response error ${response.status}`);
-            const data = await response.json();
-            if (data.error) throw new Error(data.error); // Manejar error devuelto por la API
-            renderFunction(data);
-        } catch (error) {
-            console.error(`Error al cargar ${tabName}:`, error);
-            targetListElement.innerHTML = `<p style="text-align: center; color: var(--danger);">Error al cargar: ${error.message}</p>`;
-        }
-    }
 }
 
 // --- Renderizado UI Social ---
@@ -173,6 +230,7 @@ function renderFriendsList(friends) {
 
         let statusClass = "offline", statusText = "Offline";
         const friendStatus = friend.status || "offline";
+        
         if (friendStatus.startsWith("in_game")) { statusClass = "in_game"; statusText = "En Partida"; }
         else if (friendStatus === "online" || friendStatus.startsWith("in_lobby")) { statusClass = "online"; statusText = "Online"; }
 
@@ -233,11 +291,15 @@ function renderSearchResults(users) {
         item.dataset.username = user.username;
 
         let relationHTML = "";
-        switch (user.relation) {
-            case "friend": relationHTML = '<span style="color: var(--success); font-size: 0.9em;">Amigo</span>'; break;
-            case "pending_sent": relationHTML = '<span style="color: var(--warning); font-size: 0.9em;">Pendiente</span>'; break;
-            case "pending_received": relationHTML = '<button class="btn-success btn-accept-request">Aceptar</button>'; break;
-            default: relationHTML = '<button class="btn-primary btn-add-friend">Agregar</button>';
+        
+        if (socialCache.friends.find(f => f.username === user.username)) {
+            relationHTML = '<span style="color: var(--success); font-size: 0.9em;">Amigo</span>';
+        } else if (socialCache.pending_sent.includes(user.username)) {
+            relationHTML = '<span style="color: var(--warning); font-size: 0.9em;">Pendiente</span>';
+        } else if (socialCache.pending_received.includes(user.username)) {
+            relationHTML = '<button class="btn-success btn-accept-request">Aceptar</button>';
+        } else {
+            relationHTML = '<button class="btn-primary btn-add-friend">Agregar</button>';
         }
 
         item.innerHTML = `
@@ -270,7 +332,7 @@ async function handleSearchUsers() {
         const response = await fetch(`/social/search/${query}/${_state.currentUser.username}`);
         if (!response.ok) throw new Error("Error en la búsqueda");
         const data = await response.json();
-        renderSearchResults(data);
+        renderSearchResults(data); // Renderiza resultados, ahora usa el caché para 'relation'
     } catch (error) {
         console.error("Error al buscar usuarios:", error);
         socialSearchResultsDisplay.innerHTML = '<p style="text-align: center; color: var(--danger);">Error al buscar.</p>';
@@ -293,13 +355,14 @@ async function sendFriendRequest(targetUsername, buttonElement) {
         showNotification(result.message, notifContainer, result.success ? "success" : "error");
 
         if (result.success) {
+            socialCache.pending_sent.push(targetUsername); 
+ 
             const listItem = buttonElement.closest(".social-list-item");
             const actionsDiv = listItem?.querySelector(".social-actions");
             if (actionsDiv) {
                 actionsDiv.innerHTML = '<span style="color: var(--warning); font-size: 0.9em;">Pendiente</span>';
             }
         } else {
-            // Si falló, restaura el botón (esto estaba bien)
             buttonElement.textContent = originalText;
             buttonElement.disabled = false;
         }
@@ -324,12 +387,18 @@ async function acceptFriendRequest(senderUsername, buttonElement) {
         const result = await response.json();
         showNotification(result.message, notifContainer, result.success ? "success" : "error");
         if (result.success) {
-            listItem?.remove();
+
+            socialCache.isLoaded = false;
+
+            
+            listItem?.remove(); // Quitar de la UI actual
+            
             // Recargar amigos si estamos en esa pestaña
             if (socialTabFriends?.classList.contains("active")) {
-                loadSocialTab("friends");
+                loadSocialData(true); // Forzar recarga
             }
         } else {
+            // Restaurar botones si falla
             const actionsDiv = listItem?.querySelector(".social-actions");
             if (actionsDiv) {
                 actionsDiv.innerHTML = `<button class="btn-success btn-accept-request">Aceptar</button> <button class="btn-danger btn-reject-request">Rechazar</button>`;
@@ -337,6 +406,7 @@ async function acceptFriendRequest(senderUsername, buttonElement) {
         }
     } catch (error) {
         showNotification("Error de red al aceptar solicitud.", notifContainer, "error");
+        // Restaurar botones si falla
         const actionsDiv = listItem?.querySelector(".social-actions");
         if (actionsDiv) {
             actionsDiv.innerHTML = `<button class="btn-success btn-accept-request">Aceptar</button> <button class="btn-danger btn-reject-request">Rechazar</button>`;
@@ -359,6 +429,9 @@ async function rejectFriendRequest(senderUsername, buttonElement) {
         const result = await response.json();
         showNotification(result.message, notifContainer, result.success ? "success" : "error");
         if (result.success) {
+
+            socialCache.pending_received = socialCache.pending_received.filter(u => u !== senderUsername);
+
             listItem?.remove();
         } else {
             // Restaurar botones si falla
@@ -391,6 +464,9 @@ async function removeFriend(friendUsername, buttonElement) {
         const result = await response.json();
         showNotification(result.message, notifContainer, result.success ? "success" : "error");
         if (result.success) {
+
+            socialCache.friends = socialCache.friends.filter(f => f.username !== friendUsername);
+
             listItem?.remove();
         } else {
             buttonElement.textContent = "🗑️";
@@ -440,6 +516,9 @@ async function openPrivateChat(targetUsername) {
         const messages = await response.json();
         privateChatMessagesDisplay.innerHTML = "";
         messages.forEach(appendPrivateMessage);
+        
+        _socket.emit('mark_chat_as_read', { sender: targetUsername });
+
     } catch (error) {
         console.error("Error al cargar chat:", error);
         privateChatMessagesDisplay.innerHTML = '<p style="text-align: center; color: var(--danger);">Error al cargar historial.</p>';
@@ -450,7 +529,6 @@ function closePrivateChat() {
     playSound('OpenCloseModal', 0.2);
     if (modalPrivateChatElement) modalPrivateChatElement.style.display = "none";
     privateChatTarget = null; // Limpiar objetivo al cerrar
-    // No reabrir el modal social automáticamente, el usuario puede querer volver al juego/lobby
 }
 
 /** Añade un mensaje a la ventana de chat privado. */
