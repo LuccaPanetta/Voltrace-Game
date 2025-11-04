@@ -336,43 +336,34 @@ class SalaJuego:
 def index():
     # Ruta principal que sirve el archivo HTML del juego
     user_data = None
-    if 'user_id' in session:
+    if current_user.is_authenticated:
         try:
-            # Intentar obtener el username de la cookie (rápido)
-            if 'username' in session:
-                user_data = {
-                    'username': session['username'],
-                    'level': session.get('level', 1), # Usar .get por si no existe
-                    'xp': session.get('xp', 0)
-                }
-            else:
-                # Si no está, buscar en DB (lento, solo 1 vez)
-                user = User.query.get(session['user_id'])
-                if user:
-                    user_data = {
-                        'username': user.username,
-                        'level': user.level,
-                        'xp': user.xp
-                    }
-                    # Guardar todo en la sesión para la próxima vez
-                    session['username'] = user.username
-                    session['level'] = user.level
-                    session['xp'] = user.xp
-                else:
-                    session.clear() # ID de usuario inválido
+            # current_user ya es el objeto User cargado desde la DB
+            # por nuestro @login_manager.user_loader
+            user = current_user 
+            user_data = {
+                'username': user.username,
+                'level': user.level,
+                'xp': user.xp
+            }
+            
+            session['user_id'] = user.id
+            session['username'] = user.username
+            session['level'] = user.level
+            session['xp'] = user.xp
+
         except Exception as e:
-            print(f"Error al cargar usuario desde sesión: {e}")
-            # No borrar la sesión, solo tratar como no logueado esta vez
+            # Esto solo debería fallar si la DB está caída
+            print(f"Error al cargar current_user autenticado: {e}")
             user_data = None
+            session.clear() # Limpiar sesión corrupta si falla
 
     # Convertir user_data a JSON para inyectar en el template
-    # json.dumps(None) se convierte en "null"
     user_data_json = json.dumps(user_data) 
     
     return render_template(
         'index.html', 
         game_name="VoltRace",
-        # Ya no pasamos 'is_authenticated' o 'username' aquí
         # Pasamos el JSON completo
         user_data_json=user_data_json
     )
