@@ -398,7 +398,7 @@ def register():
     try:
         db.session.add(new_user)
         db.session.commit()
-        login_user(new_user) 
+        login_user(new_user, remember=True)
         
         # Guardar todo en la sesión
         session['username'] = new_user.username
@@ -434,7 +434,7 @@ def login():
             if not user or not user.check_password(password):
                 return jsonify({"success": False, "message": "Email o contraseña incorrectos."}), 401
             
-            login_user(user)
+            login_user(user, remember=True)
             
             # Guardar todo en la sesión
             session['username'] = user.username
