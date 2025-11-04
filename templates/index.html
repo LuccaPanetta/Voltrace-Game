@@ -243,11 +243,14 @@
     }
     </style>
 </head>
-<body
-    data-is-authenticated="{{ is_authenticated | string | lower }}" 
-    data-username="{{ username | default('', true) }}"
->
-    {% with messages = get_flashed_messages(with_categories=true) %}
+
+<body>
+
+    <script>
+        /* 'safe' evita que Jinja2 escape las comillas del JSON */
+        window.VOLTRACE_USER_DATA = {{ user_data_json | safe }};
+    </script>
+{% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             <div class="flashes" style="width: 450px; margin: 15px auto; padding: 10px; border-radius: 5px; font-size: 0.9em; box-sizing: border-box;">
             {% for category, message in messages %}
@@ -617,10 +620,10 @@
             <div class="loading-spinner">🎲</div>
             <p>Conectando...</p>
         </div>
-    </div> <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    </div> 
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
 
     <script src="{{ url_for('static', filename='js/main.js') }}" type="module"></script>
-
-    <script src="{{ url_for('static', filename='js/main.js') }}" type="module"></script>
-</body>
+    </body>
 </html>

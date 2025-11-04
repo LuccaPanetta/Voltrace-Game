@@ -32,6 +32,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_mail import Mail, Message
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail as SendGridMail, TrackingSettings, ClickTracking
+import json
 import uuid                    # Para generar IDs únicos de salas
 from datetime import datetime  # Para timestamps
 from threading import Timer
@@ -182,6 +183,28 @@ def update_xp_and_level(user, xp_to_add):
         print(f"!!! ERROR al actualizar XP/Nivel para {user.username}: {e}")
         return False
 
+def _procesar_creacion_sala_db_async(app, sid, username):
+    with app.app_context():
+        try:
+            print(f"--- THREAD: Procesando XP/Logros de creación de sala para: {username}")
+            user = User.query.filter_by(username=username).first()
+            if user:
+                user.rooms_created = getattr(user, 'rooms_created', 0) + 1 
+                level_up = update_xp_and_level(user, 5) # 5 XP por crear sala
+                if level_up:
+                    socketio.emit('level_up', {'new_level': user.level, 'xp': user.xp}, to=sid)
+                
+                # Verificar logros
+                unlocked_list = achievement_system.check_achievement(username, 'room_created')
+                if unlocked_list:
+                    socketio.emit('achievements_unlocked', {
+                        'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_list]
+                    }, to=sid)
+            print(f"--- THREAD: Fin de procesamiento de creación de sala para: {username}")
+        except Exception as e:
+            print(f"!!! ERROR FATAL en _procesar_creacion_sala_db_async: {e}")
+            traceback.print_exc()
+
 def _procesar_habilidad_db_async(app, sid, username):
     with app.app_context():
         try:
@@ -312,42 +335,46 @@ class SalaJuego:
 @app.route('/')
 def index():
     # Ruta principal que sirve el archivo HTML del juego
-    
-    is_auth = False
-    username = None
-    
-    # Comprobar si Flask-Login te reconoce (tienes un 'user_id' en la cookie)
+    user_data = None
     if 'user_id' in session:
-        is_auth = True
-        
-        # Intentar obtener el username desde la cookie (Ruta Rápida)
-        if 'username' in session:
-            username = session['username']
-        
-        # Si no está, buscarlo en la DB y guardarlo (Ruta Lenta, se ejecuta 1 sola vez)
-        else:
-            try:
-                # Esta es la consulta que fallaba en tu traceback de 'OperationalError'
-                user = User.query.get(session['user_id']) 
+        try:
+            # Intentar obtener el username de la cookie (rápido)
+            if 'username' in session:
+                user_data = {
+                    'username': session['username'],
+                    'level': session.get('level', 1), # Usar .get por si no existe
+                    'xp': session.get('xp', 0)
+                }
+            else:
+                # Si no está, buscar en DB (lento, solo 1 vez)
+                user = User.query.get(session['user_id'])
                 if user:
-                    username = user.username
-                    session['username'] = user.username # ¡Guardar para la próxima!
+                    user_data = {
+                        'username': user.username,
+                        'level': user.level,
+                        'xp': user.xp
+                    }
+                    # Guardar todo en la sesión para la próxima vez
+                    session['username'] = user.username
+                    session['level'] = user.level
+                    session['xp'] = user.xp
                 else:
-                    # El user_id en la cookie es inválido, forzar logout
-                    is_auth = False
-                    session.clear()
-            except Exception as e:
-                # Si la DB falla (ej. error de conexión), tratar como no logueado
-                print(f"Error al cargar usuario desde sesión: {e}")
-                is_auth = False
-                username = None
-                session.clear() # Limpiar la sesión corrupta
+                    session.clear() # ID de usuario inválido
+        except Exception as e:
+            print(f"Error al cargar usuario desde sesión: {e}")
+            # No borrar la sesión, solo tratar como no logueado esta vez
+            user_data = None
 
+    # Convertir user_data a JSON para inyectar en el template
+    # json.dumps(None) se convierte en "null"
+    user_data_json = json.dumps(user_data) 
+    
     return render_template(
         'index.html', 
         game_name="VoltRace",
-        is_authenticated=is_auth,
-        username=username
+        # Ya no pasamos 'is_authenticated' o 'username' aquí
+        # Pasamos el JSON completo
+        user_data_json=user_data_json
     )
 
 # --- Rutas de Autenticación ---
@@ -360,23 +387,32 @@ def register():
 
     if not email or not username or not password:
         return jsonify({"success": False, "message": "Faltan campos."}), 400
-
-    # Verifica si ya existe en la DB (de models.py)
     if User.query.filter_by(email=email).first():
         return jsonify({"success": False, "message": "El email ya está en uso."}), 400
     if User.query.filter_by(username=username).first():
         return jsonify({"success": False, "message": "El nombre de usuario ya está en uso."}), 400
 
-    # Crea el nuevo usuario
     new_user = User(email=email, username=username)
-    new_user.set_password(password) # Usa el método del modelo para hashear
+    new_user.set_password(password) 
 
     try:
         db.session.add(new_user)
         db.session.commit()
-        login_user(new_user) # Inicia sesión
-        session['username'] = new_user.username 
-        return jsonify({"success": True, "username": new_user.username})
+        login_user(new_user) 
+        
+        # Guardar todo en la sesión
+        session['username'] = new_user.username
+        session['level'] = new_user.level
+        session['xp'] = new_user.xp
+        
+        # Devolver el perfil completo para saltar fetchAndUpdateUserProfile
+        user_data = {
+            'username': new_user.username,
+            'level': new_user.level,
+            'xp': new_user.xp
+        }
+        return jsonify({"success": True, "user_data": user_data})
+        
     except Exception as e:
         db.session.rollback()
         print(f"Error en registro: {e}")
@@ -384,47 +420,51 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    # 1. Si el usuario ya inició sesión, redirige (solo para peticiones de navegador)
     if current_user.is_authenticated and request.method == 'GET':
         return redirect(url_for('index'))
 
-    # 2. Maneja la petición POST (procesamiento de datos)
     if request.method == 'POST':
-        # Intenta obtener datos de JSON (AJAX / JavaScript) primero
         data = request.get_json(silent=True)
         
         if data:
             email = data.get('email', '').strip()
             password = data.get('password', '')
-
-            user = User.query.filter_by(email=email).first()
+            user = User.query.filter_by(email=email).first() 
 
             if not user or not user.check_password(password):
-                # Devuelve JSON de error
                 return jsonify({"success": False, "message": "Email o contraseña incorrectos."}), 401
             
-            # Login exitoso
-            login_user(user) 
+            login_user(user)
+            
+            # Guardar todo en la sesión
             session['username'] = user.username
-            # ¡Devuelve JSON de éxito!
-            return jsonify({"success": True, "username": user.username})
+            session['level'] = user.level
+            session['xp'] = user.xp
+            
+            # Devolver el perfil completo
+            user_data = {
+                'username': user.username,
+                'level': user.level,
+                'xp': user.xp
+            }
+            return jsonify({"success": True, "user_data": user_data})
 
         else:
             email = request.form.get('email')
             password = request.form.get('password')
-
             user = User.query.filter_by(email=email).first()
-
             if user and user.check_password(password):
                 login_user(user, remember=True)
+                session['username'] = user.username
+                session['level'] = user.level
+                session['xp'] = user.xp
                 flash('¡Inicio de sesión exitoso!', 'success')
                 return redirect(url_for('index'))
             else:
                 flash('Inicio de sesión fallido. Verificá tu email y contraseña.', 'danger')
                 return render_template('index.html') 
 
-    # 3. Maneja la petición GET (Carga la página. Usa index.html)
-    return render_template('index.html')
+    return render_template('index.html', user_data_json=json.dumps(None)) # Pasar null si es GET
 
 @app.route("/forgot-password", methods=['GET', 'POST'])
 def forgot_password():
@@ -480,7 +520,7 @@ def reset_token(token):
 @app.route('/logout', methods=['POST'])
 @login_required # Requiere que el usuario esté logueado
 def logout():
-    session.pop('username', None)
+    session.clear()
     logout_user() # Cierra la sesión
     return jsonify({'success': True, 'message': 'Sesión cerrada'})
 
@@ -718,32 +758,28 @@ def crear_sala(data):
     join_room(id_sala) # Unir al creador a la room de SocketIO
 
     if salas_activas[id_sala].agregar_jugador(request.sid, username):
-        # Track room creation y Logros (Usando DB)
-        user_db = User.query.filter_by(username=username).first()
-        if user_db:
-            user_db.rooms_created = getattr(user_db, 'rooms_created', 0) + 1 
-            level_up = update_xp_and_level(user_db, 5) # Añade 5 XP y recalcula
-            
-            if level_up:
-                emit('level_up', {'new_level': user_db.level, 'xp': user_db.xp})
-
-            unlocked_achievements = achievement_system.check_achievement(username, 'room_created')
-            if unlocked_achievements:
-                emit('achievements_unlocked', {
-                    'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_achievements]
-                })
-
-        # Actualizar presencia a 'in_lobby'
-        social_system.update_user_presence(username, 'in_lobby', {'room_id': id_sala, 'sid': request.sid})
-
-        # Enviar confirmación al creador
+        
+        # Enviar respuesta al cliente INMEDIATAMENTE
         emit('sala_creada', {
             'id_sala': id_sala,
             'mensaje': f'Sala {id_sala} creada exitosamente'
         })
+
+        # Iniciar hilo para el trabajo de DB 
+        threading.Thread(
+            target=_procesar_creacion_sala_db_async,
+            args=(
+                current_app._get_current_object(),
+                request.sid,
+                username
+            )
+        ).start()
+        # Actualizar presencia a 'in_lobby'
+        social_system.update_user_presence(username, 'in_lobby', {'room_id': id_sala, 'sid': request.sid})
+    
     else:
         emit('error', {'mensaje': 'Error al agregar jugador a la sala recién creada.'})
-        if id_sala in salas_activas: del salas_activas[id_sala]
+        if id_sala in salas_activas: del salas_activas[id_sala] # Limpiar si falló
 
 @socketio.on('unirse_sala')
 def unirse_sala(data):

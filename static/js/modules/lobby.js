@@ -19,20 +19,24 @@ let _screens = null;
 let _socket = null;
 let _state = null; 
 
+// --- Caché de Top 5 ---
+const rankingCache = {
+    data: null,
+    isLoaded: false,
+    isLoading: false,
+    lastLoaded: 0 // Timestamp
+};
+const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutos
+
 /**
  * Inicializa el módulo del lobby, cachea elementos y asigna listeners.
- * @param {object} socketRef - Instancia de Socket.IO.
- * @param {object} screensRef - Referencias a las pantallas.
- * @param {function} showFuncRef - Referencia a la función show.
- * @param {function} setLoadingFuncRef - Referencia a la función setLoading.
- * @param {object} currentUserRef - Referencia mutable al objeto currentUser.
  */
 export function initLobby(socketRef, screensRef, showFuncRef, setLoadingFuncRef, stateRef) {
     _socket = socketRef;
     _screens = screensRef;
     _showFunc = showFuncRef;
     _setLoadingFunc = setLoadingFuncRef;
-    _state = stateRef; // Guarda la referencia mutable
+    _state = stateRef; 
 
     // Cachear elementos DOM del Lobby
     codigoSalaInput = document.getElementById("codigo-sala");
@@ -43,7 +47,6 @@ export function initLobby(socketRef, screensRef, showFuncRef, setLoadingFuncRef,
     tabRanking = document.getElementById("tab-ranking");
     rulesContent = document.getElementById("rules-content");
     rankingContent = document.getElementById("ranking-content");
-
 
     // Cachear elementos DOM de Sala de Espera
     codigoSalaActualDisplay = document.getElementById("codigo-sala-actual");
@@ -70,7 +73,7 @@ export function initLobby(socketRef, screensRef, showFuncRef, setLoadingFuncRef,
     btnEnviarMensajeLobby?.addEventListener("click", handleEnviarMensajeLobby);
     mensajeLobbyInput?.addEventListener("keypress", (e) => { if (e.key === 'Enter') handleEnviarMensajeLobby(); });
 
-    // Cargar Top Players al inicializar (si estamos en lobby)
+    // Cargar Top Players al inicializar 
     if (_screens.lobby?.classList.contains('active')) {
         loadTopPlayers();
     }
@@ -108,7 +111,7 @@ function handleLobbyTabClick(event) {
     rulesContent?.classList.toggle("active", isRules);
     rankingContent?.classList.toggle("active", !isRules);
     if (!isRules) {
-        loadTopPlayers(); // Carga ranking al cambiar a esa tab
+        loadTopPlayers(); // Carga ranking (ahora usa caché)
     }
 }
 
@@ -120,7 +123,6 @@ function handleCopiarCodigo() {
         .then(() => showNotification("Código copiado.", document.getElementById('notificaciones'), "success"))
         .catch(() => showNotification("No se pudo copiar.", document.getElementById('notificaciones'), "error"));
 }
-
 function handleIniciarJuego() {
     playSound('ClickMouse', 0.3);
     const idSala = codigoSalaActualDisplay?.textContent;
@@ -128,7 +130,6 @@ function handleIniciarJuego() {
         _socket.emit("iniciar_juego", { id_sala: idSala });
     }
 }
-
 function handleSalirSala() {
     playSound('ClickMouse', 0.3);
     const idSala = codigoSalaActualDisplay?.textContent;
@@ -138,44 +139,62 @@ function handleSalirSala() {
         _socket.emit("salir_sala", { id_sala: idSala });
     }
 }
-
 function handleEnviarMensajeLobby() {
     playSound('ClickMouse', 0.3);
     const msg = mensajeLobbyInput?.value.trim();
     const idSalaActual = codigoSalaActualDisplay?.textContent; 
-
     if (!msg || !idSalaActual) return;
-
     _socket.emit("enviar_mensaje", { id_sala: idSalaActual, mensaje: msg });
-
     if(mensajeLobbyInput) mensajeLobbyInput.value = "";
 }
+
 
 // --- Funciones de API (fetch) y Renderizado ---
 
 /** Carga y muestra el top 5 de jugadores. */
 export async function loadTopPlayers() {
     if (!topPlayersContainer) return;
+
+    const now = Date.now();
+    // Usar caché si está cargado y no ha expirado (5 min)
+    if (rankingCache.isLoaded && rankingCache.data && (now - rankingCache.lastLoaded < CACHE_DURATION_MS)) {
+        console.log("Cargando Top 5 desde caché...");
+        _displayTopPlayers(rankingCache.data);
+        return;
+    }
+    
+    // Evitar cargas múltiples si ya hay una en curso
+    if (rankingCache.isLoading) return;
+
+    rankingCache.isLoading = true;
     topPlayersContainer.innerHTML = '<div class="loading-rankings">Cargando rankings...</div>';
+    
     try {
         const response = await fetch("/leaderboard");
         if (!response.ok) throw new Error('Network response was not ok');
         const rankings = await response.json();
-        _displayTopPlayers(rankings.slice(0, 5)); // Llama a la función interna
+        
+        const top5 = rankings.slice(0, 5);
+        rankingCache.data = top5; // Guardar en caché
+        rankingCache.isLoaded = true;
+        rankingCache.lastLoaded = Date.now();
+        
+        _displayTopPlayers(top5); // Mostrar los datos frescos
     } catch (error) {
         console.error("Error loading rankings:", error);
         topPlayersContainer.innerHTML = '<div class="loading-rankings">Error al cargar rankings</div>';
+        rankingCache.isLoaded = false; // Permitir reintento
+    } finally {
+        rankingCache.isLoading = false;
     }
 }
 
 function _displayTopPlayers(players) {
     if (!topPlayersContainer) return;
-
     if (!players || players.length === 0) {
         topPlayersContainer.innerHTML = '<div class="loading-rankings">No hay jugadores registrados</div>';
         return;
     }
-
     topPlayersContainer.innerHTML = ""; // Limpiar
     players.forEach((player, index) => {
         const position = index + 1;
@@ -184,11 +203,9 @@ function _displayTopPlayers(players) {
         else if (position === 2) { positionClass = "silver"; trophy = "🥈"; }
         else if (position === 3) { positionClass = "bronze"; trophy = "🥉"; }
         else { trophy = `${position}`; }
-
         const gamesPlayed = player.games_played || 0;
         const gamesWon = player.games_won || 0;
         const winRate = gamesPlayed > 0 ? ((gamesWon / gamesPlayed) * 100).toFixed(1) : "0.0";
-
         const playerDiv = document.createElement("div");
         playerDiv.className = "player-rank";
         playerDiv.innerHTML = `
@@ -220,7 +237,7 @@ export function updateWaitingRoomUI(data) {
     if (btnIniciarJuego) btnIniciarJuego.disabled = !data.puede_iniciar;
     if (logEventosDisplay && data.log_eventos) {
         logEventosDisplay.innerHTML = "";
-        data.log_eventos.slice(-10).forEach(e => { // Últimos 10 eventos
+        data.log_eventos.slice(-10).forEach(e => { 
             const li = document.createElement("li");
             li.textContent = escapeHTML(e);
             logEventosDisplay.appendChild(li);

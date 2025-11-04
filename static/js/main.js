@@ -55,33 +55,27 @@ import { AnimationSystem } from './animations.js';
      * Función central que maneja el éxito de un login o un logout.
      * Actualiza el estado global, la UI, y muestra la pantalla correcta.
      */
-    async function handleLoginSuccess(userData) {
-        if (userData && userData.username) {
+    // ===== LOGIN RÁPIDO =====
+    async function handleLoginSuccess(user_data) {
+        
+        if (user_data && user_data.username) {
             // Autenticar el socket inmediatamente
-            socket.emit('authenticate', { username: userData.username });
+            socket.emit('authenticate', { username: user_data.username });
 
-            // Buscar el perfil COMPLETO (Nivel, XP, etc.)
-            const fullUserData = await fetchAndUpdateUserProfile(userData.username);
+            // Guardar el estado COMPLETO
+            state.currentUser = user_data; 
             
-            if (fullUserData) {
-                // Guardar el estado COMPLETO
-                state.currentUser = fullUserData; 
-                
-                // Mostrar el lobby
-                show('lobby', screens);
-                loadTopPlayers();
-                
-                // Iniciar la precarga de datos sociales y de logros en segundo plano
-                console.log("Iniciando precarga de datos sociales y de logros...");
-                loadSocialData();
-                loadAchievementsData();
+            // Actualizar la UI del header (
+            updateProfileUI(state.currentUser);
 
-            } else {
-                // Si fetchAndUpdateUserProfile falló (ej. error de red)
-                state.currentUser = null;
-                updateProfileUI(null); // Limpiar UI
-                show('auth', screens);
-            }
+            // Mostrar el lobby
+            show('lobby', screens);
+            loadTopPlayers(); 
+            
+            // Iniciar la precarga de datos sociales y de logros en segundo plano
+            console.log("Iniciando precarga de datos sociales y de logros...");
+            loadSocialData();
+            loadAchievementsData();
 
         } else {
             // --- Caso de Logout ---
@@ -183,24 +177,24 @@ import { AnimationSystem } from './animations.js';
     loadPerksConfig(simulatedPerksConfig);
 
     // =======================================================
-    // --- LÓGICA DE INICIO BASADA EN AUTENTICACIÓN ---
+    // --- LÓGICA DE INICIO BASADA EN AUTENTICACIÓN (MODIFICADA) ---
     // =======================================================
 
-    const bodyData = document.body.dataset;
-    const isAuthenticated = bodyData.isAuthenticated === 'true';
-    const username = bodyData.username;
+    // Leer los datos de usuario inyectados desde el servidor
+    const userData = window.VOLTRACE_USER_DATA || null;
 
-    if (isAuthenticated && username) {
-        console.log(`Usuario ya autenticado como: ${username}. Saltando al lobby.`);
-        // Llamar a la función que maneja el login exitoso
-        handleLoginSuccess({ username: username });
+    if (userData) {
+        // Si el servidor SÍ proveyó datos (login automático exitoso):
+        console.log(`Usuario ya autenticado como: ${userData.username}. Saltando al lobby.`);
+        handleLoginSuccess(userData);
         
     } else {
-        // Si NO estamos logueados:
+        // Si NO estamos logueados (userData es "null"):
         console.log("Usuario no autenticado. Mostrando pantalla de login.");
         show('auth', screens);
     }
     
+    // Ocultar el 'loading' y terminar la inicialización
     setLoading(false, loadingElement);
     console.log("Aplicación inicializada (main.js).");
 
