@@ -10,24 +10,29 @@ let modalAchievementsElement, btnCerrarAchievements, achievementsListDisplay, ac
 let btnShowAchievements; // Botón para abrir el modal
 
 // Referencias externas
-let _currentUser = null;
 let _state = null;
+
+const achievementsCache = {
+    data: null,       // Aquí guardaremos los datos de progreso
+    isLoaded: false,  // Se vuelve 'true' después de la primera carga
+    isLoading: false, // Previene cargas múltiples
+};
 
 /**
  * Inicializa el módulo de logros.
- * @param {object} currentUserRef - Referencia al usuario actual.
+ * @param {object} stateRef - Referencia al estado global.
  */
 export function initAchievements(stateRef) { 
     _state = stateRef; 
 
-    // Cachear elementos DOM (asegúrate que estas líneas estén DESPUÉS de _state = stateRef;)
+    // Cachear elementos DOM
     modalAchievementsElement = document.getElementById("modal-achievements");
     btnCerrarAchievements = document.getElementById("btn-cerrar-achievements");
     achievementsListDisplay = document.getElementById("achievements-list");
     achievementsSummaryDisplay = document.getElementById("achievements-summary");
     btnShowAchievements = document.getElementById("btn-show-achievements");
 
-    // Listeners (asegúrate que estén DESPUÉS de _state = stateRef;)
+    // Listeners
     btnShowAchievements?.addEventListener('click', openAchievementsModal);
     btnCerrarAchievements?.addEventListener('click', closeAchievementsModal);
     modalAchievementsElement?.addEventListener('click', (e) => { if (e.target === modalAchievementsElement) closeAchievementsModal(); });
@@ -40,7 +45,7 @@ function closeAchievementsModal() {
     if(modalAchievementsElement) modalAchievementsElement.style.display = 'none';
 }
 
-/** Abre el modal de logros y carga los datos del usuario. */
+/** Abre el modal de logros y carga los datos del usuario (usando caché). */
 async function openAchievementsModal() {
     playSound('OpenCloseModal', 0.3);
     const notifContainer = document.getElementById('notificaciones'); // Necesario para showNotification
@@ -53,7 +58,21 @@ async function openAchievementsModal() {
     }
 
     modalAchievementsElement.style.display = 'flex';
-    achievementsListDisplay.innerHTML = '<p style="text-align:center; color: var(--muted);">Cargando logros...</p>';
+    
+    // Si ya lo tenemos en caché, renderizar al instante
+    if (achievementsCache.isLoaded && achievementsCache.data) {
+        console.log("Cargando logros desde caché...");
+        renderAchievements(achievementsCache.data);
+        return;
+    }
+
+    // Si ya está cargando, no hacer nada
+    if (achievementsCache.isLoading) return;
+
+    // Si no está en caché, buscarlo
+    console.log("Buscando logros desde la red...");
+    achievementsCache.isLoading = true;
+    if(achievementsListDisplay) achievementsListDisplay.innerHTML = '<p style="text-align:center; color: var(--muted);">Cargando logros...</p>';
     if (achievementsSummaryDisplay) achievementsSummaryDisplay.textContent = 'Cargando resumen...';
 
     try {
@@ -62,14 +81,19 @@ async function openAchievementsModal() {
         const data = await response.json();
 
         if (data.achievements && !data.achievements.error) {
+            achievementsCache.data = data.achievements; // Guardar en caché
+            achievementsCache.isLoaded = true;
             renderAchievements(data.achievements);
         } else {
             throw new Error(data.achievements?.error || "No se pudieron cargar los logros.");
         }
     } catch (error) {
         console.error("Error al cargar logros:", error);
-        achievementsListDisplay.innerHTML = `<p style="text-align:center; color: var(--danger);">Error al cargar: ${error.message}</p>`;
+        if(achievementsListDisplay) achievementsListDisplay.innerHTML = `<p style="text-align:center; color: var(--danger);">Error al cargar: ${error.message}</p>`;
         if (achievementsSummaryDisplay) achievementsSummaryDisplay.textContent = 'Error al cargar';
+        achievementsCache.isLoaded = false; // Permitir reintentar
+    } finally {
+        achievementsCache.isLoading = false;
     }
 }
 
@@ -116,4 +140,14 @@ function renderAchievements(progressData) {
         `;
         achievementsListDisplay.appendChild(item);
     });
+}
+
+/**
+ * Invalida (borra) el caché de logros.
+ * Se debe llamar cuando el usuario desbloquea un logro o sube de nivel.
+ */
+export function invalidateAchievementsCache() {
+    console.log("Invalidando caché de logros...");
+    achievementsCache.isLoaded = false;
+    achievementsCache.data = null;
 }

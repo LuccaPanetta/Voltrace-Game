@@ -10,6 +10,7 @@ import { updateWaitingRoomUI, appendLobbyChatMessage, loadTopPlayers } from './l
 import { actualizarEstadoJuego, renderEventos, agregarAlLog, appendGameChatMessage, mostrarModalFinJuego, actualizarCooldownsUI, actualizarEstadoParcial } from './gameUI.js';
 import { displayPerkOffer, handlePerkActivated, updatePerkPrices } from './perks.js';
 import { appendPrivateMessage, updateSocialNotificationIndicator } from './social.js';
+import { invalidateAchievementsCache } from './achievements.js';
 
 // Referencias a estado/elementos/funciones que se pasarán desde main.js
 // --- DECLARACIONES DE VARIABLES DEL MÓDULO (Solo una vez) ---
@@ -399,6 +400,8 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
                 if(ach) showAchievementNotification(ach, _notificacionesContainer);
             });
             if (_currentUser.value) fetchAndUpdateUserProfile(_currentUser.value.username);
+            
+            invalidateAchievementsCache(); // Borra el caché
         }
     });
 
@@ -420,6 +423,7 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
         if (_state.currentUser && _state.currentUser.username) {
              fetchAndUpdateUserProfile(_state.currentUser.username);
         }
+        invalidateAchievementsCache();
     });
 
     // --- Fin de Juego y Revancha ---

@@ -312,12 +312,36 @@ class SalaJuego:
 @app.route('/')
 def index():
     # Ruta principal que sirve el archivo HTML del juego
-    if 'user_id' in session and 'username' in session:
+    
+    is_auth = False
+    username = None
+    
+    # Comprobar si Flask-Login te reconoce (tienes un 'user_id' en la cookie)
+    if 'user_id' in session:
         is_auth = True
-        username = session['username']
-    else:
-        is_auth = False
-        username = None
+        
+        # Intentar obtener el username desde la cookie (Ruta Rápida)
+        if 'username' in session:
+            username = session['username']
+        
+        # Si no está, buscarlo en la DB y guardarlo (Ruta Lenta, se ejecuta 1 sola vez)
+        else:
+            try:
+                # Esta es la consulta que fallaba en tu traceback de 'OperationalError'
+                user = User.query.get(session['user_id']) 
+                if user:
+                    username = user.username
+                    session['username'] = user.username # ¡Guardar para la próxima!
+                else:
+                    # El user_id en la cookie es inválido, forzar logout
+                    is_auth = False
+                    session.clear()
+            except Exception as e:
+                # Si la DB falla (ej. error de conexión), tratar como no logueado
+                print(f"Error al cargar usuario desde sesión: {e}")
+                is_auth = False
+                username = None
+                session.clear() # Limpiar la sesión corrupta
 
     return render_template(
         'index.html', 
