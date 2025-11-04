@@ -1497,7 +1497,7 @@ class JuegoOcaWeb:
 
     def _hab_curacion(self, jugador, habilidad, objetivo):
         eventos = []
-        energia_intentada = 75
+        energia_intentada = 150
         energia_antes = jugador.get_puntaje()
         energia_ganada_real = jugador.procesar_energia(energia_intentada)
         if energia_ganada_real > 0:
