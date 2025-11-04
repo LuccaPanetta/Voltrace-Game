@@ -129,6 +129,11 @@ if DATABASE_URL:
     if DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_pre_ping': True,  # Verifica la conexión antes de usarla
+        'pool_recycle': 280,    # Recicla la conexión cada 280s 
+        'pool_timeout': 20,     # Tiempo de espera para obtener una conexión
+    }
 else:
     print("ADVERTENCIA: DATABASE_URL no encontrada. Usando 'voltrace.db' (SQLite) local.")
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'voltrace.db')
