@@ -205,10 +205,13 @@ def _procesar_creacion_sala_db_async(app, sid, username):
             print(f"!!! ERROR FATAL en _procesar_creacion_sala_db_async: {e}")
             traceback.print_exc()
 
-def _procesar_habilidad_db_async(app, sid, username):
+def _procesar_habilidad_db_async(app, sid, username, event_data=None):
     with app.app_context():
         try:
-            print(f"--- THREAD: Procesando XP/Logros de habilidad para: {username}")
+            if event_data is None:
+                event_data = {} # Asegurar que sea un dict
+                
+            print(f"--- THREAD: Procesando XP/Logros de habilidad para: {username}. Event data: {event_data}")
             user_db = User.query.filter_by(username=username).first()
             if user_db:
                 # Actualizar XP y Nivel
@@ -217,8 +220,9 @@ def _procesar_habilidad_db_async(app, sid, username):
                 if level_up:
                     socketio.emit('level_up', {'new_level': user_db.level, 'xp': user_db.xp}, to=sid)
             
-            # Verificar Logros
-            unlocked_list = achievement_system.check_achievement(username, 'ability_used', {})
+            # Pasar el event_data completo a check_achievement
+            unlocked_list = achievement_system.check_achievement(username, 'ability_used', event_data)
+
             if unlocked_list:
                 socketio.emit('achievements_unlocked', {
                     'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_list]
@@ -336,10 +340,9 @@ class SalaJuego:
 def index():
     # Ruta principal que sirve el archivo HTML del juego
     user_data = None
+    
     if current_user.is_authenticated:
         try:
-            # current_user ya es el objeto User cargado desde la DB
-            # por nuestro @login_manager.user_loader
             user = current_user 
             user_data = {
                 'username': user.username,
@@ -352,11 +355,12 @@ def index():
             session['level'] = user.level
             session['xp'] = user.xp
 
+            _procesar_login_diario(user)
+
         except Exception as e:
-            # Esto solo debería fallar si la DB está caída
             print(f"Error al cargar current_user autenticado: {e}")
             user_data = None
-            session.clear() # Limpiar sesión corrupta si falla
+            session.clear() 
 
     # Convertir user_data a JSON para inyectar en el template
     user_data_json = json.dumps(user_data) 
@@ -364,7 +368,6 @@ def index():
     return render_template(
         'index.html', 
         game_name="VoltRace",
-        # Pasamos el JSON completo
         user_data_json=user_data_json
     )
 
@@ -432,6 +435,9 @@ def login():
             session['level'] = user.level
             session['xp'] = user.xp
             
+            # Comprobar si es un nuevo día de login 
+            _procesar_login_diario(user)
+            
             # Devolver el perfil completo
             user_data = {
                 'username': user.username,
@@ -449,13 +455,16 @@ def login():
                 session['username'] = user.username
                 session['level'] = user.level
                 session['xp'] = user.xp
+                
+                _procesar_login_diario(user)
+                
                 flash('¡Inicio de sesión exitoso!', 'success')
                 return redirect(url_for('index'))
             else:
                 flash('Inicio de sesión fallido. Verificá tu email y contraseña.', 'danger')
                 return render_template('index.html') 
 
-    return render_template('index.html', user_data_json=json.dumps(None)) # Pasar null si es GET
+    return render_template('index.html', user_data_json=json.dumps(None))
 
 @app.route("/forgot-password", methods=['GET', 'POST'])
 def forgot_password():
@@ -942,6 +951,23 @@ def lanzar_dado(data):
         # Ejecutar el movimiento
         resultado = sala.juego.paso_1_lanzar_y_mover(nombre_jugador_emitente)
 
+        try:
+            seises_consecutivos = resultado.get('consecutive_sixes', 0)
+            if seises_consecutivos >= 3:
+                print(f"--- LOGRO DETECTADO: 'lucky_seven' para {nombre_jugador_emitente} ---")
+                unlocked_list = achievement_system.check_achievement(
+                    nombre_jugador_emitente,
+                    'dice_rolled',
+                    {'consecutive_sixes': seises_consecutivos}
+                )
+                if unlocked_list:
+                    socketio.emit('achievements_unlocked', {
+                        'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_list]
+                    }, to=request.sid) # Notificar solo al jugador
+        except Exception as e:
+            print(f"!!! ERROR al procesar logro 'lucky_seven': {e}")
+            traceback.print_exc()
+
         if resultado.get('pausado'):
             print(f"--- TURNO PAUSADO --- Sala: {id_sala}. Enviando estado completo.")
             colores_map = getattr(sala, 'colores_map', {})
@@ -1003,29 +1029,84 @@ def terminar_movimiento(data):
         # Esta función ahora solo avanza el turno si fue un dado
         resultado = sala.juego.paso_2_procesar_casilla_y_avanzar(nombre_jugador_a_procesar)
         
+        try:
+            eventos_del_paso_2 = resultado.get('eventos', [])
+            eventos_procesados_logros = set() # Para no duplicar (ej. 'inmortal')
+
+            for evento_str in eventos_del_paso_2:
+                if not isinstance(evento_str, str):
+                    continue
+
+                nombre_salvado = None
+                evento_logro = None
+
+                # Comprobar 'Inmortal'
+                if 'inmortal' not in eventos_procesados_logros and evento_str.startswith("❤️‍🩹 ¡Último Aliento salvó a"):
+                    partes = evento_str.split(' ')
+                    if len(partes) >= 6:
+                        nombre_salvado = partes[5]
+                        evento_logro = 'inmortal'
+                        eventos_procesados_logros.add('inmortal') # Marcar como procesado
+
+                # Comprobar 'Muralla Humana'
+                # El evento es "  Nombre: 🛡️ protegido"
+                elif 'muralla_humana' not in eventos_procesados_logros and evento_str.strip().endswith(": 🛡️ protegido"):
+                    partes = evento_str.strip().split(':')
+                    if len(partes) >= 2:
+                        nombre_salvado = partes[0].strip() # Obtener el nombre
+                        evento_logro = 'muralla_humana'
+                        eventos_procesados_logros.add('muralla_humana') # Marcar
+                
+                # Si encontramos un evento de logro, procesarlo
+                if nombre_salvado and evento_logro:
+                    print(f"--- LOGRO DETECTADO: '{evento_logro}' para {nombre_salvado} ---")
+                    
+                    unlocked_list = achievement_system.check_achievement(
+                        nombre_salvado, 
+                        'game_event', 
+                        {'event_name': evento_logro}
+                    )
+                    
+                    if unlocked_list:
+                        sid_salvado = None
+                        for sid, data_jugador in sala.jugadores.items():
+                            if data_jugador['nombre'] == nombre_salvado:
+                                sid_salvado = sid
+                                break
+                        
+                        if sid_salvado:
+                            socketio.emit('achievements_unlocked', {
+                                'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_list]
+                            }, to=sid_salvado)
+                    # No hacemos 'break' por si un evento activa ambos (improbable, pero seguro)
+
+        except Exception as e:
+            print(f"!!! ERROR al procesar logros de 'paso_2_terminar_movimiento': {e}")
+            traceback.print_exc()
+        
         if sala.juego.ha_terminado():
             print(f"--- JUEGO TERMINADO (PASO 2) --- Sala: {id_sala}")
             sala.estado = 'terminado'
 
-            # 1. Obtener las estadísticas finales (esto es rápido, solo calcula)
+            # Obtener las estadísticas finales (esto es rápido, solo calcula)
             ganador_obj = sala.juego.determinar_ganador()
             ganador_nombre = ganador_obj.get_nombre() if ganador_obj else None
             stats_finales_dict = sala.juego.obtener_estadisticas_finales()
 
-            # 2. Emitir el modal de fin de juego INMEDIATAMENTE
+            # Emitir el modal de fin de juego INMEDIATAMENTE
             print("--- Emitiendo 'juego_terminado' al cliente AHORA.")
             socketio.emit('juego_terminado', {
                 'ganador': stats_finales_dict.get('ganador'),
                 'estadisticas_finales': stats_finales_dict.get('lista_final')
             }, room=id_sala)
 
-            # 3. Preparar los datos para el hilo (copiar datos)
+            # Preparar los datos para el hilo (copiar datos)
             jugadores_items_copia = list(sala.jugadores.items())
             ronda_copia = sala.juego.ronda
             player_count_copia = len(sala.jugadores)
             juego_obj_copia = sala.juego # El objeto juego ya no se modificará
 
-            # 4. Iniciar el hilo para procesar DB (lento) en segundo plano
+            # Iniciar el hilo para procesar DB (lento) en segundo plano
             print("--- Iniciando hilo para procesar estadísticas de DB en segundo plano...")
             stats_thread = threading.Thread(
                 target=_procesar_estadisticas_fin_juego_async,
@@ -1040,7 +1121,7 @@ def terminar_movimiento(data):
             )
             stats_thread.start()
             
-            # 5. Salir inmediatamente
+            # Salir inmediatamente
             return
         
 
@@ -1101,6 +1182,39 @@ def usar_habilidad(data):
     try:
         # 1. EJECUTAR LÓGICA DEL JUEGO (Esto es rápido)
         resultado = sala.juego.usar_habilidad_jugador(nombre_jugador_emitente, indice_habilidad, objetivo)
+        
+        # Revisar los eventos devueltos por la habilidad, INCLUSO SI FALLÓ
+        try:
+            eventos_de_habilidad = resultado.get('eventos', [])
+            for evento_str in eventos_de_habilidad:
+                if isinstance(evento_str, str) and evento_str.strip().endswith("protegido por Invisibilidad."):
+                    partes = evento_str.strip().split(' ')
+                    if len(partes) >= 2:
+                        # Extraer el nombre del jugador (el primero)
+                        nombre_protegido = partes[1] 
+                        print(f"--- LOGRO DETECTADO: 'fantasma' para {nombre_protegido} ---")
+                        
+                        unlocked_list = achievement_system.check_achievement(
+                            nombre_protegido, 
+                            'game_event', 
+                            {'event_name': 'fantasma'}
+                        )
+                        
+                        if unlocked_list:
+                            sid_protegido = None
+                            for s, data_jugador in sala.jugadores.items():
+                                if data_jugador['nombre'] == nombre_protegido:
+                                    sid_protegido = s
+                                    break
+                            
+                            if sid_protegido:
+                                socketio.emit('achievements_unlocked', {
+                                    'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_list]
+                                }, to=sid_protegido)
+                        break # Encontramos el evento
+        except Exception as e:
+            print(f"!!! ERROR al procesar logros de 'usar_habilidad': {e}")
+            traceback.print_exc()
 
         if resultado['exito']:
             
@@ -1163,14 +1277,15 @@ def usar_habilidad(data):
             else:
                 print("--- Habilidad estándar (No-Mov) detectada. Procesando DB en hilo.")
                 
-                # 3. INICIAR HILO PARA DB
+                # 3. INICIAR HILO PARA DB (Pasando el 'resultado' como event_data)
                 if sid in sessions_activas:
                     threading.Thread(
                         target=_procesar_habilidad_db_async,
                         args=(
                             current_app._get_current_object(),
                             sid,
-                            nombre_jugador_emitente
+                            nombre_jugador_emitente,
+                            resultado # Pasamos el diccionario de resultado completo
                         )
                     ).start()
                 
@@ -1940,8 +2055,20 @@ def _procesar_estadisticas_fin_juego_async(app, jugadores_items, ganador_nombre,
                         user_db = User.query.filter_by(username=username).first()
                         if user_db:
                             user_db.games_played += 1
-                            if is_winner: user_db.games_won += 1
-                            xp_ganada = 50 + (25 if is_winner else 0)
+                            xp_ganada = 50 # XP base por jugar
+                            
+                            current_consecutive_wins = 0 # Valor por defecto
+                            if is_winner: 
+                                user_db.games_won += 1
+                                xp_ganada += 25 # Bonus XP por ganar
+                                # Incrementar racha de victorias
+                                user_db.consecutive_wins = getattr(user_db, 'consecutive_wins', 0) + 1
+                                current_consecutive_wins = user_db.consecutive_wins
+                            else:
+                                # Resetear racha de victorias
+                                user_db.consecutive_wins = 0
+                                current_consecutive_wins = 0
+
                             level_up = update_xp_and_level(user_db, xp_ganada) # Esto hace db.session.commit()
                             
                             if level_up:
@@ -1952,7 +2079,7 @@ def _procesar_estadisticas_fin_juego_async(app, jugadores_items, ganador_nombre,
                                 'final_energy': jugador_juego.get_puntaje(),
                                 'reached_position': jugador_juego.get_posicion(),
                                 'total_rounds': ronda,
-                                'player_count': player_count_db, # Usar el count pasado
+                                'player_count': player_count_db, 
                                 'colisiones': getattr(jugador_juego, 'colisiones_causadas', 0),
                                 'special_tiles_activated': getattr(jugador_juego, 'tipos_casillas_visitadas', set()),
                                 'abilities_used': getattr(jugador_juego, 'habilidades_usadas_en_partida', 0),
@@ -1962,8 +2089,11 @@ def _procesar_estadisticas_fin_juego_async(app, jugadores_items, ganador_nombre,
                                 'messages_this_game': getattr(jugador_juego, 'game_messages_sent_this_match', 0),
                                 'only_active_player': len([j for j in juego_obj.jugadores if j.esta_activo()]) == 1,
                                 'never_eliminated': jugador_juego.esta_activo(),
-                                'energy_packs_collected': getattr(jugador_juego, 'energy_packs_collected', 0)
+                                'energy_packs_collected': getattr(jugador_juego, 'energy_packs_collected', 0),
+                                'consecutive_wins': current_consecutive_wins,
+                                'ultimo_en_mid_game': getattr(juego_obj, 'ultimo_en_mid_game', None)
                             }
+
                             # check_achievement también hace db.session.commit()
                             unlocked_achievements = achievement_system.check_achievement(username, 'game_finished', event_data) 
                             if unlocked_achievements:
@@ -1975,6 +2105,48 @@ def _procesar_estadisticas_fin_juego_async(app, jugadores_items, ganador_nombre,
         except Exception as e:
             print(f"!!! ERROR FATAL en hilo _procesar_estadisticas_fin_juego: {e}")
             traceback.print_exc()
+
+def _procesar_login_diario(user_obj):
+    if not user_obj:
+        return
+
+    try:
+        today = datetime.utcnow().date()
+        # Obtener el último login (puede ser None o un objeto date)
+        last_login_day = getattr(user_obj, 'last_login_date', None)
+
+        if last_login_day != today:
+            print(f"--- LOGIN DIARIO DETECTADO --- Usuario: {user_obj.username}. Último login: {last_login_day}, Hoy: {today}")
+            
+            # Actualizar el contador y la fecha en la DB
+            user_obj.last_login_date = today
+            current_days_count = getattr(user_obj, 'unique_login_days_count', 0) + 1
+            user_obj.unique_login_days_count = current_days_count
+            
+            db.session.commit() # Guardar los cambios en la DB
+
+            # Ahora, comprobar el logro con el nuevo contador
+            unlocked_list = achievement_system.check_achievement(
+                user_obj.username, 
+                'login', 
+                {'login_days': current_days_count}
+            )
+
+            if unlocked_list:
+                # Si se desbloqueó, notificar al usuario (si está conectado)
+                sid = social_system.presence_data.get(user_obj.username, {}).get('extra_data', {}).get('sid')
+                if sid:
+                    socketio.emit('achievements_unlocked', {
+                        'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_list]
+                    }, to=sid)
+        else:
+            # Si ya se logueó hoy, no hacer nada
+            print(f"--- Login repetido hoy para {user_obj.username}. No se cuenta como nuevo día. ---")
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"!!! ERROR al procesar login diario para {user_obj.username}: {e}")
+        traceback.print_exc()
 
 # Iniciar el hilo de limpieza en segundo plano
 hilo_limpieza = threading.Thread(target=limpiar_salas_inactivas, daemon=True)

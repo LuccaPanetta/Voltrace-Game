@@ -53,6 +53,7 @@ class JuegoOcaWeb:
         self.eventos_turno = []
         self.evento_global_activo = None 
         self.evento_global_duracion = 0
+        self.ultimo_en_mid_game = None
         
         print(f"--- JuegoOcaWeb __init__ --- Jugadores: {nombres_jugadores}")
         print(f"--- JuegoOcaWeb __init__ --- Turno inicial: {self.turno_actual}")
@@ -209,11 +210,17 @@ class JuegoOcaWeb:
         dado_final = 0
         es_doble_dado = self._verificar_efecto_activo(jugador, "doble_dado")
         
+        # Variable para el logro
+        consecutive_sixes_count = 0 
+        
         if hasattr(jugador, 'dado_forzado') and jugador.dado_forzado:
             dado1 = jugador.dado_forzado
             jugador.dado_forzado = None
             dado_final = dado1
             self.eventos_turno.append(f"🎯 {nombre_jugador} usó Dado Perfecto: {dado1}")
+
+            # Si usa "Dado Perfecto", resetea el contador de seises
+            jugador.consecutive_sixes = 0
 
             if "dado_cargado" in jugador.perks_activos:
                 if 1 <= dado1 <= 3:
@@ -229,6 +236,14 @@ class JuegoOcaWeb:
             # Si no hay dado forzado, tirar normally
             dado1 = randint(1, 6)
             dado_final = dado1
+            
+            if dado1 == 6:
+                jugador.consecutive_sixes += 1
+                consecutive_sixes_count = jugador.consecutive_sixes
+                if consecutive_sixes_count >= 2: # Notificar a partir del segundo
+                     self.eventos_turno.append(f"🔥 ¡Racha! {nombre_jugador} sacó {consecutive_sixes_count} seises seguidos.")
+            else:
+                jugador.consecutive_sixes = 0 # Resetear contador
 
             # El chequeo de Doble Turno ahora va DENTRO de este 'else'
             if es_doble_dado:
@@ -236,8 +251,9 @@ class JuegoOcaWeb:
                 dado_final = dado1 + dado2 
                 self.eventos_turno.append(f"🔄 ¡Doble Turno! {nombre_jugador} sacó {dado1} + {dado2} = {dado_final}")
             else:
-                # Log normal (no fue Dado Perfecto y no fue Doble Turno)
-                self.eventos_turno.append(f"{nombre_jugador} sacó {dado_final}")
+
+                if consecutive_sixes_count < 2:
+                    self.eventos_turno.append(f"{nombre_jugador} sacó {dado_final}")
         
         # Cálculo del Avance
         multiplicador = 2 if self._verificar_efecto_activo(jugador, "turbo") else 1
@@ -278,7 +294,8 @@ class JuegoOcaWeb:
             "pos_inicial": pos_inicial,
             "pos_final": pos_final,
             "meta_alcanzada": meta_alcanzada,
-            "pausado": False # Asegurarnos que siempre esté
+            "pausado": False, # Asegurarnos que siempre esté
+            "consecutive_sixes": consecutive_sixes_count # --- INCLUIR DATO DEL LOGRO ---
         }
 
     def paso_2_procesar_casilla_y_avanzar(self, nombre_jugador):
@@ -754,7 +771,7 @@ class JuegoOcaWeb:
     def _avanzar_turno(self):
         intentos = 0
         turno_original = self.turno_actual 
-        nueva_ronda = False # Bandera para detectar el "wrap-around"
+        nueva_ronda = False 
 
         print(f"--- AVANZAR TURNO --- Desde: {self.jugadores[turno_original].get_nombre()} ({turno_original})")
 
@@ -790,6 +807,19 @@ class JuegoOcaWeb:
             self.ronda += 1
             print(f"--- NUEVA RONDA --- Ronda: {self.ronda}")
             
+            # Definir la ronda de "mitad de partida"
+            MID_GAME_RONDA = 15 
+            if self.ronda == MID_GAME_RONDA and self.ultimo_en_mid_game is None:
+                try:
+                    jugadores_activos = [j for j in self.jugadores if j.esta_activo()]
+                    if jugadores_activos:
+                        # Encontrar al jugador activo con la posición más baja
+                        jugador_ultimo = min(jugadores_activos, key=lambda x: x.get_posicion())
+                        self.ultimo_en_mid_game = jugador_ultimo.get_nombre()
+                        print(f"--- LOGRO (Comeback King): {self.ultimo_en_mid_game} registrado como último en ronda {MID_GAME_RONDA} ---")
+                except Exception as e:
+                    print(f"Error al registrar 'comeback_king': {e}")
+
             # Reducir duración del evento activo 
             if self.evento_global_activo:
                 self.evento_global_duracion -= 1
@@ -1241,7 +1271,7 @@ class JuegoOcaWeb:
                 jugador.efectos_activos.append({"tipo": "pausa", "turnos": turnos_pausa_total})
                 eventos.append(f"⚔️ ¡{jugador.get_nombre()} se auto-saboteó y perderá {rondas_pausa} turno(s)!")
                 
-            return {"exito": False, "eventos": eventos} # La habilidad falló (fue reflejada)
+            return {"exito": False, "eventos": eventos, "reflejo_exitoso": True} 
 
         # Verificar Escudo 
         if self._verificar_efecto_activo(obj, "escudo"):
@@ -1262,6 +1292,7 @@ class JuegoOcaWeb:
         rango_bomba = 5 if "bomba_fragmentacion" in jugador.perks_activos else 3
         dano_bomba = 75 # Daño base
         afectados, protegidos = [], []
+        reflejo_ocurrido = False
 
         for j in self.jugadores:
             # Iterar sobre cada jugador 'j' que NO es el lanzador
@@ -1338,7 +1369,7 @@ class JuegoOcaWeb:
         if protegidos:
              eventos.append(f"🛡️/👻 Protegidos/Esquivaron Bomba: {', '.join(protegidos)}")
 
-        return {"exito": True, "eventos": eventos}
+        return {"exito": True, "eventos": eventos, "afectados_count": len(afectados), "reflejo_exitoso": reflejo_ocurrido}
     
     def _hab_robo(self, jugador, habilidad, objetivo):
         eventos = []
@@ -1387,7 +1418,7 @@ class JuegoOcaWeb:
                 elif getattr(jugador_afectado, '_ultimo_aliento_usado', False) and not getattr(jugador_afectado, '_ultimo_aliento_notificado', False):
                     self.eventos_turno.append(f"❤️‍🩹 ¡Último Aliento salvó a {jugador_afectado.get_nombre()}! Sobrevive con 50 E y Escudo (3 Turnos).")
                     jugador_afectado._ultimo_aliento_notificado = True
-            return {"exito": False, "eventos": eventos} # Robo fallido por reflejo
+            return {"exito": False, "eventos": eventos, "reflejo_exitoso": True} # Robo fallido por reflejo
 
         # Comprobar Escudo del objetivo (bloquea)
         elif self._verificar_efecto_activo(obj, "escudo"):
@@ -1467,12 +1498,13 @@ class JuegoOcaWeb:
     def _hab_curacion(self, jugador, habilidad, objetivo):
         eventos = []
         energia_intentada = 75
+        energia_antes = jugador.get_puntaje()
         energia_ganada_real = jugador.procesar_energia(energia_intentada)
         if energia_ganada_real > 0:
             eventos.append(f"🏥 +{energia_ganada_real} energía")
         elif energia_intentada > 0:
             eventos.append(f"🚫 Curación bloqueada para {jugador.get_nombre()}.")
-        return {"exito": True, "eventos": eventos}
+        return {"exito": True, "eventos": eventos, "energia_antes": energia_antes}
 
     def _hab_invisibilidad(self, jugador, habilidad, objetivo):
         eventos = []
@@ -1697,6 +1729,21 @@ class JuegoOcaWeb:
     def _hab_caos(self, jugador, habilidad, objetivo):
         eventos = ["🎪 Caos: ¡Todos los jugadores se mueven aleatoriamente!"]
         movimientos_planificados = []
+        
+        # Comprobar si se cumple la condición del logro
+        caos_cerca_meta = False
+        POSICION_MINIMA_LOGRO = 65 # Definir "cerca de la meta"
+        try:
+            jugadores_activos = [j for j in self.jugadores if j.esta_activo()]
+            if jugadores_activos: # Asegurarse que haya jugadores
+                # Comprobar si TODOS los jugadores activos están en o más allá de la posición 65
+                todos_cerca_meta = all(j.get_posicion() >= POSICION_MINIMA_LOGRO for j in jugadores_activos)
+                if todos_cerca_meta:
+                    caos_cerca_meta = True
+                    print(f"--- LOGRO DETECTADO (Potencial): 'el_caotico' se cumple. ---")
+        except Exception as e:
+            print(f"Error al verificar logro 'el_caotico': {e}")
+
         for j in self.jugadores:
             if j.esta_activo():
                 
@@ -1740,7 +1787,8 @@ class JuegoOcaWeb:
             "exito": True, 
             "eventos": eventos,
             "es_movimiento_multiple": True,
-            "movimientos": movimientos_planificados
+            "movimientos": movimientos_planificados,
+            "caos_cerca_meta": caos_cerca_meta 
         }
 
     # ===================================================================

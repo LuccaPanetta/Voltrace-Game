@@ -52,6 +52,9 @@ class JugadorWeb:
         # 5. FLAGS DEL PERK "ÚLTIMO ALIENTO" 
         self._ultimo_aliento_usado = False
         self._ultimo_aliento_notificado = False
+
+        #6. RASTREADORES DE LOGROS
+        self.consecutive_sixes = 0
         
         print(f"JugadorWeb '{nombre}' inicializado.")
         

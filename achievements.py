@@ -21,24 +21,6 @@ from datetime import datetime
 from models import db, User, Achievement, UserAchievement
 
 class AchievementSystem:
-    """
-    SISTEMA DE LOGROS Y ACHIEVEMENTS
-    
-    Este sistema maneja todos los logros del juego:
-    - Verifica automáticamente cuándo se cumplen condiciones de logros
-    - Otorga XP al desbloquear logros
-    - Mantiene registro de cuándo se desbloquearon
-    - Categoriza logros por tipo (gameplay, social, persistence, etc.)
-    - Calcula progreso total de logros de cada jugador
-    
-    Tipos de logros implementados:
-    - Primeras veces (first_game, first_win, etc.)
-    - Gameplay específico (speed_demon, survivor, etc.)
-    - Logros sociales (chat_king, social_player, etc.)
-    - Logros de suerte (lucky_seven, treasure_hunter, etc.)
-    - Logros de persistencia (veteran, champion, etc.)
-    - Logros específicos del juego (meta_alcanzada, energizado, etc.)
-    """
     
     def __init__(self):
         # Configuración de todos los logros disponibles
@@ -59,7 +41,6 @@ class AchievementSystem:
 
             # Logros Sociales (con target_value)
             "chat_king": {"name": "Rey del Chat", "description": "Envía 25 mensajes en una sola partida", "xp_reward": 50, "icon": "💬", "category": "social", "trigger": "game_finished", "target_value": 25}, # Requiere trackeo por partida
-            "social_player": {"name": "Jugador Social", "description": "Juega con 10 jugadores diferentes", "xp_reward": 125, "icon": "👥", "category": "social", "trigger": "game_finished", "target_value": 10}, # Requiere trackeo externo
             "room_host": {"name": "Anfitrión Experto", "description": "Crea 10 salas", "xp_reward": 100, "icon": "🏠", "category": "social", "trigger": "room_created", "target_value": 10},
             "social_butterfly": {"name": "Mariposa Social", "description": "Agrega 5 amigos", "xp_reward": 150, "icon": "🦋", "category": "social", "trigger": "friend_added", "target_value": 5},
             "popular": {"name": "Popular", "description": "Alcanza 15 amigos", "xp_reward": 500, "icon": "⭐", "category": "social", "trigger": "friend_added", "target_value": 15},
@@ -104,16 +85,16 @@ class AchievementSystem:
         unlocked_achievements = []
         newly_unlocked_ids = []
 
-        # 1. Obtener el usuario de la DB
+        # Obtener el usuario de la DB
         user = User.query.filter_by(username=username).first()
         if not user:
             print(f"ERROR ACH: Usuario {username} no encontrado en la DB.")
             return []
 
-        # 2. Obtener IDs de logros ya desbloqueados
+        # Obtener IDs de logros ya desbloqueados
         unlocked_ach_ids = [ua.achievement.internal_id for ua in user.unlocked_achievements_assoc]
         
-        # 3. Mapear las estadísticas del usuario para compatibilidad con las funciones de verificación
+        # Mapear las estadísticas del usuario para compatibilidad con las funciones de verificación
         user_stats = {
             'xp': user.xp,
             'level': user.level,
@@ -124,10 +105,11 @@ class AchievementSystem:
             'private_messages_sent': getattr(user, 'private_messages_sent', 0),
             'messages_sent': getattr(user, 'chat_messages_sent', 0),    
             'rooms_created': getattr(user, 'rooms_created', 0),
-            'friends_count': user.friends.count() 
+            'friends_count': user.friends.count(),
+            'unique_login_days_count': getattr(user, 'unique_login_days_count', 0)
         }
         
-        # 4. Llamar a las funciones de verificación
+        # Llamar a las funciones de verificación
         if event_type == 'game_finished':
             newly_unlocked_ids.extend(self._check_game_finished_achievements(username, event_data, unlocked_ach_ids, user_stats))
         
@@ -143,6 +125,12 @@ class AchievementSystem:
         elif event_type == 'special_tile':
             newly_unlocked_ids.extend(self._check_special_tile_achievements(username, event_data, unlocked_ach_ids, user_stats))
 
+        elif event_type == 'game_event':
+            newly_unlocked_ids.extend(self._check_game_event_achievements(username, event_data, unlocked_ach_ids, user_stats))
+
+        elif event_type == 'login':
+             newly_unlocked_ids.extend(self._check_login_achievements(username, event_data, unlocked_ach_ids, user_stats))
+
         # Añadimos los nuevos triggers sociales
         elif event_type == 'friend_added':
             newly_unlocked_ids.extend(self._check_social_achievements(username, event_type, unlocked_ach_ids, user_stats))
@@ -150,10 +138,9 @@ class AchievementSystem:
         elif event_type == 'private_message_sent':
             newly_unlocked_ids.extend(self._check_social_achievements(username, event_type, unlocked_ach_ids, user_stats))
 
-        # Verificar logros de persistencia después de cada evento
         newly_unlocked_ids.extend(self._check_persistence_achievements(username, unlocked_ach_ids, user_stats))
 
-        # 5. Guardar logros desbloqueados y otorgar XP (EN LA DB)
+        # Guardar logros desbloqueados y otorgar XP (EN LA DB)
         total_xp_gained = 0
         
         # Filtra solo los ID de logros que aún no hemos procesado para evitar doble conteo si una subfunción retorna el mismo ID
@@ -176,7 +163,7 @@ class AchievementSystem:
                 total_xp_gained += xp_reward
                 unlocked_achievements.append(achievement_obj.internal_id)
 
-        # 6. Actualizar XP del usuario y guardar en DB
+        # Actualizar XP del usuario y guardar en DB
         if total_xp_gained > 0:
             user.xp += total_xp_gained
         
@@ -187,6 +174,7 @@ class AchievementSystem:
     
     def _check_game_finished_achievements(self, username, event_data, current_achievements, user_stats):
         unlocked = []
+        event_data = event_data or {} # Asegurar que event_data no sea None
         
         # Primera partida
         if 'first_game' not in current_achievements and user_stats['games_played'] >= 1:
@@ -197,7 +185,7 @@ class AchievementSystem:
             unlocked.append('first_win')
         
         # Demonio velocista
-        if 'speed_demon' not in current_achievements and event_data.get('won') and event_data.get('total_rounds', 0) < 15:
+        if 'speed_demon' not in current_achievements and event_data.get('won') and event_data.get('total_rounds', 99) < 15:
             unlocked.append('speed_demon')
         
         # Superviviente original (ganar con poca energía)
@@ -212,9 +200,12 @@ class AchievementSystem:
         if 'meta_alcanzada' not in current_achievements and event_data.get('reached_position', 0) >= 75:
             unlocked.append('meta_alcanzada')
         
-        # Energizado (más de 1000 energía)
-        if 'energizado' not in current_achievements and event_data.get('final_energy', 0) > 1000:
-            unlocked.append('energizado')
+        # Energizado / Energy Master (más de 1000 energía)
+        if event_data.get('final_energy', 0) > 1000:
+            if 'energizado' not in current_achievements:
+                unlocked.append('energizado')
+            if 'energy_master' not in current_achievements:
+                unlocked.append('energy_master')
         
         # Equilibrio Cósmico (exactamente 600 energía)
         if 'equilibrio_cosmico' not in current_achievements and event_data.get('final_energy', 0) == 600:
@@ -229,14 +220,14 @@ class AchievementSystem:
             unlocked.append('cazador_de_packs')
         
         # Viajero Dimensional (5 casillas especiales distintas)
-        if 'viajero_dimensional' not in current_achievements and len(event_data.get('special_tiles_activated', [])) >= 5:
+        if 'viajero_dimensional' not in current_achievements and len(event_data.get('special_tiles_activated', set())) >= 5:
             unlocked.append('viajero_dimensional')
         
         # Perfeccionista (ganar sin usar habilidades)
-        if 'perfeccionista' not in current_achievements and event_data.get('won') and event_data.get('abilities_used', 0) == 0:
+        if 'perfeccionista' not in current_achievements and event_data.get('won') and event_data.get('abilities_used', 1) == 0:
             unlocked.append('perfeccionista')
         
-        # Maratonista (más de 50 turnos)
+        # Maratonista (más de 50 rondas)
         if 'maratonista' not in current_achievements and event_data.get('total_rounds', 0) > 50:
             unlocked.append('maratonista')
 
@@ -262,22 +253,55 @@ class AchievementSystem:
             if consecutive_wins >= 3:
                 unlocked.append('estratega_supremo')
         
-        # Coleccionista (10 logros)
-        if 'coleccionista' not in current_achievements and len(current_achievements) >= 10:
-            unlocked.append('coleccionista')
-        
+        if 'comeback_king' not in current_achievements and event_data.get('won'):
+            ultimo_mid_game = event_data.get('ultimo_en_mid_game')
+            # Comprobar que el dato exista y sea igual al usuario actual
+            if ultimo_mid_game and ultimo_mid_game == username:
+                unlocked.append('comeback_king')
+
+        # Rey del Chat (25 mensajes en partida)
         if 'chat_king' not in current_achievements and event_data.get('messages_this_game', 0) >= 25:
             unlocked.append('chat_king')
+
+        # Coleccionista (10 logros)
+        current_total_achievements = len(current_achievements) + len(unlocked)
+        if 'coleccionista' not in current_achievements and current_total_achievements >= 10:
+            unlocked.append('coleccionista')
 
         return unlocked
 
     
     def _check_ability_achievements(self, username, event_data, current_achievements, user_stats):
         unlocked = []
+        event_data = event_data or {}
         
         # Primera habilidad
         if 'first_ability' not in current_achievements and user_stats['abilities_used'] >= 1:
             unlocked.append('first_ability')
+        
+        # Explosion Perfecta (Bomba Energética)
+        habilidad_usada = event_data.get('habilidad', {}).get('nombre')
+        if habilidad_usada == 'Bomba Energética':
+            afectados_count = event_data.get('afectados_count', 0)
+            if 'explosion_perfecta' not in current_achievements and afectados_count >= 2:
+                unlocked.append('explosion_perfecta')
+        
+        # Regenerador (Curación)
+        if habilidad_usada == 'Curacion':
+            energia_antes = event_data.get('energia_antes', 999) 
+            if 'regenerador' not in current_achievements and energia_antes < 200:
+                unlocked.append('regenerador')
+        
+        # El Caótico (Caos)
+        if habilidad_usada == 'Caos':
+            if event_data.get('caos_cerca_meta') and 'el_caotico' not in current_achievements:
+                unlocked.append('el_caotico')
+        
+        # Reflejo Maestro (Barrera)
+        if event_data.get('reflejo_exitoso'):
+             if 'reflejo_maestro' not in current_achievements:
+                unlocked.append('reflejo_maestro')
+                
         
         return unlocked
     
@@ -307,6 +331,7 @@ class AchievementSystem:
     
     def _check_dice_achievements(self, username, event_data, current_achievements, user_stats):
         unlocked = []
+        event_data = event_data or {}
         
         # Siete de la suerte (3 seises seguidos)
         consecutive_sixes = event_data.get('consecutive_sixes', 0)
@@ -344,6 +369,34 @@ class AchievementSystem:
         if 'level_master' not in current_achievements and user_stats['level'] >= 10:
             unlocked.append('level_master')
         
+        return unlocked
+    
+    def _check_game_event_achievements(self, username, event_data, current_achievements, user_stats):
+        unlocked = []
+        event_name = event_data.get('event_name')
+
+        # Inmortal (Último Aliento)
+        if event_name == 'inmortal' and 'inmortal' not in current_achievements:
+            unlocked.append('inmortal')
+        
+        # Muralla Humana (Sobrevivir colisión con escudo)
+        if event_name == 'muralla_humana' and 'muralla_humana' not in current_achievements:
+            unlocked.append('muralla_humana')
+
+        # Fantasma (Esquivar habilidad con invisibilidad)
+        if event_name == 'fantasma' and 'fantasma' not in current_achievements:
+            unlocked.append('fantasma')
+
+        return unlocked
+    
+    def _check_login_achievements(self, username, event_data, current_achievements, user_stats):
+        unlocked = []
+        
+        # 'dedicated' (Jugar 7 días diferentes)
+        login_days_count = event_data.get('login_days', 0)
+        if 'dedicated' not in current_achievements and login_days_count >= 7:
+            unlocked.append('dedicated')
+
         return unlocked
     
     def get_achievement_info(self, achievement_id, current_user_stats=None, unlocked_ids_set=None):
@@ -416,7 +469,7 @@ class AchievementSystem:
         return self.achievements_config
     
     def get_user_achievement_progress(self, username):
-        # 1. Obtener el usuario y sus logros desbloqueados de la DB
+        # Obtener el usuario y sus logros desbloqueados de la DB
         user = User.query.filter_by(username=username).first()
         if not user:
             return {'error': 'Usuario no encontrado'}
@@ -426,7 +479,7 @@ class AchievementSystem:
         unlocked_map = {ua.achievement.internal_id: ua.unlocked_at for ua in unlocked_assoc}
         unlocked_ids_set = set(unlocked_map.keys())
 
-        # 2. Obtener las estadísticas actuales del usuario para calcular progreso
+        # btener las estadísticas actuales del usuario para calcular progreso
         current_user_stats = {
             'xp': user.xp, 'level': user.level,
             'games_played': user.games_played, 'games_won': user.games_won,
@@ -435,10 +488,11 @@ class AchievementSystem:
             'private_messages_sent': getattr(user, 'private_messages_sent', 0),
             'rooms_created': getattr(user, 'rooms_created', 0), 
             'unlocked_achievements_count': len(unlocked_ids_set),
-            'friends_count': user.friends.count()
+            'friends_count': user.friends.count(),
+            'unique_login_days_count': getattr(user, 'unique_login_days_count', 0)
         }
 
-        # 3. Iterar sobre TODOS los logros configurados y obtener su info/progreso
+        # Iterar sobre TODOS los logros configurados y obtener su info/progreso
         progress_list = []
         all_achievements_config = self.achievements_config # Usar la config de la clase
 
@@ -460,7 +514,8 @@ class AchievementSystem:
                     "room_host": "rooms_created",
                     "coleccionista": "unlocked_achievements_count",
                     "social_butterfly": "friends_count",
-                    "popular": "friends_count"
+                    "popular": "friends_count",
+                    "dedicated": "unique_login_days_count"
                 }
                 
                 if ach_id in stat_map:
@@ -494,7 +549,7 @@ class AchievementSystem:
             }
             progress_list.append(achievement_data)
 
-        # 4. Ordenar y devolver el resultado
+        # Ordenar y devolver el resultado
         progress_list.sort(key=lambda x: (x['category'], not x['unlocked'], x['name']))
 
         return {
