@@ -49,7 +49,31 @@ html, body {
   color: var(--text);      /* Texto claro */
 }
 
-/* --- INICIO DE MODIFICACIÓN (Estilos de Flashes) --- */
+body {
+    /* Un gradiente radial sutil para dar profundidad */
+    background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+    
+    /* La grilla (grid) de neón */
+    background-image: 
+        linear-gradient(rgba(12, 74, 110, 0.3) 1px, transparent 1px), /* Líneas horizontales */
+        linear-gradient(90deg, rgba(12, 74, 110, 0.3) 1px, transparent 1px); /* Líneas verticales */
+    
+    /* Tamaño y animación */
+    background-size: 30px 30px; /* Tamaño de la grilla */
+    animation: move-grid 20s linear infinite; /* 20s para un movimiento lento */
+}
+
+@keyframes move-grid {
+    from {
+        background-position: 0 0;
+    }
+    to {
+        /* Mueve la grilla verticalmente*/
+        background-position: 0 300px; 
+    }
+}
+
+/* --- Estilos de Flashes --- */
 .flashes {
     width: 450px; 
     margin: 15px auto; 
@@ -61,7 +85,6 @@ html, body {
 .flashes .flash-info { background-color: #1f2937; border: 1px solid var(--primary); color: var(--text); padding: 10px; border-radius: 5px; }
 .flashes .flash-danger, .flashes .flash-warning { background-color: #4b1f26; border: 1px solid var(--danger); color: #fecaca; padding: 10px; border-radius: 5px; }
 .flashes .flash-success { background-color: #16302b; border: 1px solid var(--success); color: #bbf7d0; padding: 10px; border-radius: 5px; }
-/* --- FIN DE MODIFICACIÓN --- */
 
 /* ===================================================================
    MODULO: LAYOUT
