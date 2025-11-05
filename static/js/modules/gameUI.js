@@ -13,6 +13,7 @@ let listaHabDisplay, modalHabElement, btnCerrarHab;
 let modalFinalElement, resultadosFinalesDisplay, btnNuevaPartida, btnVolverLobby;
 let guiaDrawer, guiaToggleBtn;
 let _celdasCache = new Map();
+let globalEventBanner;
 
 // Referencias a estado/funciones externas
 let _socket = null;
@@ -71,6 +72,7 @@ export function initGameUI(socketRef, stateRef, idSalaRef, estadoJuegoRef, mapaC
     btnNuevaPartida?.addEventListener("click", handleSolicitarRevancha);
     btnVolverLobby?.addEventListener("click", handleVolverAlLobby);
     guiaToggleBtn?.addEventListener('click', handleToggleGuia);
+    globalEventBanner = document.getElementById("global-event-banner");
 
     // Crear el tablero inicial (vacío)
     _crearTableroInicial();
@@ -454,7 +456,7 @@ export function actualizarEstadoJuego(estado) {
     // Renderizar componentes simples 
     rondaActualDisplay.textContent = estado.ronda ?? "-";
     turnoJugadorDisplay.textContent = escapeHTML(estado.turno_actual ?? "-");
-
+    _updateGlobalEventBanner(estado.evento_global_activo);
 
     const esMiTurno = estado.turno_actual === _state.currentUser.username;
     const juegoActivo = estado.estado === "jugando";
@@ -518,6 +520,7 @@ export function actualizarEstadoParcial(estadoParcial) {
     // RENDERIZAR COMPONENTES SIMPLES
     rondaActualDisplay.textContent = estadoParcial.ronda ?? "-";
     turnoJugadorDisplay.textContent = escapeHTML(estadoParcial.turno_actual ?? "-");
+    _updateGlobalEventBanner(estadoParcial.evento_global_activo);
 
     // LÓGICA DE BOTONES Y LOG
     const esMiTurno = estadoParcial.turno_actual === _state.currentUser.username;
@@ -719,5 +722,35 @@ export function actualizarEstadoRevancha(data) {
     if (btnNuevaPartida && _state.currentUser && solicitudes.includes(_state.currentUser.username)) {
         btnNuevaPartida.disabled = true;
         btnNuevaPartida.textContent = "Esperando...";
+    }
+}
+
+/**
+ * Muestra u oculta el banner de evento global en la pantalla de juego.
+ * @param {string | null} eventName - El nombre del evento (ej. "Mercado Negro") o null.
+ */
+function _updateGlobalEventBanner(eventName) {
+    if (!globalEventBanner) return;
+
+    if (eventName) {
+        let texto = `🌎 ¡EVENTO GLOBAL: ${eventName.toUpperCase()}!`;
+        
+        // Añadir descripciones cortas
+        if (eventName === "Mercado Negro") {
+            texto += " (¡Perks a mitad de precio!)";
+        } else if (eventName === "Sobrecarga") {
+            texto += " (¡Packs de energía duplicados!)";
+        } else if (eventName === "Apagón") {
+            texto += " (¡Casillas especiales desactivadas!)";
+        } else if (eventName === "Cortocircuito") {
+            texto += " (¡Colisiones más peligrosas!)";
+        } else if (eventName === "Interferencia") {
+            texto += " (¡Habilidades desactivadas!)";
+        }
+
+        globalEventBanner.textContent = texto;
+        globalEventBanner.style.display = "block";
+    } else {
+        globalEventBanner.style.display = "none";
     }
 }

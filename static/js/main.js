@@ -45,7 +45,7 @@ import { AnimationSystem } from './animations.js';
     
     const btnCerrarPerks = document.getElementById("btn-cerrar-perks"); 
 
-    // --- Estado Global Mínimo (Mutable) ---
+    // --- Estado Global Mínimo ---
     const state = {
         currentUser: null, 
         idSala: { value: null }, 

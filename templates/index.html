@@ -242,6 +242,7 @@
          width: 100%; 
     }
     
+    /* --- INICIO DE MODIFICACIÓN (Estilos Glosario y Banner) --- */
     .glossary-section {
         margin-bottom: 24px;
     }
@@ -291,6 +292,25 @@
         color: var(--warning);
         margin-top: 6px;
     }
+
+    #global-event-banner {
+        display: none; /* Oculto por defecto */
+        background: linear-gradient(90deg, var(--primary), var(--warning));
+        color: #ffffff;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+        padding: 8px 15px;
+        text-align: center;
+        font-weight: 500;
+        font-size: 0.95em;
+        margin: -10px -15px 10px -15px; /* Se estira en el header */
+        border-bottom: 2px solid rgba(0,0,0,0.2);
+        animation: pulse-glow 2s infinite alternate;
+    }
+    @keyframes pulse-glow {
+        from { box-shadow: 0 0 5px 0px var(--warning); }
+        to { box-shadow: 0 0 15px 3px var(--primary); }
+    }
+    /* --- FIN DE MODIFICACIÓN --- */
     
     </style>
 </head>
@@ -301,19 +321,15 @@
         /* 'safe' evita que Jinja2 escape las comillas del JSON */
         window.VOLTRACE_USER_DATA = {{ user_data_json | safe }};
     </script>
-{% with messages = get_flashed_messages(with_categories=true) %}
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-            <div class="flashes" style="width: 450px; margin: 15px auto; padding: 10px; border-radius: 5px; font-size: 0.9em; box-sizing: border-box;">
+            <div class="flashes">
             {% for category, message in messages %}
                 <div class="flash-{{ category }}">{{ message }}</div>
             {% endfor %}
             </div>
-            <style>
-                .flashes .flash-info { background-color: #1f2937; border: 1px solid var(--primary); color: var(--text); padding: 10px; border-radius: 5px; }
-                .flashes .flash-danger, .flashes .flash-warning { background-color: #4b1f26; border: 1px solid var(--danger); color: #fecaca; padding: 10px; border-radius: 5px; }
-                .flashes .flash-success { background-color: #16302b; border: 1px solid var(--success); color: #bbf7d0; padding: 10px; border-radius: 5px; }
-            </style>
-        {% endif %}
+            {% endif %}
     {% endwith %}
     <div class="container">
         <div id="auth-screen" class="screen active">
@@ -482,6 +498,9 @@
 
         <div id="game-screen" class="screen">
             <div class="game-header">
+                <div id="global-event-banner">
+                    🌎 ¡EVENTO GLOBAL!
+                </div>
                 <div class="game-info">
                     <h2>🎲 VoltRace</h2>
                     <div class="game-stats">
@@ -520,15 +539,11 @@
                             <li><strong>💠 Portal Avanzado:</strong> Te envía 4-6 casillas adelante.</li>
                             <li><strong>✨ Multiplicador:</strong> Duplica la energía de tu próximo pack/tesoro.</li>
                             <li><strong>🔄 Intercambio:</strong> Intercambias posición con un oponente al azar.</li>
-                            
                             <li><strong>💸 Peaje Costoso:</strong> Pierdes 75 de Energía y 3 PM.</li>
-                            
                             <li><strong>⚡ Turbo:</strong> Duplica tu siguiente tirada de dado.</li>
                             <li><strong>🧛 Vampiro:</strong> Pierdes un 10% de tu energía actual.</li>
                             <li><strong>↩️ Rebote:</strong> Retrocedes 5-10 casillas.</li>
-                            
                             <li><strong>⚫ Agujero Negro:</strong> Retrocedes 20 casillas.</li>
-                            
                             <li><strong>⭐ Pozo de PM:</strong> Ganas 3 Puntos de Mejora (PM).</li>
                             <li><strong>🧲 Imán:</strong> Atraes a los demás jugadores 2 casillas hacia ti.</li>
                             <li><strong>⚙️ Chatarrería:</strong> Intercambias 50 de Energía por 3 PM.</li>
