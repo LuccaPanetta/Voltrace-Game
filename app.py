@@ -1041,7 +1041,8 @@ def lanzar_dado(data):
                     'turno_actual': sala.juego.obtener_turno_actual(),
                     'ronda': sala.juego.ronda,
                     'estado': sala.estado,
-                    'colores_jugadores': colores_map
+                    'colores_jugadores': colores_map,
+                    'evento_global_activo': sala.juego.evento_global_activo
                 },
                 'eventos': resultado.get('eventos', [])
             }, room=id_sala)
@@ -1201,7 +1202,8 @@ def terminar_movimiento(data):
                 'turno_actual': sala.juego.obtener_turno_actual(),
                 'ronda': sala.juego.ronda,
                 'estado': sala.estado,
-                'colores_jugadores': colores_map
+                'colores_jugadores': colores_map,
+                'evento_global_activo': sala.juego.evento_global_activo
             },
             'eventos': resultado.get('eventos', [])
         }, room=id_sala)
@@ -1372,7 +1374,8 @@ def usar_habilidad(data):
                         'turno_actual': sala.juego.obtener_turno_actual(), 
                         'ronda': sala.juego.ronda,
                         'estado': sala.estado,
-                        'colores_jugadores': colores_map
+                        'colores_jugadores': colores_map,
+                        'evento_global_activo': sala.juego.evento_global_activo
                     }
                     socketio.emit('habilidad_usada_full', { 
                         'jugador': nombre_jugador_emitente, 
@@ -1389,7 +1392,8 @@ def usar_habilidad(data):
                         'turno_actual': sala.juego.obtener_turno_actual(), 
                         'ronda': sala.juego.ronda,
                         'estado': sala.estado,
-                        'colores_jugadores': colores_map
+                        'colores_jugadores': colores_map,
+                        'evento_global_activo': sala.juego.evento_global_activo
                     }
                     
                     if resultado.get('habilidad', {}).get('nombre') == 'Invisibilidad':
@@ -1504,7 +1508,8 @@ def seleccionar_perk(data):
                         'turno_actual': sala.juego.obtener_turno_actual(), # Sigue siendo el mismo turno
                         'ronda': sala.juego.ronda,
                         'estado': sala.estado,
-                        'colores_jugadores': colores_map
+                        'colores_jugadores': colores_map,
+                        'evento_global_activo': sala.juego.evento_global_activo
                     }
                     print(f"Activación exitosa. Emitiendo 'estado_juego_actualizado' a sala {id_sala}")
                     socketio.emit('estado_juego_actualizado', {
@@ -1555,7 +1560,8 @@ def cancelar_oferta_perk(data):
                     'turno_actual': sala.juego.obtener_turno_actual(), 
                     'ronda': sala.juego.ronda,
                     'estado': sala.estado,
-                    'colores_jugadores': colores_map
+                    'colores_jugadores': colores_map,
+                    'evento_global_activo': sala.juego.evento_global_activo
                 }
                 socketio.emit('habilidad_usada_parcial', { 
                     'jugador': nombre_jugador, 
@@ -2123,7 +2129,8 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
                     'turno_actual': nuevo_turno_actual, 
                     'ronda': sala.juego.ronda,
                     'estado': sala.estado,
-                    'colores_jugadores': colores_map
+                    'colores_jugadores': colores_map,
+                    'evento_global_activo': sala.juego.evento_global_activo
                 }
                 
                 eventos_recientes = [f"🔌 {username_desconectado} se desconectó."]
@@ -2184,6 +2191,7 @@ def iniciar_juego_sala(id_sala):
             'turno_actual': sala.juego.obtener_turno_actual(),
             'ronda': sala.juego.ronda,
             'colores_jugadores': colores_map,
+            'evento_global_activo': sala.juego.evento_global_activo 
         }
         print(f"--- ESTADO INICIAL A ENVIAR --- Turno: {estado_juego.get('turno_actual')}, Estado: {estado_juego.get('estado')}")
 

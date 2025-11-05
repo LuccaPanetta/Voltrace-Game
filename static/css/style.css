@@ -1532,3 +1532,74 @@ button:active::after {
     from { box-shadow: 0 0 5px 0px var(--warning); }
     to { box-shadow: 0 0 15px 3px var(--primary); }
 }
+
+/* ===================================================================
+   MODULO: FEATURES (Controles de Volumen)
+   Nuevos estilos para el slider de volumen
+   =================================================================== */
+
+.volume-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* El <span> que actúa como botón de Mute */
+#volume-icon {
+    padding: 6px 10px; /* Igual que los otros botones */
+    font-size: 13px; /* Igual que los otros botones */
+    background-color: #374151;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none; /* Evitar que el icono se seleccione como texto */
+}
+#volume-icon:hover {
+    background-color: #4b5563;
+}
+
+/* Estilización del Slider (input range) */
+input[type="range"] {
+    -webkit-appearance: none; /* Quitar estilo por defecto de Chrome/Safari */
+    appearance: none;
+    width: 100px; /* Ancho del slider */
+    height: 6px;
+    background: #374151; /* Color de la barra "vacía" */
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+input[type="range"]:hover {
+    background: #4b5563;
+}
+
+/* Estilo del "pulgar" (el círculo que se mueve) - WebKit */
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--primary);
+    border-radius: 50%;
+    border: 2px solid var(--panel);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+    background: #a5b4fc; /* Color primario más claro */
+}
+
+/* Estilo del "pulgar" (el círculo que se mueve) - Firefox */
+input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    background: var(--primary);
+    border-radius: 50%;
+    border: 2px solid var(--panel);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+input[type="range"]::-moz-range-thumb:hover {
+    background: #a5b4fc;
+}

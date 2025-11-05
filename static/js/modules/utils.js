@@ -27,8 +27,88 @@ export function setLoading(v, loadingElement) {
     loadingElement.style.display = v ? "flex" : "none";
 }
 
-// Creamos una caché para los sonidos
 const soundCache = {};
+let _hasInteracted = false;
+let _interactionListenerAdded = false;
+
+// Configuración de audio global
+const audioSettings = {
+    volume: 0.5,       // Volumen Maestro (de 0.0 a 1.0)
+    lastVolume: 0.5    // Para guardar el volumen antes de mutear
+};
+
+/**
+ * Carga las preferencias de audio desde localStorage.
+ */
+export function loadAudioSettings() {
+    try {
+        const savedSettings = localStorage.getItem('audio_settings');
+        if (savedSettings) {
+            const settings = JSON.parse(savedSettings);
+            if (settings.volume !== undefined) {
+                audioSettings.volume = parseFloat(settings.volume);
+            }
+            // Guardamos el último volumen conocido si no es cero
+            if (audioSettings.volume > 0.01) {
+                audioSettings.lastVolume = audioSettings.volume;
+            }
+        }
+    } catch (error) {
+        console.warn("Error al cargar audio settings desde localStorage:", error);
+    }
+    console.log("Audio settings cargados:", audioSettings);
+    return audioSettings;
+}
+
+/**
+ * Guarda las preferencias de audio en localStorage.
+ */
+function saveAudioSettings() {
+    try {
+        localStorage.setItem('audio_settings', JSON.stringify(audioSettings));
+    } catch (error) {
+        console.warn("Error al guardar audio settings en localStorage:", error);
+    }
+}
+
+/**
+ * Establece el volumen maestro.
+ * @param {number} newVolume - Nuevo volumen (0.0 a 1.0)
+ */
+export function setVolume(newVolume) {
+    audioSettings.volume = newVolume;
+    // Si el volumen es audible, lo guardamos como el "último volumen"
+    if (newVolume > 0.01) {
+        audioSettings.lastVolume = newVolume;
+    }
+    saveAudioSettings();
+    return audioSettings;
+}
+
+/**
+ * Activa/Desactiva el sonido.
+ */
+export function toggleMute() {
+    if (audioSettings.volume > 0.01) {
+        // Mutear: Guardar volumen actual y poner a 0
+        audioSettings.lastVolume = audioSettings.volume; // Guardar
+        audioSettings.volume = 0;
+    } else {
+        // Desmutear: Restaurar al último volumen guardado (o 0.5 si era 0)
+        audioSettings.volume = audioSettings.lastVolume > 0.01 ? audioSettings.lastVolume : 0.5;
+    }
+    saveAudioSettings();
+    console.log("Audio settings cambiados:", audioSettings);
+    return audioSettings;
+}
+
+/**
+ * Devuelve la configuración de audio actual.
+ */
+export function getAudioSettings() {
+    return audioSettings;
+}
+
 
 // Función helper para precargar sonidos comunes
 function preloadSounds(soundNames) {
@@ -47,16 +127,21 @@ function preloadSounds(soundNames) {
     }
 }
 
-// Estado para manejo de audio
-let _hasInteracted = false;
-let _interactionListenerAdded = false;
-
 /**
  * Reproduce un efecto de sonido. Maneja la restricción de interacción del navegador.
  * @param {string} soundName - Nombre del archivo (sin .mp3) en /static/sounds/
- * @param {number} [volume=0.5] - Volumen (0.0 a 1.0)
+ * @param {number} [relativeVolume=0.5] - Volumen relativo del sonido (0.0 a 1.0)
  */
-export function playSound(soundName, volume = 0.5) {
+export function playSound(soundName, relativeVolume = 0.5) {
+    const masterVolume = audioSettings.volume;
+    
+    // Si el volumen maestro es 0, no hacer nada.
+    if (masterVolume <= 0.01) {
+        return;
+    }
+    
+    const finalVolume = relativeVolume * masterVolume;
+
     // Si el contexto de audio no está listo y no ha habido interacción, esperar.
     if (!_hasInteracted && (typeof AudioContext !== 'undefined' || typeof webkitAudioContext !== 'undefined')) {
         console.log("Sound deferred: User hasn't interacted yet.");
@@ -96,7 +181,7 @@ export function playSound(soundName, volume = 0.5) {
             soundCache[soundName] = audio;
         }
         
-        audio.volume = Math.max(0, Math.min(1, volume));
+        audio.volume = Math.max(0, Math.min(1, finalVolume)); // Usar finalVolume
 
         // Reiniciar el audio si ya está sonando 
         if (audio.readyState > 0) {
@@ -116,10 +201,6 @@ export function playSound(soundName, volume = 0.5) {
 
 /**
  * Muestra una notificación temporal (toast).
- * @param {string} message - El mensaje a mostrar.
- * @param {HTMLElement} container - El elemento contenedor de notificaciones.
- * @param {string} [type="info"] - Tipo (info, success, error, warning).
- * @param {number} [duration=3000] - Duración en milisegundos.
  */
 export function showNotification(message, container, type = "info", duration = 3000) {
     if (!container) {
@@ -127,11 +208,9 @@ export function showNotification(message, container, type = "info", duration = 3
         alert(message); // Fallback
         return;
     }
-
     const notification = document.createElement("div");
     notification.className = `toast toast-${type}`;
     notification.textContent = message;
-
     notification.style.cssText = `
       background: ${
         type === "error" ? "var(--danger)" :
@@ -150,16 +229,11 @@ export function showNotification(message, container, type = "info", duration = 3
       max-width: 350px;
       word-wrap: break-word;
     `;
-
     container.appendChild(notification);
-
-    // Animar entrada
     setTimeout(() => {
         notification.style.opacity = "1";
         notification.style.transform = "translateX(0)";
     }, 10);
-
-    // Animar salida y eliminar
     setTimeout(() => {
         notification.style.opacity = "0";
         notification.style.transform = "translateX(100%)";
@@ -169,17 +243,9 @@ export function showNotification(message, container, type = "info", duration = 3
 
 /**
  * Muestra la notificación interactiva de invitación a sala.
- * @param {object} data - Datos de la invitación {id, sender, room_id, recipient}.
- * @param {HTMLElement} container - Contenedor de notificaciones.
- * @param {object} socket - Instancia de Socket.IO.
- * @param {object} state - Objeto de estado global (para leer idSala actual, currentUser).
- * @param {function} setLoadingFunc - Referencia a la función setLoading.
- * @param {function} showFunc - Referencia a la función show.
- * @param {object} screenElements - Referencias a las pantallas.
  */
 export function manejarInvitacion(data, container, socket, state, setLoadingFunc, showFunc, screenElements) {
     if (!container || !data || !socket || !state) return;
-
     const notification = document.createElement("div");
     notification.className = "toast toast-info";
     notification.style.cssText = `
@@ -189,35 +255,28 @@ export function manejarInvitacion(data, container, socket, state, setLoadingFunc
         transform: translateX(100%); display: flex; align-items: center; justify-content: space-between;
         max-width: 350px; word-wrap: break-word;
     `;
-
     notification.innerHTML = `<span>🎮 ${escapeHTML(data.sender)} te invita a la sala ${escapeHTML(data.room_id)}</span>`;
-
     const joinButton = document.createElement("button");
     joinButton.textContent = "Unirse";
     joinButton.className = "btn-success";
     joinButton.style.cssText = "margin-left: 10px; padding: 4px 8px; font-size: 0.9em; flex-shrink: 0;";
-
     joinButton.onclick = (e) => {
         e.stopPropagation();
         playSound('ClickMouse', 0.3);
-
         if (!state.currentUser || !state.currentUser.username) {
             showNotification("Debes iniciar sesión para unirte.", container, "error");
             return;
         }
-
         if (state.idSala.value && (screenElements.waiting?.classList.contains("active") || screenElements.game?.classList.contains("active"))) {
             if (!confirm("Ya estás en una sala. ¿Quieres salir y unirte a la nueva?")) {
                 return;
             }
             socket.emit("salir_sala", { id_sala: state.idSala.value }); // Sale de la actual
         }
-
         setLoadingFunc(true);
         socket.emit("unirse_sala", { id_sala: data.room_id }); // Intenta unirse a la nueva
         notification.remove();
     };
-
     const rejectButton = document.createElement("button");
     rejectButton.textContent = "Rechazar";
     rejectButton.className = "btn-danger";
@@ -226,16 +285,12 @@ export function manejarInvitacion(data, container, socket, state, setLoadingFunc
         playSound('ClickMouse', 0.2);
         notification.remove();
     };
-
     const buttonContainer = document.createElement("div");
     buttonContainer.style.display = 'flex';
     buttonContainer.appendChild(joinButton);
     buttonContainer.appendChild(rejectButton);
     notification.appendChild(buttonContainer);
-
     container.appendChild(notification);
-
-    // Animar entrada y cierre automático
     setTimeout(() => {
         notification.style.opacity = "1";
         notification.style.transform = "translateX(0)";
@@ -249,18 +304,13 @@ export function manejarInvitacion(data, container, socket, state, setLoadingFunc
 
 /**
  * Muestra una notificación de logro desbloqueado.
- * @param {object} achievement - El objeto del logro { name, description, icon, xp_reward }.
- * @param {HTMLElement} container - El contenedor de notificaciones.
  */
 export function showAchievementNotification(achievement, container) {
     if (!achievement || !container) return;
-
-    // Leer las propiedades correctas del objeto 'achievement'
     const icon = achievement.icon || "🏆";
     const name = achievement.name || "Logro Desbloqueado";
     const desc = achievement.desc || "¡Sigue así!";
     const xp = achievement.xp_reward || 0;
-
     const notification = document.createElement("div");
     notification.className = "achievement-notification"; 
     notification.innerHTML = `
@@ -273,12 +323,9 @@ export function showAchievementNotification(achievement, container) {
         </div>
       </div>
     `;
-
     playSound('OpenCloseModal', 0.2);
     container.appendChild(notification);
-
     setTimeout(() => notification.classList.add("show"), 100);
-
     setTimeout(() => {
         notification.classList.add("hide");
         setTimeout(() => notification.remove(), 500); 
@@ -287,8 +334,6 @@ export function showAchievementNotification(achievement, container) {
 
 /**
  * Escapa caracteres HTML para evitar XSS.
- * @param {string} str - El string a escapar.
- * @returns {string} El string seguro.
  */
 export function escapeHTML(str) {
     if (typeof str !== "string") return "";

@@ -3,7 +3,9 @@
    Maneja el login, registro y actualización del perfil de usuario.
    =================================================================== */
 
-import { showNotification, playSound } from './utils.js';
+// --- INICIO DE MODIFICACIÓN ---
+import { showNotification, playSound, loadAudioSettings, setVolume, toggleMute, getAudioSettings } from './utils.js';
+// --- FIN DE MODIFICACIÓN ---
 
 // --- Variables del Módulo ---
 let loginEmailInput, loginPasswordInput, btnLogin;
@@ -45,6 +47,8 @@ export function initAuth(screensRef, showFuncRef, setLoadingFuncRef, loadingElem
     userXpDisplay = document.getElementById("user-xp");
     const btnLogout = document.getElementById("btn-logout");
     const btnToggleAnimations = document.getElementById("btn-toggle-animations"); 
+    const volumeIcon = document.getElementById("volume-icon"); 
+    const volumeSlider = document.getElementById("volume-slider");
 
     // --- Asignar Listeners ---
     tabLogin?.addEventListener("click", handleTabClick);
@@ -70,6 +74,41 @@ export function initAuth(screensRef, showFuncRef, setLoadingFuncRef, loadingElem
         btnToggleAnimations.title = isEnabledInitial ? "Desactivar animaciones" : "Activar animaciones";
     } else {
         console.warn("Botón de animaciones o instancia no encontrados en initAuth.");
+    }
+    
+    if (volumeIcon && volumeSlider) {
+        // Cargar estado guardado al iniciar
+        const initialAudioSettings = loadAudioSettings();
+        volumeSlider.value = initialAudioSettings.volume;
+        volumeIcon.textContent = initialAudioSettings.volume <= 0.01 ? "🔇" : "🔊";
+        volumeIcon.title = initialAudioSettings.volume <= 0.01 ? "Activar sonido" : "Silenciar";
+
+        // Añadir listener al SLIDER (evento 'input' para cambio en vivo)
+        volumeSlider.addEventListener("input", (e) => {
+            const newVolume = parseFloat(e.target.value);
+            setVolume(newVolume); // Actualiza el audioSettings global
+            
+            // Actualizar icono
+            volumeIcon.textContent = newVolume <= 0.01 ? "🔇" : "🔊";
+            volumeIcon.title = newVolume <= 0.01 ? "Activar sonido" : "Silenciar";
+        });
+        
+        // Añadir listener al ICONO (para Mute/Unmute)
+        volumeIcon.addEventListener("click", () => {
+            const newSettings = toggleMute(); // utils.js hace la lógica
+            
+            // Actualizar UI
+            volumeSlider.value = newSettings.volume;
+            volumeIcon.textContent = newSettings.volume <= 0.01 ? "🔇" : "🔊";
+            volumeIcon.title = newSettings.volume <= 0.01 ? "Activar sonido" : "Silenciar";
+            
+            // Tocar sonido SÓLO si se está activando
+            if (newSettings.volume > 0.01) {
+                playSound('ClickMouse', 0.3);
+            }
+        });
+    } else {
+        console.warn("Controles de audio (icono o slider) no encontrados en initAuth.");
     }
 }
 

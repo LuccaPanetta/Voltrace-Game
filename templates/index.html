@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     
-    </head>
+</head>
 
 <body>
 
@@ -16,7 +16,7 @@
         /* 'safe' evita que Jinja2 escape las comillas del JSON */
         window.VOLTRACE_USER_DATA = {{ user_data_json | safe }};
     </script>
-
+    
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             <div class="flashes">
@@ -24,8 +24,9 @@
                 <div class="flash-{{ category }}">{{ message }}</div>
             {% endfor %}
             </div>
-            {% endif %}
+        {% endif %}
     {% endwith %}
+    
     <div class="container">
         <div id="auth-screen" class="screen active">
             <div class="header">
@@ -103,6 +104,11 @@
                         <button id="btn-show-achievements" class="btn-secondary" title="Ver Logros">🏆 Logros</button>
                         <button id="btn-show-glossary" class="btn-secondary" title="Ver Glosario">📚 Glosario</button>
                         <button id="btn-toggle-animations" class="btn-secondary" title="Activar/Desactivar animaciones">🎬</button>
+                        
+                        <div class="volume-control">
+                            <span id="volume-icon" class="btn-secondary" title="Silenciar">🔊</span>
+                            <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="0.5">
+                        </div>
                         <button id="btn-logout" class="btn-secondary">🚪 Cerrar Sesión</button>
                     </div>
                 </div>
@@ -254,6 +260,7 @@
                             <li><strong>🚫 Bloqueo:</strong> No puedes ganar energía de packs/tesoros.</li>
                             <li><strong>💨 Fase:</strong> Ignoras casillas negativas y colisiones.</li>
                             <li><strong>🎲 Sobrecarga:</strong> Efecto aleatorio de energía en tu próximo turno.</li>
+                            <li><strong>🩸 Fuga de Energía:</strong> Pierdes energía al inicio de tu turno.</li>
                         </ul>
                     </div>
                 </div> <div class="panel-eventos">

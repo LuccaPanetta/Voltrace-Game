@@ -107,15 +107,23 @@ function openSocialModal() {
     btnSocialGlobal?.classList.remove("has-notification");
     btnSocialWaiting?.classList.remove("has-notification");
     
-    if (socialCache.isLoaded) {
+    if (socialCache.isLoaded && socialCache.friends) {
+        // Caso 1: El caché está cargado y listo. Renderizar inmediatamente.
         renderFriendsList(socialCache.friends);
         renderRequestsList(socialCache.pending_received);
     } else {
-        // Si el caché aún no está listo (porque la precarga está en curso),
-        // muestra 'Cargando...'.
+        // Caso 2: El caché no está cargado (invalidado o es la primera vez).
+        // Mostrar 'Cargando...'
         if (socialFriendsListDisplay) socialFriendsListDisplay.innerHTML = '<p style="text-align: center; color: var(--muted);">Cargando...</p>';
         if (socialRequestsListDisplay) socialRequestsListDisplay.innerHTML = '<p style="text-align: center; color: var(--muted);">Cargando...</p>';
+        
+        // E iniciar la carga, solo si no hay una carga en curso.
+        if (!socialCache.isLoading) {
+            console.log("Modal social abierto, caché vacío. Iniciando carga de datos...");
+            loadSocialData();
+        }
     }
+
     switchSocialTab("friends"); // Siempre abre en la pestaña de amigos
 }
 
