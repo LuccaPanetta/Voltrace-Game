@@ -242,8 +242,6 @@
          width: 100%; 
     }
     
-    /* --- INICIO DE MODIFICACIÓN (Estilos del Glosario) --- */
-    /* (Quitamos las etiquetas <style> anidadas) */
     .glossary-section {
         margin-bottom: 24px;
     }
@@ -293,7 +291,6 @@
         color: var(--warning);
         margin-top: 6px;
     }
-    /* --- FIN DE MODIFICACIÓN --- */
     
     </style>
 </head>
@@ -393,6 +390,7 @@
                         <span id="user-xp">0 XP</span>
                         <button id="btn-social" class="btn-secondary" title="Amigos y Chat">👥 Social</button>
                         <button id="btn-show-achievements" class="btn-secondary" title="Ver Logros">🏆 Logros</button>
+                        <button id="btn-show-glossary" class="btn-secondary" title="Ver Glosario">📚 Glosario</button>
                         <button id="btn-toggle-animations" class="btn-secondary" title="Activar/Desactivar animaciones">🎬</button>
                         <button id="btn-logout" class="btn-secondary">🚪 Cerrar Sesión</button>
                     </div>
@@ -421,11 +419,10 @@
                     <div class="info-tabs">
                         <button id="btn-abrir-reglas" class="info-tab-button">📖 Cómo Jugar</button>
                         <button id="tab-ranking" class="info-tab-button">Top 5</button>
-                        <button id="tab-glossary" class="info-tab-button">📚 Glosario</button>
                     </div>
                     
                     <div id="rules-content" class="info-content active">
-                        <h3>📋 Cómo Jugar - VoltRace</h3>
+                    <h3>📋 Cómo Jugar - VoltRace</h3>
                         <ul>
                             <li><strong>Objetivo:</strong> Sé el primer jugador en llegar a la casilla 75 o el último en pie con energía.</li>
                             <li><strong>Jugadores:</strong> 2 a 4 personas por partida.</li>
@@ -445,22 +442,7 @@
                         </div>
                     </div>
                     
-                    <div id="glossary-content" class="info-content">
-                        <div class="glossary-section">
-                            <h3>⚡ Habilidades</h3>
-                            <div id="glossary-abilities-list" class="glossary-list">
-                                <p>Cargando habilidades...</p>
-                            </div>
-                        </div>
-                        <div class="glossary-section">
-                            <h3>⭐ Perks</h3>
-                            <div id="glossary-perks-list" class="glossary-list">
-                                <p>Cargando perks...</p>
-                            </div>
-                        </div>
                     </div>
-                    
-                </div>
             </div>
         </div>
 
@@ -688,6 +670,29 @@
             <div id="achievements-list" style="display: flex; flex-direction: column; gap: 10px;">
                 </div>
         </div>
+        </div>
+        
+        <div id="modal-glossary" class="modal">
+            <div class="modal-content" style="max-height: 80vh; overflow-y: auto;">
+                <div class="modal-header">
+                    <h3>📚 Glosario</h3>
+                    <button id="btn-cerrar-glossary" class="btn-close">×</button>
+                </div>
+                <div id="glossary-content-inner">
+                    <div class="glossary-section">
+                        <h3>⚡ Habilidades</h3>
+                        <div id="glossary-abilities-list" class="glossary-list">
+                            <p>Cargando habilidades...</p>
+                        </div>
+                    </div>
+                    <div class="glossary-section">
+                        <h3>⭐ Perks</h3>
+                        <div id="glossary-perks-list" class="glossary-list">
+                            <p>Cargando perks...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
         <div id="notificaciones" class="notificaciones-container"></div>
 

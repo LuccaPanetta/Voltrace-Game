@@ -11,10 +11,8 @@ let codigoSalaActualDisplay, btnCopiarCodigo, listaJugadoresDisplay, contadorJug
 let btnIniciarJuego, btnSalirSala, logEventosDisplay, chatMensajesLobbyDisplay;
 let mensajeLobbyInput, btnEnviarMensajeLobby;
 let tabRules, tabRanking, rulesContent, rankingContent;
-
-// --- INICIO DE MODIFICACIÓN (Glosario) ---
-let tabGlossary, glossaryContent, glossaryAbilitiesList, glossaryPerksList;
-// --- FIN DE MODIFICACIÓN ---
+let btnShowGlossary, modalGlossary, btnCerrarGlossary, 
+    glossaryAbilitiesList, glossaryPerksList;
 
 // Referencias a funciones/elementos externos
 let _setLoadingFunc = null;
@@ -32,7 +30,6 @@ const rankingCache = {
 };
 const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutos
 
-// --- INICIO DE MODIFICACIÓN (Glosario) ---
 // --- Caché del Glosario ---
 const glossaryCache = {
     abilities: null,
@@ -40,7 +37,6 @@ const glossaryCache = {
     isLoaded: false,
     isLoading: false,
 };
-// --- FIN DE MODIFICACIÓN ---
 
 
 /**
@@ -63,12 +59,11 @@ export function initLobby(socketRef, screensRef, showFuncRef, setLoadingFuncRef,
     rulesContent = document.getElementById("rules-content");
     rankingContent = document.getElementById("ranking-content");
     
-    // --- INICIO DE MODIFICACIÓN (Glosario) ---
-    tabGlossary = document.getElementById("tab-glossary");
-    glossaryContent = document.getElementById("glossary-content");
+    btnShowGlossary = document.getElementById("btn-show-glossary");
+    modalGlossary = document.getElementById("modal-glossary");
+    btnCerrarGlossary = document.getElementById("btn-cerrar-glossary");
     glossaryAbilitiesList = document.getElementById("glossary-abilities-list");
     glossaryPerksList = document.getElementById("glossary-perks-list");
-    // --- FIN DE MODIFICACIÓN ---
 
     // Cachear elementos DOM de Sala de Espera
     codigoSalaActualDisplay = document.getElementById("codigo-sala-actual");
@@ -89,8 +84,10 @@ export function initLobby(socketRef, screensRef, showFuncRef, setLoadingFuncRef,
     tabRules?.addEventListener("click", handleLobbyTabClick);
     tabRanking?.addEventListener("click", handleLobbyTabClick);
     
-    // --- INICIO DE MODIFICACIÓN (Glosario) ---
-    tabGlossary?.addEventListener("click", handleLobbyTabClick);
+    // --- INICIO DE MODIFICACIÓN (Glosario Modal) ---
+    btnShowGlossary?.addEventListener("click", openGlossaryModal);
+    btnCerrarGlossary?.addEventListener("click", closeGlossaryModal);
+    modalGlossary?.addEventListener('click', (e) => { if (e.target === modalGlossary) closeGlossaryModal(); });
     // --- FIN DE MODIFICACIÓN ---
 
     btnCopiarCodigo?.addEventListener("click", handleCopiarCodigo);
@@ -129,14 +126,13 @@ function handleUnirseSala() {
     _socket.emit("unirse_sala", { id_sala: codigo });
 }
 
-// --- INICIO DE MODIFICACIÓN (Glosario) ---
 function handleLobbyTabClick(event) {
     playSound('ClickMouse', 0.3);
     const target = event.currentTarget;
 
     // Desactivar todos los botones y contenidos
-    [tabRules, tabRanking, tabGlossary].forEach(tab => tab?.classList.remove('active'));
-    [rulesContent, rankingContent, glossaryContent].forEach(content => content?.classList.remove('active'));
+    [tabRules, tabRanking].forEach(tab => tab?.classList.remove('active'));
+    [rulesContent, rankingContent].forEach(content => content?.classList.remove('active'));
 
     // Activar el botón y contenido correctos
     if (target === tabRules) {
@@ -144,14 +140,10 @@ function handleLobbyTabClick(event) {
     } else if (target === tabRanking) {
         rankingContent?.classList.add('active');
         loadTopPlayers(); // Carga ranking (ahora usa caché)
-    } else if (target === tabGlossary) {
-        glossaryContent?.classList.add('active');
-        loadGlossaryData(); // Carga el glosario (usa caché)
     }
 
     target?.classList.add('active'); // Activa la pestaña clickeada
 }
-// --- FIN DE MODIFICACIÓN ---
 
 function handleCopiarCodigo() {
     playSound('ClickMouse', 0.3);
@@ -298,15 +290,42 @@ export function appendLobbyChatMessage(data) {
     chatMensajesLobbyDisplay.scrollTop = chatMensajesLobbyDisplay.scrollHeight;
 }
 
-// --- Funciones del Glosario ---
+
+/**
+ * Abre el modal de Glosario y carga los datos si es necesario.
+ */
+function openGlossaryModal() {
+    playSound('OpenCloseModal', 0.3);
+    if (!modalGlossary) return;
+
+    modalGlossary.style.display = 'flex';
+    
+    // Cargar datos (usará caché si ya está cargado)
+    loadGlossaryData();
+}
+
+/**
+ * Cierra el modal de Glosario.
+ */
+function closeGlossaryModal() {
+    playSound('OpenCloseModal', 0.2);
+    if (modalGlossary) modalGlossary.style.display = 'none';
+}
+
 
 /**
  * Carga los datos de habilidades y perks desde la API (con caché).
  */
 async function loadGlossaryData() {
-    if (glossaryCache.isLoaded || glossaryCache.isLoading) {
-        return; // Ya está cargado o cargando
+    // Usar caché si ya está cargado
+    if (glossaryCache.isLoaded) {
+        _displayGlossaryAbilities(glossaryCache.abilities);
+        _displayGlossaryPerks(glossaryCache.perks);
+        return;
     }
+    
+    // Evitar cargas múltiples
+    if (glossaryCache.isLoading) return;
 
     console.log("Cargando datos del glosario...");
     glossaryCache.isLoading = true;
@@ -426,4 +445,3 @@ function _displayGlossaryPerks(data) {
         });
     }
 }
-// --- FIN DE MODIFICACIÓN ---
