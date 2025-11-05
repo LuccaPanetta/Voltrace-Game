@@ -264,6 +264,7 @@ function updateJugadoresEstado(nuevosJugadores) {
                         case "bloqueo_energia": icono = "🚫"; break;
                         case "fase_activa": icono = "💨"; break;
                         case "sobrecarga_pendiente": icono = "🎲"; break;
+                        case "fuga_energia": icono = "🩸"; break;
                     }
                     const duracion = efecto.turnos > 1 ? ` (${efecto.turnos}t)` : "";
                     const tooltip = `${efecto.tipo.charAt(0).toUpperCase() + efecto.tipo.slice(1)}${duracion}`;

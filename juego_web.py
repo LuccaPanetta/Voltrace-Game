@@ -355,14 +355,32 @@ class JuegoOcaWeb:
 
         # Lógica de Recarga Constante
         if "recarga_constante" in jugador.perks_activos:
-            # Llama a la función que ya tiene el bloqueo
             energia_ganada = jugador.procesar_energia(10)
-            # Solo añadir evento si realmente ganó energía (no estaba bloqueado)
             if energia_ganada > 0 and jugador.get_puntaje() > 0:
                 eventos.append(f"🔋 Recarga Constante: +{energia_ganada} Energía aplicada.")
             elif energia_ganada == 0:
                 eventos.append(f"🚫 Recarga Constante bloqueada.")
 
+        # Revisar si el jugador está sufriendo Fuga de Energía
+        efecto_fuga = next((efecto for efecto in jugador.efectos_activos if efecto.get('tipo') == 'fuga_energia'), None)
+        if efecto_fuga:
+            dano = efecto_fuga.get('dano', 25)
+            # Aplicar daño (procesar_energia maneja escudo, último aliento, etc.)
+            cambio_energia_real = jugador.procesar_energia(-dano)
+            
+            if cambio_energia_real == 0 and dano > 0: # Si el daño fue 0 (ej. por Escudo)
+                eventos.append(f"🛡️ {jugador.get_nombre()} bloqueó el daño de Fuga de Energía.")
+            else:
+                eventos.append(f"🩸 {jugador.get_nombre()} pierde {abs(cambio_energia_real)} E por Fuga de Energía.")
+                
+            # Comprobar si el jugador fue eliminado por esto
+            if not jugador.esta_activo():
+                mensaje_elim = f"💀 ¡{jugador.get_nombre()} ha sido eliminado por Fuga de Energía!"
+                if mensaje_elim not in self.eventos_turno:
+                    self.eventos_turno.append(mensaje_elim)
+            elif getattr(jugador, '_ultimo_aliento_usado', False) and not getattr(jugador, '_ultimo_aliento_notificado', False):
+                self.eventos_turno.append(f"❤️‍🩹 ¡Último Aliento salvó a {jugador.get_nombre()}! Sobrevive con 50 E y Escudo (3 Turnos).")
+                jugador._ultimo_aliento_notificado = True
 
         print(f"DEBUG Verificando efectos para {jugador.get_nombre()}: {jugador.efectos_activos}") 
         if self._verificar_efecto_activo(jugador, "sobrecarga_pendiente"):
@@ -370,20 +388,15 @@ class JuegoOcaWeb:
             resultado_sobrecarga = random.choice([-25, 75, 150]) 
             print(f"DEBUG Resultado Sobrecarga: {resultado_sobrecarga}") 
 
-            # Llama a procesar_energia (que ya maneja bloqueo si aplica)
             energia_cambio = jugador.procesar_energia(resultado_sobrecarga)
 
-            # Añade evento SIEMPRE para mostrar el resultado, indicando si fue bloqueado
             if energia_cambio == 0 and resultado_sobrecarga > 0:
                  eventos.append(f"🚫🎲 Resultado Sobrecarga (+{resultado_sobrecarga}) bloqueado.")
             elif resultado_sobrecarga > 0:
-                # Usa energia_cambio que es lo que realmente ganó
                 eventos.append(f"🎲 Resultado Sobrecarga: ¡Ganaste {energia_cambio or 0} Energía!")
             else: # resultado_sobrecarga < 0
-                # Usa resultado_sobrecarga (el valor negativo original) para abs()
                 eventos.append(f"🎲 Resultado Sobrecarga: ¡Perdiste {abs(resultado_sobrecarga)} Energía!")
 
-            # Consumir el efecto 'sobrecarga_pendiente'
             self._remover_efecto(jugador, "sobrecarga_pendiente")
             print(f"DEBUG Efecto 'sobrecarga_pendiente' removido para {jugador.get_nombre()}.") 
         else:
@@ -1522,6 +1535,51 @@ class JuegoOcaWeb:
             "movimientos": movimientos_planificados
         }
 
+    def _hab_fuga_de_energia(self, jugador, habilidad, objetivo):
+        eventos = []
+        obj = self._encontrar_jugador(objetivo)
+        if not obj:
+            eventos.append("Objetivo inválido.")
+            return {"exito": False, "eventos": eventos}
+
+        # Verificar si el objetivo puede ser afectado (Invisibilidad, etc.)
+        if not self._puede_ser_afectado(obj, habilidad):
+            return {"exito": False, "eventos": self.eventos_turno}
+
+        # Verificar Barrera (Refleja)
+        if self._verificar_efecto_activo(obj, "barrera"):
+            eventos.append(f"🔮 {obj.get_nombre()} refleja la Fuga de Energía.")
+            self._remover_efecto(obj, "barrera") # Barrera se consume
+            
+            # Aplicar efecto al ATACANTE
+            duracion_dot = 3 # Turnos del jugador
+            dano_dot = 25
+            
+            # Verificar si el ATACANTE está protegido
+            if self._verificar_efecto_activo(jugador, "escudo"):
+                self._reducir_efectos_temporales(jugador, tipo_efecto="escudo", reducir_todo=False)
+                eventos.append(f"🛡️ ¡Pero {jugador.get_nombre()} bloqueó el efecto reflejado con Escudo!")
+            elif self._verificar_efecto_activo(jugador, "invisible"):
+                 eventos.append(f"👻 ¡Pero {jugador.get_nombre()} evitó el efecto reflejado (Invisible)!")
+            else:
+                jugador.efectos_activos.append({"tipo": "fuga_energia", "turnos": duracion_dot, "dano": dano_dot})
+                eventos.append(f"🩸 ¡{jugador.get_nombre()} se auto-infligió Fuga de Energía!")
+                
+            return {"exito": False, "eventos": eventos, "reflejo_exitoso": True} # Cuenta como reflejo exitoso
+
+        # Verificar Escudo (Bloquea)
+        if self._verificar_efecto_activo(obj, "escudo"):
+            self._reducir_efectos_temporales(obj, tipo_efecto="escudo", reducir_todo=False)
+            eventos.append(f"🛡️ {obj.get_nombre()} bloqueó la Fuga de Energía con su escudo.")
+            return {"exito": False, "eventos": eventos}
+        
+        # Aplicar efecto
+        duracion_dot = 3
+        dano_dot = 25
+        obj.efectos_activos.append({"tipo": "fuga_energia", "turnos": duracion_dot, "dano": dano_dot})
+        eventos.append(f"🩸 {obj.get_nombre()} sufre una Fuga de Energía. Perderá {dano_dot} E durante {duracion_dot} turnos.")
+        return {"exito": True, "eventos": eventos}
+    
     def _hab_escudo_total(self, jugador, habilidad, objetivo):
         eventos = []
         rondas_duracion = 3 # Duración base

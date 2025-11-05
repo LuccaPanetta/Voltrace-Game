@@ -30,6 +30,7 @@ def crear_habilidades():
             Habilidad("Bomba Energética", "ofensiva", "Jugadores en ±3 posiciones pierden 75 energía", "💥", 5),
             Habilidad("Robo", "ofensiva", "Roba 50-150 energía del jugador con más puntos", "🎭", 6),
             Habilidad("Tsunami", "ofensiva", "Empuja a todos los jugadores 3 casillas atrás", "🌊", 5),
+            Habilidad("Fuga de Energía", "ofensiva", "El oponente pierde 25 E al inicio de sus próximos 3 turnos.", "🩸", 5)
         ],
         "defensiva": [
             Habilidad("Escudo Total", "defensiva", "Inmune a todo tipo de daño por 3 rondas", "🛡️", 7),
