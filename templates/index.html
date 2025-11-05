@@ -8,312 +8,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     
-    <style>
-        /* Estilos para el nuevo Modal Social */
-        .social-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #374151;
-            padding-bottom: 8px;
-            margin-bottom: 12px;
-        }
-        .social-tabs {
-            display: flex;
-            border-bottom: 1px solid #374151;
-            margin-bottom: 12px;
-        }
-        .social-tab-button {
-            padding: 8px 12px;
-            border: none;
-            background: transparent;
-            color: var(--muted);
-            cursor: pointer;
-            font-size: 14px;
-        }
-        .social-tab-button.active {
-            color: var(--primary);
-            border-bottom: 2px solid var(--primary);
-            font-weight: 500;
-        }
-        .social-content {
-            display: none; /* Se muestra con .active */
-            max-height: 400px;
-            overflow-y: auto;
-            padding-right: 5px; /* Espacio para scrollbar */
-        }
-        .social-content.active {
-            display: block;
-        }
-        .social-list-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px;
-            border-radius: 6px;
-            margin-bottom: 4px; /* Espacio entre items */
-        }
-        .social-list-item:hover {
-            background: #1f2937;
-        }
-        .social-user-info {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .social-status { /* Círculo de estado (online/offline/in_game) */
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: var(--muted); /* Gris por defecto (offline) */
-            flex-shrink: 0; /* Evitar que se encoja */
-        }
-        .social-status.online { background: var(--success); } /* Verde */
-        .social-status.in_game { background: var(--warning); } /* Amarillo */
-        
-        .social-actions button { /* Botones pequeños para acciones (chat, invitar, etc.) */
-            padding: 4px 8px;
-            font-size: 12px;
-            margin-left: 4px;
-        }
-        
-        .social-search-bar { /* Barra de búsqueda de usuarios */
-            display: flex;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-        #social-search-input {
-            flex-grow: 1; /* Ocupa el espacio disponible */
-        }
-        
-        /* Estilos para el Modal de Chat Privado */
-        #private-chat-messages { /* Contenedor de mensajes */
-            height: 300px;
-            overflow-y: auto;
-            background: #0b1220;
-            border: 1px solid #374151;
-            border-radius: 6px;
-            padding: 10px;
-            margin-bottom: 12px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .private-message { /* Estilo de cada burbuja de mensaje */
-            padding: 6px 10px;
-            border-radius: 12px;
-            max-width: 80%;
-            word-wrap: break-word; /* Evitar que textos largos rompan el layout */
-        }
-        .private-message.sent { /* Mensajes enviados por mí */
-            background: var(--primary);
-            color: white;
-            align-self: flex-end; /* Alineado a la derecha */
-            border-bottom-right-radius: 4px; /* Pequeño detalle visual */
-        }
-        .private-message.received { /* Mensajes recibidos */
-            background: #374151;
-            color: var(--text);
-            align-self: flex-start; /* Alineado a la izquierda */
-            border-bottom-left-radius: 4px;
-        }
-        .private-message small { /* Timestamp del mensaje */
-            font-size: 10px;
-            opacity: 0.7;
-            display: block;
-            margin-top: 2px;
-            text-align: right; /* Alineación del timestamp */
-        }
-        #private-chat-input-group { /* Input y botón de enviar */
-            display: flex;
-            gap: 8px;
-        }
-        #private-chat-input {
-            flex-grow: 1;
-        }
-        #modal-perks .modal-content { max-width: 600px; } /* Un poco más ancho */
-    .perks-info {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 12px;
-        padding-bottom: 8px;
-        border-bottom: 1px solid #374151;
-        font-size: 0.9em;
-    }
-    #pm-actual { font-weight: bold; color: var(--success); }
-    #perks-activos-list { color: var(--muted); }
-    .perk-packs {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* Responsive */
-        gap: 12px;
-        margin-bottom: 16px;
-    }
-    .pack-button { /* Estilo para los botones de pack */
-        background: #1f2937;
-        border: 1px solid #374151;
-        padding: 12px;
-        border-radius: 6px;
-        text-align: center;
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-    .pack-button:hover:not(:disabled) { background: #374151; border-color: var(--primary); }
-    .pack-button h4 { margin: 0 0 4px 0; color: var(--primary); }
-    .pack-button small { color: var(--muted); display: block; }
-    .pack-button:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    #perk-offer-container { /* Donde aparecen los perks a elegir */
-        display: flex;
-        flex-direction: column; /* Apila los botones verticalmente */
-        gap: 8px; /* Añade un espacio entre los botones */
-        margin-top: 16px;
-        padding-top: 16px;
-        border-top: 1px solid #374151;
-    }
-    #perk-offer-container h4 { margin-top: 0; }
-    .perk-offer-item { /* Botón para elegir un perk de la oferta */
-        display: block; /* Botones anchos */
-        width: 100%;
-        background: #0b1220;
-        border: 1px solid #374151;
-        padding: 10px;
-        border-radius: 6px;
-        margin-bottom: 8px;
-        text-align: left;
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-    .perk-offer-item:hover { background: #1f2937; border-color: var(--primary); }
-    .perk-offer-item strong { color: var(--primary); }
-    .perk-offer-item small { color: var(--muted); display: block; margin-top: 4px; }
-    .perk-offer-item .perk-tier { 
-        font-size: 0.8em;
-        padding: 2px 6px;
-        border-radius: 4px;
-        background: #374151;
-        margin-left: 8px;
-        text-transform: capitalize;
-    }
-    .auth-form-column {
-        display: flex;
-        flex-direction: column;
-        gap: 15px; 
-    }
-
-    /* Grupo de Label + Input */
-    .input-group {
-        display: flex;
-        flex-direction: column; 
-        gap: 5px; 
-    }
-
-    .input-group label {
-        color: var(--muted); 
-        font-size: 0.9em; 
-        text-align: left;
-    }
-
-    /* Estilo para los campos de texto (input email, usuario, password) */
-    .text-input {
-        background-color: #0b1220; 
-        border: 1px solid #374151; 
-        padding: 10px 12px; 
-        border-radius: 5px;
-        color: var(--text);
-        font-size: 1em; 
-        width: 100%; 
-        box-sizing: border-box; /* Padding y borde no añaden al ancho total */
-    }
-
-    .text-input::placeholder { /* Estilo del texto placeholder */
-        color: #4b5563; 
-    }
-
-    .text-input:focus { /* Estilo cuando el campo está seleccionado */
-        border-color: var(--primary);
-        outline: none; 
-        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3); 
-    }
-
-    /* Ajustar el botón dentro del formulario apilado */
-    .auth-form-column button {
-         margin-top: 10px; 
-         width: 100%; 
-    }
-    
-    /* --- INICIO DE MODIFICACIÓN (Estilos Glosario y Banner) --- */
-    .glossary-section {
-        margin-bottom: 24px;
-    }
-    .glossary-list {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 10px;
-    }
-    .glossary-item {
-        background-color: #1f2937;
-        border: 1px solid #374151;
-        padding: 10px 12px;
-        border-radius: 6px;
-    }
-    .glossary-item-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 4px;
-    }
-    .glossary-item h4 {
-        margin: 0;
-        color: var(--primary);
-        font-size: 1em;
-        display: flex;
-        align-items: center;
-    }
-    .glossary-item h4 span.simbolo {
-        font-size: 1.2em;
-        margin-right: 8px;
-    }
-    .glossary-item-tag {
-        font-size: 0.8em;
-        padding: 2px 6px;
-        border-radius: 4px;
-        background: #374151;
-        color: var(--muted);
-        text-transform: capitalize;
-    }
-    .glossary-item p {
-        margin: 0;
-        font-size: 0.9em;
-        color: var(--muted);
-    }
-    .glossary-item p.requires {
-        font-size: 0.8em;
-        color: var(--warning);
-        margin-top: 6px;
-    }
-
-    #global-event-banner {
-        display: none; /* Oculto por defecto */
-        background: linear-gradient(90deg, var(--primary), var(--warning));
-        color: #ffffff;
-        text-shadow: 0 1px 2px rgba(0,0,0,0.4);
-        padding: 8px 15px;
-        text-align: center;
-        font-weight: 500;
-        font-size: 0.95em;
-        margin: -10px -15px 10px -15px; /* Se estira en el header */
-        border-bottom: 2px solid rgba(0,0,0,0.2);
-        animation: pulse-glow 2s infinite alternate;
-    }
-    @keyframes pulse-glow {
-        from { box-shadow: 0 0 5px 0px var(--warning); }
-        to { box-shadow: 0 0 15px 3px var(--primary); }
-    }
-    /* --- FIN DE MODIFICACIÓN --- */
-    
-    </style>
-</head>
+    </head>
 
 <body>
 
@@ -321,7 +16,7 @@
         /* 'safe' evita que Jinja2 escape las comillas del JSON */
         window.VOLTRACE_USER_DATA = {{ user_data_json | safe }};
     </script>
-    
+
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             <div class="flashes">
@@ -438,7 +133,7 @@
                     </div>
                     
                     <div id="rules-content" class="info-content active">
-                    <h3>📋 Cómo Jugar - VoltRace</h3>
+                        <h3>📋 Cómo Jugar - VoltRace</h3>
                         <ul>
                             <li><strong>Objetivo:</strong> Sé el primer jugador en llegar a la casilla 75 o el último en pie con energía.</li>
                             <li><strong>Jugadores:</strong> 2 a 4 personas por partida.</li>
@@ -458,7 +153,7 @@
                         </div>
                     </div>
                     
-                    </div>
+                </div>
             </div>
         </div>
 
@@ -709,6 +404,7 @@
                 </div>
             </div>
         </div>
+
         <div id="notificaciones" class="notificaciones-container"></div>
 
         <div id="loading" class="loading-overlay">

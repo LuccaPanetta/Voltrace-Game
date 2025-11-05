@@ -48,6 +48,21 @@ html, body {
   background: var(--bg);   /* Fondo oscuro */
   color: var(--text);      /* Texto claro */
 }
+
+/* --- INICIO DE MODIFICACIÓN (Estilos de Flashes) --- */
+.flashes {
+    width: 450px; 
+    margin: 15px auto; 
+    padding: 10px; 
+    border-radius: 5px; 
+    font-size: 0.9em; 
+    box-sizing: border-box;
+}
+.flashes .flash-info { background-color: #1f2937; border: 1px solid var(--primary); color: var(--text); padding: 10px; border-radius: 5px; }
+.flashes .flash-danger, .flashes .flash-warning { background-color: #4b1f26; border: 1px solid var(--danger); color: #fecaca; padding: 10px; border-radius: 5px; }
+.flashes .flash-success { background-color: #16302b; border: 1px solid var(--success); color: #bbf7d0; padding: 10px; border-radius: 5px; }
+/* --- FIN DE MODIFICACIÓN --- */
+
 /* ===================================================================
    MODULO: LAYOUT
    - Contenedor principal responsive
@@ -55,21 +70,14 @@ html, body {
    - Estructura y grillas principales (header, lobby, game)
    =================================================================== */
 
-/* ===================================================================
-   CONTENEDOR PRINCIPAL RESPONSIVE
-   ===================================================================
-   Contenedor principal que centra el contenido y maneja el responsive */
-
 .container {
-  width: 100%;                          /* Ocupar todo el ancho disponible */
-  max-width: var(--container-max);      /* Límite máximo de ancho (1440px) */
-  margin: 0 auto;                       /* Centrar horizontalmente */
-  padding: var(--container-padding);    /* Padding adaptativo (8px-24px) */
-  box-sizing: border-box;               /* Incluir padding en el ancho total */
-  min-height: 100vh;                    /* Altura mínima de toda la ventana */
+  width: 100%;                          
+  max-width: var(--container-max);      
+  margin: 0 auto;                       
+  padding: var(--container-padding);    
+  box-sizing: border-box;               
+  min-height: 100vh;                    
 }
-
-/* Sistema de pantallas */
 .screen {
   display: none;
   transition: all 0.5s ease;
@@ -85,8 +93,6 @@ html, body {
   transform: translateY(20px);
   pointer-events: none;
 }
-
-/* Header principal */
 .header {
   display: flex;
   justify-content: space-between;
@@ -95,80 +101,58 @@ html, body {
   flex-wrap: wrap;
   gap: var(--gap-small);
 }
-
 @media (max-width: 768px) {
   .header {
     flex-direction: column;
   }
 }
-
-/* ===================================================================
-   GRILLAS DE PANTALLAS (Layouts)
-   =================================================================== */
-
-/* Layout: Lobby */
 .lobby-content {
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--gap-medium);
 }
-
 @media (min-width: 768px) {
   .lobby-content {
     grid-template-columns: 2fr 1fr;
   }
 }
-
 .action-cards {
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--gap-medium);
 }
-
 @media (min-width: 640px) {
   .action-cards {
     grid-template-columns: 1fr 1fr;
   }
 }
-
-/* Layout: Sala de Espera */
 .waiting-content {
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--gap-medium);
 }
-
 @media (min-width: 768px) {
   .waiting-content {
     grid-template-columns: 1fr 1fr;
   }
 }
-
-/* Layout: Pantalla de Juego */
 .game-content {
     display: grid;
     gap: 16px;
-
-    /* 1. VISTA MÓVIL (por defecto): 1 columna, todo apilado */
     grid-template-columns: 1fr;
     grid-template-areas:
         "players"
         "board"
         "events";
 }
-
 @media (min-width: 768px) {
-    /* 2. VISTA DESKTOP (pantallas anchas): 3 columnas */
   .game-content {
-        /* Col Izq (fija) | Col Centro (flexible) | Col Der (fija) */
         grid-template-columns: 300px 1fr 340px;
-        grid-template-rows: 1fr; /* Una sola fila de alto */
+        grid-template-rows: 1fr; 
         grid-template-areas:
-            "players board events"; /* El layout horizontal clásico */
+            "players board events"; 
   }
 }
-
-/* Asignación de Áreas de Juego */
 .panel-jugadores {
     grid-area: players;
     background: var(--panel);
@@ -176,7 +160,6 @@ html, body {
     border-radius: 8px;
     overflow-y: auto;
 }
-
 .tablero-container {
     grid-area: board;
     background: var(--panel);
@@ -186,7 +169,6 @@ html, body {
     flex-direction: column;
     align-items: center;
 }
-
 .panel-eventos {
     grid-area: events;
     background: var(--panel);
@@ -196,18 +178,15 @@ html, body {
     flex-direction: column;
     overflow: hidden;
 }
-
-/* Hijos del panel de eventos (para que scrolleen) */
 #eventos-lista, #chat-juego-mensajes {
     overflow-y: auto;
-    flex-grow: 1; /* Ocupa el espacio disponible */
+    flex-grow: 1; 
 }
-
-/* Layout: Autenticación */
 .auth-content {
   max-width: 400px;
   margin: 0 auto;
 }
+
 /* ===================================================================
    MODULO: COMPONENTS
    - Estilos para componentes reutilizables:
@@ -215,32 +194,25 @@ html, body {
    - Pestañas (tabs)
    =================================================================== */
 
-/* Tarjeta base */
 .card {
   background: var(--panel);
   padding: var(--gap-medium);
   border-radius: 8px;
   box-shadow: 0 0 0 1px #1f2937 inset;
   width: 100%;
-  min-width: 0; /* Importante para flexbox/grid */
+  min-width: 0; 
 }
-
 .card h3 { margin-top: 0; }
-
-/* Grupo de formulario */
 .form-group {
   display: flex;
   flex-direction: column;
   gap: var(--gap-small);
 }
-
 @media (min-width: 480px) {
   .form-group {
     flex-direction: row;
   }
 }
-
-/* Campos de texto y password */
 input[type="text"],
 input[type="email"],
 input[type="password"] {
@@ -252,17 +224,14 @@ input[type="password"] {
   color: var(--text);
   width: 100%;
   min-width: 0;
-  box-sizing: border-box; /* Incluir padding/border en el width */
+  box-sizing: border-box; 
 }
-
 .text-input::placeholder { color: #4b5563; }
 .text-input:focus {
   border-color: var(--primary);
   outline: none;
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
 }
-
-/* Grupo Label + Input (Auth) */
 .input-group {
     display: flex;
     flex-direction: column;
@@ -273,9 +242,6 @@ input[type="password"] {
     font-size: 0.9em;
     text-align: left;
 }
-
-
-/* Botones */
 button {
   padding: 10px 12px;
   border: 0;
@@ -287,17 +253,14 @@ button {
   transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
-  font-family: inherit; /* Heredar fuente */
+  font-family: inherit; 
 }
-
 .btn-primary { background: var(--primary); }
 .btn-success { background: var(--success); }
 .btn-danger { background: var(--danger); }
 .btn-secondary { background: #374151; }
 .btn-close { background: transparent; color: var(--muted); font-size: 20px; padding: 4px; }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
-
-/* Efectos de botón */
 button:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
@@ -306,8 +269,6 @@ button:active:not(:disabled) {
   transform: translateY(0);
   transition: transform 0.1s ease;
 }
-
-/* Efecto ripple */
 button::after {
   content: '';
   position: absolute;
@@ -321,8 +282,6 @@ button::after {
 button:active::after {
   width: 200%; height: 200%;
 }
-
-/* Pestañas (Tabs) - Usado en Auth y Lobby Info */
 .auth-tabs, .info-tabs {
   display: flex;
   margin-bottom: var(--gap-medium);
@@ -330,7 +289,6 @@ button:active::after {
   overflow: hidden;
   border: 1px solid #374151;
 }
-
 .tab-button, .info-tab-button {
   flex: 1;
   padding: 12px 16px;
@@ -339,39 +297,33 @@ button:active::after {
   border: none;
   cursor: pointer;
   transition: all 0.2s;
-  font-family: inherit; /* Heredar fuente */
-  font-size: 1em; /* Tamaño base */
+  font-family: inherit; 
+  font-size: 1em; 
 }
-
 .tab-button.active, .info-tab-button.active {
   background: var(--primary);
   color: white;
   font-weight: 500;
 }
-
 .tab-button:hover:not(.active), .info-tab-button:hover:not(.active) {
   background: #374151;
 }
-
-/* Ajuste de tamaño para tabs de info (Lobby) */
 .info-tab-button {
   padding: 8px 12px;
   font-size: 14px;
 }
-
 @media (max-width: 640px) {
   .info-tabs {
     flex-direction: column;
   }
 }
-
-/* Contenido de Pestañas */
 .auth-form, .info-content {
   display: none;
 }
 .auth-form.active, .info-content.active {
   display: block;
 }
+
 /* ===================================================================
    MODULO: UI (User Interface)
    - Estilos para elementos de interfaz:
@@ -618,6 +570,7 @@ button:active::after {
   z-index: 1001; /* Encima de modales */
   animation: confetti-fall 3s linear infinite; /* Usa la animación de animations.css */
 }
+
 /* ===================================================================
    MODULO: AUTH (Autenticación)
    - Estilos específicos para la pantalla de login y registro.
@@ -785,12 +738,23 @@ button:active::after {
 /* --- Encabezado del Juego --- */
 .game-header {
     display: flex;
+    flex-direction: column; /* Apilar banner y game-info */
     justify-content: space-between;
-    align-items: center;
+    align-items: stretch; /* Ocupar todo el ancho */
     margin-bottom: var(--gap-medium);
     flex-wrap: wrap; /* Permitir envolver */
     gap: var(--gap-small);
 }
+/* --- INICIO DE MODIFICACIÓN (Hacer que game-info vuelva a estar en fila) --- */
+.game-info {
+    display: flex;
+    flex-direction: row; /* Original */
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--gap-medium);
+}
+/* --- FIN DE MODIFICACIÓN --- */
 .game-info h2 { margin: 0 0 5px 0; }
 .game-stats { display: flex; gap: 15px; color: var(--muted); }
 
@@ -1344,3 +1308,204 @@ button:active::after {
 .confetti-piece:nth-child(5n+3) { background: #22c55e; animation-delay: -1.6s; }
 .confetti-piece:nth-child(5n+4) { background: #ec4899; animation-delay: -2.4s; }
 .confetti-piece:nth-child(5n+5) { background: #8b5cf6; animation-delay: -3.2s; }
+
+
+/* ===================================================================
+   MODULO: FEATURES (Social)
+   =================================================================== */
+.social-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #374151;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+}
+.social-tabs {
+    display: flex;
+    border-bottom: 1px solid #374151;
+    margin-bottom: 12px;
+}
+.social-tab-button {
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 14px;
+}
+.social-tab-button.active {
+    color: var(--primary);
+    border-bottom: 2px solid var(--primary);
+    font-weight: 500;
+}
+.social-content {
+    display: none; 
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 5px; 
+}
+.social-content.active {
+    display: block;
+}
+.social-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px;
+    border-radius: 6px;
+    margin-bottom: 4px; 
+}
+.social-list-item:hover {
+    background: #1f2937;
+}
+.social-user-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.social-status { 
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--muted); 
+    flex-shrink: 0; 
+}
+.social-status.online { background: var(--success); } 
+.social-status.in_game { background: var(--warning); } 
+
+.social-actions button { 
+    padding: 4px 8px;
+    font-size: 12px;
+    margin-left: 4px;
+}
+.social-search-bar { 
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+#social-search-input {
+    flex-grow: 1; 
+}
+
+/* Chat Privado */
+#private-chat-messages { 
+    height: 300px;
+    overflow-y: auto;
+    background: #0b1220;
+    border: 1px solid #374151;
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.private-message { 
+    padding: 6px 10px;
+    border-radius: 12px;
+    max-width: 80%;
+    word-wrap: break-word; 
+}
+.private-message.sent { 
+    background: var(--primary);
+    color: white;
+    align-self: flex-end; 
+    border-bottom-right-radius: 4px; 
+}
+.private-message.received { 
+    background: #374151;
+    color: var(--text);
+    align-self: flex-start; 
+    border-bottom-left-radius: 4px;
+}
+.private-message small { 
+    font-size: 10px;
+    opacity: 0.7;
+    display: block;
+    margin-top: 2px;
+    text-align: right; 
+}
+#private-chat-input-group { 
+    display: flex;
+    gap: 8px;
+}
+#private-chat-input {
+    flex-grow: 1;
+}
+
+/* ===================================================================
+   MODULO: FEATURES (Glosario)
+   =================================================================== */
+.glossary-section {
+    margin-bottom: 24px;
+}
+.glossary-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 10px;
+}
+.glossary-item {
+    background-color: #1f2937;
+    border: 1px solid #374151;
+    padding: 10px 12px;
+    border-radius: 6px;
+}
+.glossary-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+.glossary-item h4 {
+    margin: 0;
+    color: var(--primary);
+    font-size: 1em;
+    display: flex;
+    align-items: center;
+}
+.glossary-item h4 span.simbolo {
+    font-size: 1.2em;
+    margin-right: 8px;
+}
+.glossary-item-tag {
+    font-size: 0.8em;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #374151;
+    color: var(--muted);
+    text-transform: capitalize;
+}
+.glossary-item p {
+    margin: 0;
+    font-size: 0.9em;
+    color: var(--muted);
+}
+.glossary-item p.requires {
+    font-size: 0.8em;
+    color: var(--warning);
+    margin-top: 6px;
+}
+
+/* ===================================================================
+   MODULO: FEATURES (Banner de Evento)
+   =================================================================== */
+#global-event-banner {
+    display: none; /* Oculto por defecto */
+    background: linear-gradient(90deg, var(--primary), var(--warning));
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+    padding: 8px 15px;
+    text-align: center;
+    font-weight: 500;
+    font-size: 0.95em;
+    /* Se estira en el header */
+    margin: -10px -15px 10px -15px; 
+    border-bottom: 2px solid rgba(0,0,0,0.2);
+    animation: pulse-glow 2s infinite alternate;
+}
+/* Keyframe para el glow del banner */
+@keyframes pulse-glow {
+    from { box-shadow: 0 0 5px 0px var(--warning); }
+    to { box-shadow: 0 0 15px 3px var(--primary); }
+}
