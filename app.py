@@ -51,7 +51,7 @@ from juego_web import JuegoOcaWeb        # Lógica del juego
 from achievements import AchievementSystem  # Sistema de logros
 from social import SocialSystem          # Sistema social
 from models import User, db              # Modelos de base de datos
-from habilidades import crear_habilidades
+from habilidades import crear_habilidades, KITS_VOLTRACE
 from perks import PERKS_CONFIG
 
 # --- Configuración de Flask ---
@@ -303,12 +303,13 @@ class SalaJuego:
         self.log_eventos = [] # Log para la sala de espera
         self.turn_timer = None
 
-    def agregar_jugador(self, sid, nombre):
+    def agregar_jugador(self, sid, nombre, kit_id='tactico'):
         if len(self.jugadores) < 4 and sid not in self.jugadores:
             self.jugadores[sid] = {
                 'nombre': nombre,
                 'sid': sid,
-                'conectado': True # Marcar como conectado al unirse
+                'conectado': True,
+                'kit_id': kit_id  
             }
             self.log_eventos.append(f"{nombre} se unió al juego")
             return True
@@ -328,8 +329,16 @@ class SalaJuego:
 
     def iniciar_juego(self):
         if self.puede_iniciar():
-            nombres_jugadores = [datos['nombre'] for datos in self.jugadores.values()]
-            self.juego = JuegoOcaWeb(nombres_jugadores) # Crear instancia del juego
+            jugadores_config = []
+            for datos in self.jugadores.values():
+                jugadores_config.append({
+                    'nombre': datos['nombre'],
+                    'kit_id': datos.get('kit_id', 'tactico') # Pasa el kit guardado
+                })
+            
+            # Pasar la lista de configs al constructor del juego
+            self.juego = JuegoOcaWeb(jugadores_config)
+            
             self.estado = 'jugando'
             self.log_eventos.append("¡El juego ha comenzado!")
             return True
@@ -734,6 +743,8 @@ def on_connect():
     # Se ejecuta cuando un cliente establece una conexión WebSocket
     print(f"Cliente conectado: {request.sid}")
     emit('conectado', {'mensaje': 'Conexión exitosa'}) # Enviar confirmación al cliente
+    kit_guardado = session.get('kit_seleccionado', 'tactico')
+    emit('kit_actual', {'kit_id': kit_guardado})
 
 @socketio.on('authenticate')
 def authenticate(data):
@@ -816,8 +827,11 @@ def crear_sala(data):
 
     join_room(id_sala) # Unir al creador a la room de SocketIO
 
-    if salas_activas[id_sala].agregar_jugador(request.sid, username):
-        
+    # Leer el kit guardado en la sesión del usuario
+    kit_seleccionado = session.get('kit_seleccionado', 'tactico')
+    
+    # Pasarlo al agregar_jugador
+    if salas_activas[id_sala].agregar_jugador(request.sid, username, kit_seleccionado):
         # Enviar respuesta al cliente INMEDIATAMENTE
         emit('sala_creada', {
             'id_sala': id_sala,
@@ -874,8 +888,10 @@ def unirse_sala(data):
             emit('unido_exitoso', {'id_sala': id_sala, 'mensaje': 'Ya estabas en esta sala.'})
             return
 
+    kit_seleccionado = session.get('kit_seleccionado', 'tactico')
+
     # Intentar agregar al jugador
-    if sala.agregar_jugador(request.sid, username):
+    if sala.agregar_jugador(request.sid, username, kit_seleccionado):
         join_room(id_sala) # Unir a la room de SocketIO
 
         # Actualizar presencia a 'in_lobby'
@@ -969,6 +985,27 @@ def obtener_estado_sala(data):
 # --- 4. HANDLERS DE SOCKET.IO (Juego Activo) ---
 # ===================================================================
 
+@socketio.on('guardar_kit')
+def guardar_kit(data):
+    kit_id = data.get('kit_id')
+    sid = request.sid
+    
+    if not sid in sessions_activas:
+        emit('error', {'mensaje': 'No autenticado.'})
+        return
+
+    # Verificamos que el kit exista en nuestra constante
+    if kit_id in KITS_VOLTRACE:
+        # Guardamos el kit en la sesión del usuario (esto es persistente)
+        session['kit_seleccionado'] = kit_id
+        print(f"Cliente {sid} (User: {sessions_activas[sid]['username']}) ha guardado el kit: {kit_id}")
+        
+        # Confirmamos al cliente cuál es su kit actual
+        emit('kit_actual', {'kit_id': kit_id})
+    else:
+        print(f"Cliente {sid} intentó guardar un kit inválido: {kit_id}")
+        emit('error', {'mensaje': 'Kit no válido.'})
+        
 @socketio.on('iniciar_juego')
 def iniciar_juego_manual(data):
     # Handler para el botón "Iniciar Juego" en la sala de espera

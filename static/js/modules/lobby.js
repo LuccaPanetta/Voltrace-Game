@@ -13,6 +13,7 @@ let mensajeLobbyInput, btnEnviarMensajeLobby;
 let tabRules, tabRanking, rulesContent, rankingContent;
 let btnShowGlossary, modalGlossary, btnCerrarGlossary, 
     glossaryAbilitiesList, glossaryPerksList;
+let btnAbrirKits, modalKits, btnCerrarKits, contenedorKits, kitCards;
 
 // Referencias a funciones/elementos externos
 let _setLoadingFunc = null;
@@ -59,11 +60,51 @@ export function initLobby(socketRef, screensRef, showFuncRef, setLoadingFuncRef,
     rulesContent = document.getElementById("rules-content");
     rankingContent = document.getElementById("ranking-content");
     
+    // --- Cacheo Glosario y Kits ---
     btnShowGlossary = document.getElementById("btn-show-glossary");
     modalGlossary = document.getElementById("modal-glossary");
     btnCerrarGlossary = document.getElementById("btn-cerrar-glossary");
     glossaryAbilitiesList = document.getElementById("glossary-abilities-list");
     glossaryPerksList = document.getElementById("glossary-perks-list");
+
+    btnAbrirKits = document.getElementById("btn-abrir-kits");
+    modalKits = document.getElementById("modal-kits");
+    btnCerrarKits = document.getElementById("close-modal-kits");
+    contenedorKits = document.getElementById("contenedor-kits");
+    kitCards = document.querySelectorAll(".kit-card"); // Obtener todas las tarjetas
+
+    // Asignar listeners
+    btnCrearSala?.addEventListener("click", handleCrearSala);
+    btnUnirseSala?.addEventListener("click", handleUnirseSala);
+    codigoSalaInput?.addEventListener("keypress", (e) => { if (e.key === 'Enter') handleUnirseSala(); });
+    tabRules?.addEventListener("click", handleLobbyTabClick);
+    tabRanking?.addEventListener("click", handleLobbyTabClick);
+    
+    // --- Listeners Glosario y Kits ---
+    btnShowGlossary?.addEventListener("click", openGlossaryModal);
+    btnCerrarGlossary?.addEventListener("click", closeGlossaryModal);
+    modalGlossary?.addEventListener('click', (e) => { if (e.target === modalGlossary) closeGlossaryModal(); });
+
+    btnAbrirKits?.addEventListener("click", openKitsModal);
+    btnCerrarKits?.addEventListener("click", closeKitsModal);
+    modalKits?.addEventListener('click', (e) => { if (e.target === modalKits) closeKitsModal(); });
+    
+    // Asignar listeners para SELECCIONAR un kit
+    kitCards.forEach(card => {
+        card.addEventListener('click', () => {
+            playSound('ClickMouse', 0.3);
+            const kitId = card.dataset.kit;
+            console.log(`Enviando selección de kit: ${kitId}`);
+            // Enviar la selección al servidor para que la guarde
+            _socket.emit('guardar_kit', { 'kit_id': kitId });
+        });
+    });
+
+    // Escuchar la confirmación del servidor sobre el kit actual
+    _socket.on('kit_actual', (data) => {
+        console.log(`Kit actual guardado en servidor: ${data.kit_id}`);
+        actualizarKitSeleccionadoUI(data.kit_id);
+    });
 
     // Cachear elementos DOM de Sala de Espera
     codigoSalaActualDisplay = document.getElementById("codigo-sala-actual");
@@ -77,19 +118,7 @@ export function initLobby(socketRef, screensRef, showFuncRef, setLoadingFuncRef,
     mensajeLobbyInput = document.getElementById("mensaje-input");
     btnEnviarMensajeLobby = document.getElementById("btn-enviar-mensaje");
 
-    // Asignar listeners
-    btnCrearSala?.addEventListener("click", handleCrearSala);
-    btnUnirseSala?.addEventListener("click", handleUnirseSala);
-    codigoSalaInput?.addEventListener("keypress", (e) => { if (e.key === 'Enter') handleUnirseSala(); });
-    tabRules?.addEventListener("click", handleLobbyTabClick);
-    tabRanking?.addEventListener("click", handleLobbyTabClick);
-    
-    // --- INICIO DE MODIFICACIÓN (Glosario Modal) ---
-    btnShowGlossary?.addEventListener("click", openGlossaryModal);
-    btnCerrarGlossary?.addEventListener("click", closeGlossaryModal);
-    modalGlossary?.addEventListener('click', (e) => { if (e.target === modalGlossary) closeGlossaryModal(); });
-    // --- FIN DE MODIFICACIÓN ---
-
+    // Asignar listeners (Sala de Espera)
     btnCopiarCodigo?.addEventListener("click", handleCopiarCodigo);
     btnIniciarJuego?.addEventListener("click", handleIniciarJuego);
     btnSalirSala?.addEventListener("click", handleSalirSala);
@@ -444,4 +473,35 @@ function _displayGlossaryPerks(data) {
             glossaryPerksList.appendChild(item);
         });
     }
+}
+
+function openKitsModal() {
+    playSound('OpenCloseModal', 0.3);
+    if (modalKits) modalKits.style.display = 'flex';
+    // No necesitamos cargar datos, ya están en el HTML
+}
+
+function closeKitsModal() {
+    playSound('OpenCloseModal', 0.2);
+    if (modalKits) modalKits.style.display = 'none';
+}
+
+/**
+ * Actualiza la UI para mostrar qué kit está seleccionado.
+ * @param {string} kitId - El ID del kit (ej. "tactico", "ingeniero")
+ */
+function actualizarKitSeleccionadoUI(kitId) {
+    if (!kitCards) {
+        // Asegurarse de que kitCards esté cacheado si la función se llama antes
+        kitCards = document.querySelectorAll(".kit-card");
+    }
+    if (!kitCards) return;
+    
+    kitCards.forEach(card => {
+        if (card.dataset.kit === kitId) {
+            card.classList.add('seleccionado');
+        } else {
+            card.classList.remove('seleccionado');
+        }
+    });
 }

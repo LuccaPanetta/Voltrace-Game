@@ -8,6 +8,94 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     
+    <style>
+        /* --- ESTILOS PARA EL MODAL DE KITS --- */
+        #contenedor-kits {
+            max-height: 60vh;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+        .kit-card {
+            border: 2px solid #555;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+        .kit-card:hover {
+            background-color: #3a3a3a; /* Asumiendo un tema oscuro */
+        }
+        /* Esta clase la pondrá el JS */
+        .kit-card.seleccionado {
+            border-color: #00ff99; /* Color brillante para selección */
+            background-color: #2a3a34;
+            box-shadow: 0 0 10px #00ff9944;
+        }
+        .kit-card h3 {
+            margin-top: 0;
+            color: #00ff99;
+        }
+        .kit-card p {
+            font-size: 0.9em;
+            color: #9CA3AF; /* Muted */
+            margin-bottom: 10px;
+        }
+        .kit-card ul {
+            list-style-type: disc;
+            padding-left: 20px;
+            margin: 0;
+            font-size: 0.9em;
+        }
+        
+        /* Asegurarnos que los modales tengan estilos base */
+        .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 100; 
+            left: 0;
+            top: 0;
+            width: 100%; 
+            height: 100%; 
+            overflow: auto; 
+            background-color: rgba(0,0,0,0.6); 
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background-color: #1F2937; /* Fondo de modal (asumiendo tema oscuro) */
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #4B5563;
+            width: 90%;
+            max-width: 600px;
+            border-radius: 8px;
+            position: relative;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #4B5563;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .modal-header h3 {
+            margin: 0;
+        }
+        .btn-close { /* Estilo genérico para botones 'x' */
+            background: none;
+            border: none;
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .btn-close:hover {
+            color: white;
+        }
+    </style>
+
 </head>
 
 <body>
@@ -103,6 +191,9 @@
                         <button id="btn-social" class="btn-secondary" title="Amigos y Chat">👥 Social</button>
                         <button id="btn-show-achievements" class="btn-secondary" title="Ver Logros">🏆 Logros</button>
                         <button id="btn-show-glossary" class="btn-secondary" title="Ver Glosario">📚 Glosario</button>
+                        
+                        <button id="btn-abrir-kits" class="btn-secondary" title="Elegir Kit">🛠️ Elegir Kit</button>
+
                         <button id="btn-toggle-animations" class="btn-secondary" title="Activar/Desactivar animaciones">🎬</button>
                         
                         <div class="volume-control">
@@ -407,6 +498,71 @@
                         <div id="glossary-perks-list" class="glossary-list">
                             <p>Cargando perks...</p>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="modal-kits" class="modal" style="display:none;">
+            <div class="modal-content">
+                <span class="btn-close" id="close-modal-kits">&times;</span>
+                <h2>🛠️ Elige tu Kit de Habilidades</h2>
+                <p>Esta será tu configuración de habilidades al entrar en una partida. Tu elección se guardará.</p>
+                
+                <div id="contenedor-kits">
+                    <div class="kit-card" data-kit="tactico">
+                        <h3>Táctico</h3>
+                        <p>Control y precisión. Débil contra daño directo, pero excelente para controlar oponentes.</p>
+                        <ul>
+                            <li>Sabotaje</li>
+                            <li>Barrera</li>
+                            <li>Rebote Controlado</li>
+                            <li>Dado Perfecto</li>
+                        </ul>
+                    </div>
+    
+                    <div class="kit-card" data-kit="ingeniero">
+                        <h3>Ingeniero</h3>
+                        <p>Zona y velocidad. Rápido para escapar y poner trampas.</p>
+                        <ul>
+                            <li>Bomba Energética</li>
+                            <li>Invisibilidad</li>
+                            <li>Cohete</li>
+                            <li>Mina de Energía</li>
+                        </ul>
+                    </div>
+    
+                    <div class="kit-card" data-kit="espectro">
+                        <h3>Espectro</h3>
+                        <p>Caos y evasión. Ignora las reglas del tablero y altera posiciones.</p>
+                        <ul>
+                            <li>Fuga de Energía</li>
+                            <li>Transferencia de Fase</li>
+                            <li>Intercambio Forzado</li>
+                            <li>Caos</li>
+                        </ul>
+                    </div>
+    
+                    <div class="kit-card" data-kit="guardian">
+                        <h3>Guardián</h3>
+                        <p>Anti-habilidades. Difícil de matar y castiga a quienes dependen de la energía.</p>
+                        <ul>
+                            <li>Tsunami</li>
+                            <li>Escudo Total</li>
+                            <li>Retroceso</li>
+                            <li>Bloqueo Energético</li>
+                        </ul>
+                    </div>
+    
+                    <div class="kit-card" data-kit="estratega">
+                        <h3>El Estratega</h3>
+                        <p>Alto riesgo, alta recompensa. Sin escape, pero gran control y tempo.</p>
+                        <ul>
+                            <li>Robo</li>
+                            <li>Curación</li>
+                            <li>Doble Turno</li>
+                            <li>Sobrecarga Inestable</li>
+                        </ul>
                     </div>
                 </div>
             </div>

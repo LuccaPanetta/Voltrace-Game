@@ -21,14 +21,13 @@ from random import randint, choice, sample
 import random
 import os
 import traceback
-from habilidades import Habilidad, crear_habilidades
+from habilidades import Habilidad, crear_habilidades, KITS_VOLTRACE
 from perks import PERKS_CONFIG, obtener_perks_por_tier
 from jugadores import JugadorWeb
 from random import randint, choice, sample
 import random
 import os
 import traceback
-from habilidades import Habilidad, crear_habilidades
 from perks import PERKS_CONFIG, obtener_perks_por_tier
 from jugadores import JugadorWeb
 
@@ -38,13 +37,19 @@ class JuegoOcaWeb:
     # --- 1. CONFIGURACIÓN E INICIALIZACIÓN ---
     # ===================================================================
     
-    def __init__(self, nombres_jugadores):
-        self.jugadores = [JugadorWeb(nombre) for nombre in nombres_jugadores]
-        for jugador in self.jugadores:
+    # El constructor ahora acepta una lista de diccionarios de configuración
+    def __init__(self, jugadores_config):
+        self.jugadores = []
+        for config in jugadores_config:
+            jugador = JugadorWeb(config['nombre'])
+            # Guardamos el kit_id en la instancia del jugador para usarlo después
+            jugador.kit_seleccionado = config.get('kit_id', 'tactico') 
             jugador.juego_actual = self
+            self.jugadores.append(jugador)
+            
         self.posicion_meta = 75
         self.energia_packs = []
-        self.perks_ofrecidos = {nombre: set() for nombre in nombres_jugadores} # Para evitar ofrecer el mismo perk varias veces
+        self.perks_ofrecidos = {config['nombre']: set() for config in jugadores_config} # Para evitar ofrecer el mismo perk varias veces
         self.casillas_especiales = {}
         self.habilidades_disponibles = crear_habilidades()
         self.ronda = 1
@@ -55,12 +60,13 @@ class JuegoOcaWeb:
         self.evento_global_duracion = 0
         self.ultimo_en_mid_game = None
         
-        print(f"--- JuegoOcaWeb __init__ --- Jugadores: {nombres_jugadores}")
+        # Log para mostrar la configuración
+        print(f"--- JuegoOcaWeb __init__ --- Jugadores Config: {jugadores_config}")
         print(f"--- JuegoOcaWeb __init__ --- Turno inicial: {self.turno_actual}")
 
         self._crear_casillas_especiales()
         self._cargar_energia_desde_archivo()
-        self._asignar_habilidades_jugadores()
+        self._asignar_habilidades_jugadores() # Esta función ahora usará el kit
 
     def _crear_casillas_especiales(self):
         from random import sample, choice # Asegurarse de que están importados
@@ -89,14 +95,14 @@ class JuegoOcaWeb:
             {"tipo": "intercambio_recurso", "simbolo": "⚙️", "nombre": "Chatarrería", "id_unico": "chatarreria"},
         ]
 
-        # 2. DEFINE LAS POSICIONES VÁLIDAS
+        # DEFINE LAS POSICIONES VÁLIDAS
         posiciones_validas = list(range(4, self.posicion_meta - 1)) 
 
-        # 3. DEFINE CUÁNTAS CASILLAS QUIERES Y CUÁNTOS TIPOS ÚNICOS MÁXIMO
+        # DEFINE CUÁNTAS CASILLAS QUIERES Y CUÁNTOS TIPOS ÚNICOS MÁXIMO
         CANTIDAD_ESPECIALES = 20  
         MAX_TIPOS_UNICOS = len(POOL_DE_CASILLAS) # Máximo 16 tipos únicos
         
-        # 4. SELECCIONAR QUÉ TIPOS DE CASILLAS VAMOS A USAR
+        # SELECCIONAR QUÉ TIPOS DE CASILLAS VAMOS A USAR
         # Seleccionar una lista de IDs únicos para garantizar la diversidad
         pool_ids_unicos = [c["id_unico"] for c in POOL_DE_CASILLAS]
         
@@ -109,15 +115,15 @@ class JuegoOcaWeb:
         # Lista final de casillas, priorizando la unicidad
         casillas_seleccionadas = []
         
-        # 5. Llenar con los tipos únicos (Garantiza que el juego tenga un poco de todo)
+        # Llenar con los tipos únicos (Garantiza que el juego tenga un poco de todo)
         for unique_id in tipos_a_usar_ids:
             casillas_seleccionadas.append(tipos_config[unique_id])
 
-        # 6. Llenar el resto de las ranuras con tipos al azar (sin forzar unicidad de tipo, solo de ID)
+        # Llenar el resto de las ranuras con tipos al azar (sin forzar unicidad de tipo, solo de ID)
         while len(casillas_seleccionadas) < CANTIDAD_ESPECIALES:
             casillas_seleccionadas.append(choice(POOL_DE_CASILLAS))
 
-        # 7. SELECCIONAR POSICIONES AL AZAR Y ASIGNAR CASILLAS
+        # SELECCIONAR POSICIONES AL AZAR Y ASIGNAR CASILLAS
         posiciones_elegidas = sample(posiciones_validas, CANTIDAD_ESPECIALES)
 
         for pos, casilla_data in zip(posiciones_elegidas, casillas_seleccionadas):
@@ -157,22 +163,39 @@ class JuegoOcaWeb:
             ]
     
     def _asignar_habilidades_jugadores(self):
-        habilidades_usadas = []
+        print("--- Asignando habilidades basadas en KITS seleccionados ---")
         
-        for jugador in self.jugadores:
-            jugador.habilidades = []
-            
-            for categoria in ["ofensiva", "defensiva", "movimiento", "control"]:
-                habilidades_disponibles = [h for h in self.habilidades_disponibles[categoria] 
-                                          if h.nombre not in habilidades_usadas]
-                
-                if habilidades_disponibles:
-                    habilidad_elegida = choice(habilidades_disponibles)
-                    jugador.habilidades.append(habilidad_elegida)
-                    habilidades_usadas.append(habilidad_elegida.nombre)
+        # Crear un mapa de todos los objetos Habilidad por nombre
+        mapa_habilidades = {}
+        habilidades_por_categoria = self.habilidades_disponibles 
+        
+        for categoria in habilidades_por_categoria.values():
+            for habilidad_obj in categoria:
+                mapa_habilidades[habilidad_obj.nombre] = habilidad_obj
 
+        # Asignar habilidades a cada jugador según su kit
         for jugador in self.jugadores:
+            # Lee el kit_id que guardamos en el jugador en __init__
+            kit_id = getattr(jugador, 'kit_seleccionado', 'tactico') 
+            # Obtiene la config del kit desde la constante importada
+            kit_config = KITS_VOLTRACE.get(kit_id, KITS_VOLTRACE['tactico']) 
+            
+            nombres_habilidades_kit = kit_config['habilidades']
+            
+            jugador.habilidades = [] # Limpiar por si acaso
+            
+            for nombre_hab in nombres_habilidades_kit:
+                habilidad_obj = mapa_habilidades.get(nombre_hab)
+                if habilidad_obj:
+                    jugador.habilidades.append(habilidad_obj)
+                else:
+                    # Log crítico si hay un typo en la config de KITS_VOLTRACE
+                    print(f"!!! ADVERTENCIA: Habilidad '{nombre_hab}' del kit '{kit_id}' no encontrada en mapa_habilidades.")
+
+            # 3. Poner todas las habilidades asignadas en cooldown 0
             jugador.habilidades_cooldown = {h.nombre: 0 for h in jugador.habilidades}
+            
+            print(f"-> Jugador {jugador.get_nombre()} recibe Kit '{kit_config['nombre']}' con {len(jugador.habilidades)} habilidades.")
 
     # ===================================================================
     # --- 2. FLUJO PRINCIPAL DEL JUEGO (EL TURNO) ---
@@ -1214,7 +1237,7 @@ class JuegoOcaWeb:
         return {"exito": True, "pm_restantes": jugador.get_pm()}
     
     # ===================================================================
-    # --- 5. LÓGICA DE HABILIDADES (El bloque "_hab_") ---
+    # --- 5. LÓGICA DE HABILIDADES ---
     # ===================================================================
     
     def _hab_transferencia_de_fase(self, jugador, habilidad, objetivo):
@@ -1249,7 +1272,7 @@ class JuegoOcaWeb:
              eventos.append(f"🔮 {jugador_objetivo.get_nombre()} disipó el Bloqueo Energético con Barrera.")
              return {"exito": False, "eventos": eventos}
 
-        # Aplicar el efecto de bloqueo (dura 2 rondas)
+        # Aplicar el efecto de bloqueo 
         duracion_turnos = 2 # 2 rondas
         jugador_objetivo.efectos_activos.append({"tipo": "bloqueo_energia", "turnos": duracion_turnos})
         eventos.append(f"🚫 {jugador_objetivo.get_nombre()} no podrá ganar energía durante {duracion_turnos} turnos.")
@@ -1531,7 +1554,7 @@ class JuegoOcaWeb:
         return {
             "exito": True, 
             "eventos": eventos,
-            "es_movimiento_multiple": True, # ¡La flag clave!
+            "es_movimiento_multiple": True, 
             "movimientos": movimientos_planificados
         }
 
@@ -1632,7 +1655,7 @@ class JuegoOcaWeb:
             meta_alcanzada = True
             eventos.append(f"🏆 ¡{jugador.get_nombre()} llegó a la meta con Cohete!")
 
-        # Devolver datos de movimiento (sin procesar casilla)
+        # Devolver datos de movimiento 
         return {
             "exito": True, 
             "eventos": eventos,
@@ -1952,19 +1975,19 @@ class JuegoOcaWeb:
         return ganador_final
 
     def _calcular_puntaje_final_avanzado(self, jugador):
-        # --- 1. PUNTUACIÓN BASE Y VELOCIDAD ---
+        # --- PUNTUACIÓN BASE Y VELOCIDAD ---
         puntaje_energia = jugador.get_puntaje() * 1
         puntaje_posicion = jugador.get_posicion() * 1
         
         # Bono por llegar a la meta (Casilla 75)
         puntaje_meta = 100 if jugador.get_posicion() >= 75 and jugador.get_puntaje() > 0 else 0
         
-        # --- 2. INTERACCIÓN Y CONFLICTO ---
+        # --- INTERACCIÓN Y CONFLICTO ---
         # Colisiones Causadas
         colisiones_causadas = getattr(jugador, 'colisiones_causadas', 0)
         puntaje_colisiones = colisiones_causadas * 15 
         
-        # --- 3. RECURSOS E INVERSIÓN (AJUSTADO) ---
+        # --- RECURSOS E INVERSIÓN ---
         
         # Puntos de Mando (PM) Sobrantes
         pm_sobrantes = getattr(jugador, 'pm', 0)

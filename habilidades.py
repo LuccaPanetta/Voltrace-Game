@@ -54,3 +54,40 @@ def crear_habilidades():
             Habilidad("Sobrecarga Inestable", "control", "Sacrifica 50 de energía ahora. Próximo turno: 33% -25E, 33% +75E, 33% +150E", "🎲", 4),
         ],
     }
+
+# ===================================================================
+# --- 5. DEFINICIÓN DE KITS DE HABILIDADES ---
+# ===================================================================
+#
+# Define los 5 kits únicos del juego.
+# La lógica del juego leerá esto para asignar habilidades.
+#
+# ===================================================================
+
+KITS_VOLTRACE = {
+    "tactico": {
+        "nombre": "Táctico",
+        "descripcion": "Control y precisión. Débil contra daño directo, pero excelente para controlar oponentes.",
+        "habilidades": ["Sabotaje", "Barrera", "Rebote Controlado", "Dado Perfecto"]
+    },
+    "ingeniero": {
+        "nombre": "Ingeniero",
+        "descripcion": "Zona y velocidad. Rápido para escapar y poner trampas.",
+        "habilidades": ["Bomba Energética", "Invisibilidad", "Cohete", "Mina de Energía"]
+    },
+    "espectro": {
+        "nombre": "Espectro",
+        "descripcion": "Caos y evasión. Ignora las reglas del tablero y altera posiciones.",
+        "habilidades": ["Fuga de Energía", "Transferencia de Fase", "Intercambio Forzado", "Caos"]
+    },
+    "guardian": {
+        "nombre": "Guardián",
+        "descripcion": "Anti-habilidades. Difícil de matar y castiga a quienes dependen de la energía.",
+        "habilidades": ["Tsunami", "Escudo Total", "Retroceso", "Bloqueo Energético"]
+    },
+    "estratega": {
+        "nombre": "El Estratega",
+        "descripcion": "Alto riesgo, alta recompensa. Sin escape, pero gran control y tempo.",
+        "habilidades": ["Robo", "Curación", "Doble Turno", "Sobrecarga Inestable"]
+    }
+}
