@@ -128,6 +128,12 @@ export function openPerkModal() {
 function closePerkModal() {
     playSound('OpenCloseModal', 0.2);
     if (modalPerksElement) modalPerksElement.style.display = "none";
+    if (perkOfferContainerDisplay && perkOfferContainerDisplay.innerHTML !== "") {
+        console.log("Cerrando modal con oferta activa. Notificando al servidor para cancelar...");
+        if (_socket && _idSala && _idSala.value) {
+            _socket.emit("cancelar_oferta_perk", { id_sala: _idSala.value });
+        }
+    }
     reactivarBotonesPackSiEsPosible(); // Reactiva botones al cerrar
 }
 

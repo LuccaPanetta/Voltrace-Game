@@ -94,6 +94,10 @@ import { AnimationSystem } from './animations.js';
         const modalFinal = document.getElementById("modal-final");
         if (modalFinal) modalFinal.style.display = "none";
 
+        if (state.idSala.value) {
+            socket.emit("abandonar_revancha", { id_sala_original: state.idSala.value });
+        }
+
         state.idSala.value = null; 
         Object.assign(state.estadoJuego, {});
         Object.assign(state.mapaColores, {});

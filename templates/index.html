@@ -241,6 +241,60 @@
          margin-top: 10px; 
          width: 100%; 
     }
+    
+    /* --- INICIO DE MODIFICACIÓN (Estilos del Glosario) --- */
+    /* (Quitamos las etiquetas <style> anidadas) */
+    .glossary-section {
+        margin-bottom: 24px;
+    }
+    .glossary-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 10px;
+    }
+    .glossary-item {
+        background-color: #1f2937;
+        border: 1px solid #374151;
+        padding: 10px 12px;
+        border-radius: 6px;
+    }
+    .glossary-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 4px;
+    }
+    .glossary-item h4 {
+        margin: 0;
+        color: var(--primary);
+        font-size: 1em;
+        display: flex;
+        align-items: center;
+    }
+    .glossary-item h4 span.simbolo {
+        font-size: 1.2em;
+        margin-right: 8px;
+    }
+    .glossary-item-tag {
+        font-size: 0.8em;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: #374151;
+        color: var(--muted);
+        text-transform: capitalize;
+    }
+    .glossary-item p {
+        margin: 0;
+        font-size: 0.9em;
+        color: var(--muted);
+    }
+    .glossary-item p.requires {
+        font-size: 0.8em;
+        color: var(--warning);
+        margin-top: 6px;
+    }
+    /* --- FIN DE MODIFICACIÓN --- */
+    
     </style>
 </head>
 
@@ -367,6 +421,7 @@
                     <div class="info-tabs">
                         <button id="btn-abrir-reglas" class="info-tab-button">📖 Cómo Jugar</button>
                         <button id="tab-ranking" class="info-tab-button">Top 5</button>
+                        <button id="tab-glossary" class="info-tab-button">📚 Glosario</button>
                     </div>
                     
                     <div id="rules-content" class="info-content active">
@@ -389,6 +444,22 @@
                             <div class="loading-rankings">Cargando rankings...</div>
                         </div>
                     </div>
+                    
+                    <div id="glossary-content" class="info-content">
+                        <div class="glossary-section">
+                            <h3>⚡ Habilidades</h3>
+                            <div id="glossary-abilities-list" class="glossary-list">
+                                <p>Cargando habilidades...</p>
+                            </div>
+                        </div>
+                        <div class="glossary-section">
+                            <h3>⭐ Perks</h3>
+                            <div id="glossary-perks-list" class="glossary-list">
+                                <p>Cargando perks...</p>
+                            </div>
+                        </div>
+                    </div>
+                    
                 </div>
             </div>
         </div>
@@ -469,11 +540,13 @@
                             <li><strong>🔄 Intercambio:</strong> Intercambias posición con un oponente al azar.</li>
                             
                             <li><strong>💸 Peaje Costoso:</strong> Pierdes 75 de Energía y 3 PM.</li>
+                            
                             <li><strong>⚡ Turbo:</strong> Duplica tu siguiente tirada de dado.</li>
                             <li><strong>🧛 Vampiro:</strong> Pierdes un 10% de tu energía actual.</li>
                             <li><strong>↩️ Rebote:</strong> Retrocedes 5-10 casillas.</li>
                             
                             <li><strong>⚫ Agujero Negro:</strong> Retrocedes 20 casillas.</li>
+                            
                             <li><strong>⭐ Pozo de PM:</strong> Ganas 3 Puntos de Mejora (PM).</li>
                             <li><strong>🧲 Imán:</strong> Atraes a los demás jugadores 2 casillas hacia ti.</li>
                             <li><strong>⚙️ Chatarrería:</strong> Intercambias 50 de Energía por 3 PM.</li>

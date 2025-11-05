@@ -506,15 +506,14 @@ class JuegoOcaWeb:
                 self.eventos_turno.append(f"🌀 Teletransporte: avanzas {avance} a {nueva_pos}") 
 
             elif tipo == "multiplicador":
-                duracion_turnos = len(self.jugadores) + 1
+                duracion_turnos = 1 
                 jugador.efectos_activos.append({"tipo": "multiplicador", "turnos": duracion_turnos})
-                self.eventos_turno.append(f"×2 Tu próxima energía se duplicará (Efecto dura {duracion_turnos} turnos)")
+                self.eventos_turno.append(f"×2 Tu próxima energía se duplicará (Efecto dura {duracion_turnos} turno)")
 
             elif tipo == "pausa":
                 energia_perdida = casilla.get("valor_energia", -75)
                 pm_perdidos = casilla.get("valor_pm", -3)
                 
-                # Aplicar pérdida de energía (respeta Aislamiento, Último Aliento, etc.)
                 energia_perdida_real = energia_perdida
                 if "aislamiento" in jugador.perks_activos:
                     energia_perdida_real = int(energia_perdida_real * 0.80)
@@ -523,14 +522,13 @@ class JuegoOcaWeb:
                 jugador.procesar_energia(energia_perdida_real)
                 self.eventos_turno.append(f"💸 Peaje Costoso: Pierdes {abs(energia_perdida_real)} E.")
                 
-                # Aplicar pérdida de PM (directa)
                 jugador.gastar_pm(abs(pm_perdidos))
                 self.eventos_turno.append(f"💸 Peaje Costoso: Pierdes {abs(pm_perdidos)} PM.")
 
             elif tipo == "turbo":
-                duracion_turnos = len(self.jugadores) + 1
+                duracion_turnos = 1 
                 jugador.efectos_activos.append({"tipo": "turbo", "turnos": duracion_turnos})
-                self.eventos_turno.append(f"⚡ Tu próximo movimiento se duplicará (Efecto dura {duracion_turnos} turnos)")
+                self.eventos_turno.append(f"⚡ Tu próximo movimiento se duplicará (Efecto dura {duracion_turnos} turno)")
 
             elif tipo == "vampiro":
                 drenaje = max(0, jugador.get_puntaje() * casilla.get("porcentaje", 0) // 100)
@@ -569,7 +567,6 @@ class JuegoOcaWeb:
                 if nueva_pos != pos_actual:
                     jugador.teletransportar_a(nueva_pos)
                     self.eventos_turno.append(f"⚫ Agujero Negro: Retrocedes {retroceso_fijo} casillas a {nueva_pos}.")
-                    # Procesar colisión en la nueva casilla
                     self._verificar_colision(jugador, nueva_pos) 
                 else:
                     self.eventos_turno.append(f"⚫ Agujero Negro: Retrocedes {pos_actual - 1} casillas a {nueva_pos}.")
@@ -1176,7 +1173,33 @@ class JuegoOcaWeb:
         
         # Devolver éxito y PM actualizados
         return {"exito": True, "mensaje": mensaje_exito, "pm_restantes": jugador.get_pm()}
+    
+    def _cancelar_oferta_perk(self, nombre_jugador):
+        jugador = self._encontrar_jugador(nombre_jugador)
+        if not jugador:
+            return {"exito": False, "pm_restantes": 0}
 
+        oferta_activa = getattr(jugador, 'oferta_perk_activa', None)
+        
+        if oferta_activa:
+            coste_pagado = oferta_activa.get("coste_pagado", 0)
+            if coste_pagado > 0:
+                # Devolver los PM
+                jugador.ganar_pm(coste_pagado, fuente="reembolso_perk")
+                self.eventos_turno.append(f"↩️ Oferta de perk cancelada. {coste_pagado} PM devueltos a {nombre_jugador}.")
+            
+            # Limpiar la oferta
+            jugador.limpiar_oferta_perk() # Llama a jugador.oferta_perk_activa = None
+            
+            return {
+                "exito": True, 
+                "pm_restantes": jugador.get_pm(),
+                "mensaje": "Oferta cancelada. PM devueltos."
+            }
+        
+        # No había oferta activa, no hacer nada
+        return {"exito": True, "pm_restantes": jugador.get_pm()}
+    
     # ===================================================================
     # --- 5. LÓGICA DE HABILIDADES (El bloque "_hab_") ---
     # ===================================================================
@@ -1184,7 +1207,7 @@ class JuegoOcaWeb:
     def _hab_transferencia_de_fase(self, jugador, habilidad, objetivo):
         eventos = []
         # Aplicar un efecto temporal que se verificará en _procesar_efectos_posicion y _verificar_colision
-        duracion_turnos = len(self.jugadores) + 1
+        duracion_turnos = 1
         jugador.efectos_activos.append({"tipo": "fase_activa", "turnos": duracion_turnos})
         eventos.append("👻 Transferencia de Fase: Serás intangible e inmune a casillas negativas en tu próximo movimiento de dado.")
         return {"exito": True, "eventos": eventos}
@@ -1214,7 +1237,7 @@ class JuegoOcaWeb:
              return {"exito": False, "eventos": eventos}
 
         # Aplicar el efecto de bloqueo (dura 2 rondas)
-        duracion_turnos = len(self.jugadores) * 2 # 2 rondas
+        duracion_turnos = 2 # 2 rondas
         jugador_objetivo.efectos_activos.append({"tipo": "bloqueo_energia", "turnos": duracion_turnos})
         eventos.append(f"🚫 {jugador_objetivo.get_nombre()} no podrá ganar energía durante {duracion_turnos} turnos.")
         
@@ -1231,7 +1254,7 @@ class JuegoOcaWeb:
         jugador.procesar_energia(-costo_inicial)
         eventos.append(f"🎲 Sobrecarga Inestable: Pagaste {costo_inicial} E. El resultado se aplicará en tu próximo turno.")
         
-        duracion_turnos = len(self.jugadores) + 1
+        duracion_turnos = 1
         jugador.efectos_activos.append({"tipo": "sobrecarga_pendiente", "turnos": duracion_turnos})
         
         return {"exito": True, "eventos": eventos}
@@ -1255,7 +1278,7 @@ class JuegoOcaWeb:
             
             # Aplicar efecto al ATACANTE 
             rondas_pausa = 2 if "sabotaje_persistente" in jugador.perks_activos else 1
-            turnos_pausa_total = (len(self.jugadores) * rondas_pausa) + 1
+            turnos_pausa_total = rondas_pausa
             
             # Verificar si el ATACANTE está protegido 
             if self._verificar_efecto_activo(jugador, "escudo"):
@@ -1278,7 +1301,7 @@ class JuegoOcaWeb:
         
         # Aplicar efecto (si no fue reflejado ni bloqueado)
         rondas_pausa = 2 if "sabotaje_persistente" in jugador.perks_activos else 1
-        turnos_pausa_total = (len(self.jugadores) * rondas_pausa) + 1
+        turnos_pausa_total = rondas_pausa
         obj.efectos_activos.append({"tipo": "pausa", "turnos": turnos_pausa_total})
         eventos.append(f"⚔️ {obj.get_nombre()} perderá su{'s próximos' if rondas_pausa > 1 else ' próximo'} {rondas_pausa} turno{'s' if rondas_pausa > 1 else ''}!")
         return {"exito": True, "eventos": eventos}
@@ -1451,10 +1474,14 @@ class JuegoOcaWeb:
         empuje_base = 5 if "maremoto" in jugador.perks_activos else 3 
         afectados = []
         
+        movimientos_planificados = [] # Lista para guardar los movimientos
+
         for j in self.jugadores:
             # Solo afectar a jugadores activos
             if j.esta_activo():
                 
+                pos_inicial_j = j.get_posicion() # Guardar pos inicial
+
                 empuje_final_jugador = empuje_base 
                 
                 # Comprobar si el OBJETIVO tiene el perk "Desvío Cinético"
@@ -1465,9 +1492,20 @@ class JuegoOcaWeb:
 
                 # Aplicar el empuje final calculado para este jugador 'j'
                 nueva = max(1, j.get_posicion() - empuje_final_jugador) 
+                
                 if nueva != j.get_posicion(): 
                     j.teletransportar_a(nueva)
                     afectados.append(f"{j.get_nombre()} a {nueva}")
+
+                    # Añadir a la lista de movimientos para la animación
+                    movimientos_planificados.append({
+                        "jugador": j.get_nombre(),
+                        "pos_inicial": pos_inicial_j,
+                        "pos_final": nueva,
+                        "meta_alcanzada": False, # Tsunami no puede llevar a la meta
+                        "dado": empuje_final_jugador
+                    })
+
                     # Procesar efectos/colisión en la nueva casilla SIEMPRE después del movimiento
                     self._procesar_efectos_posicion(j, nueva)
                     self._verificar_colision(j, nueva)
@@ -1477,7 +1515,12 @@ class JuegoOcaWeb:
         else:
             eventos.append("🌊 Tsunami no afectó a nadie.")
             
-        return {"exito": True, "eventos": eventos}
+        return {
+            "exito": True, 
+            "eventos": eventos,
+            "es_movimiento_multiple": True, # ¡La flag clave!
+            "movimientos": movimientos_planificados
+        }
 
     def _hab_escudo_total(self, jugador, habilidad, objetivo):
         eventos = []
@@ -1487,7 +1530,7 @@ class JuegoOcaWeb:
             rondas_duracion += 1 # 4 rondas total
             eventos.append("🛡️ Escudo Duradero: ¡El escudo durará 1 ronda adicional!")
 
-        turnos_duracion = len(self.jugadores) * rondas_duracion
+        turnos_duracion = rondas_duracion
         jugador.efectos_activos.append({"tipo": "escudo", "turnos": turnos_duracion})
         eventos.append(f"🛡️ ¡Protección activada por {rondas_duracion} rondas ({turnos_duracion} turnos)!")
         return {"exito": True, "eventos": eventos}

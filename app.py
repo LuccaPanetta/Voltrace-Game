@@ -51,6 +51,8 @@ from juego_web import JuegoOcaWeb        # Lógica del juego
 from achievements import AchievementSystem  # Sistema de logros
 from social import SocialSystem          # Sistema social
 from models import User, db              # Modelos de base de datos
+from habilidades import crear_habilidades
+from perks import PERKS_CONFIG
 
 # --- Configuración de Flask ---
 app = Flask(__name__)
@@ -691,6 +693,38 @@ def respond_to_invitation_route(username, invitation_id, response):
     # Aquí podrías notificar al remitente de la invitación sobre la respuesta
     return jsonify(result)
 
+@app.route('/api/get_all_abilities')
+def get_all_abilities():
+    try:
+        # crear_habilidades() devuelve un dict de listas de objetos Habilidad
+        habilidades_dict = crear_habilidades()
+        habilidades_json_ready = {}
+        
+        # Convertir los objetos Habilidad en diccionarios para que JSON pueda leerlos
+        for categoria, lista_habilidades in habilidades_dict.items():
+            habilidades_json_ready[categoria] = []
+            for hab in lista_habilidades:
+                habilidades_json_ready[categoria].append({
+                    "nombre": hab.nombre,
+                    "tipo": hab.tipo,
+                    "descripcion": hab.descripcion,
+                    "simbolo": hab.simbolo,
+                    "cooldown_base": hab.cooldown_base
+                })
+        return jsonify(habilidades_json_ready)
+    except Exception as e:
+        print(f"!!! ERROR en /api/get_all_abilities: {e}")
+        return jsonify({"error": "No se pudieron cargar las habilidades"}), 500
+
+@app.route('/api/get_all_perks')
+def get_all_perks():
+    try:
+        # PERKS_CONFIG ya está en un formato de diccionario listo para JSON
+        return jsonify(PERKS_CONFIG)
+    except Exception as e:
+        print(f"!!! ERROR en /api/get_all_perks: {e}")
+        return jsonify({"error": "No se pudieron cargar los perks"}), 500
+    
 # ===================================================================
 # --- 3. HANDLERS DE SOCKET.IO (Conexión y Lobby) ---
 # ===================================================================
@@ -712,12 +746,24 @@ def authenticate(data):
         social_system.update_user_presence(username, 'online', {'sid': request.sid})
         print(f"--- SOCKET AUTHENTICATED --- User: {username}, SID: {request.sid}")
 
+        try:
+            friends_list = social_system.get_friends_list_server(username)
+            for friend_username in friends_list:
+                friend_sid = social_system.presence_data.get(friend_username, {}).get('extra_data', {}).get('sid')
+                if friend_sid:
+                    socketio.emit('friend_status_update', {
+                        'username': username, # Quién cambió
+                        'status': 'online'      # Cuál es su nuevo estado
+                    }, room=friend_sid)
+        except Exception as e:
+            print(f"!!! ERROR al notificar conexión a amigos: {e}")
+
 @socketio.on('disconnect')
 def on_disconnect():
     # Se ejecuta cuando un cliente se desconecta
     print(f"Cliente desconectado: {request.sid}")
 
-    # 1. Obtener username y limpiar de sesiones activas
+    # Obtener username y limpiar de sesiones activas
     sesion_info = sessions_activas.pop(request.sid, {})
     username_desconectado = sesion_info.get('username')
 
@@ -725,10 +771,22 @@ def on_disconnect():
         print("Desconexión de un SID no autenticado.")
         return
 
-    # 2. Actualizar presencia social a 'offline'
+    # Actualizar presencia social a 'offline'
     social_system.update_user_presence(username_desconectado, 'offline')
+    
+    try:
+        friends_list = social_system.get_friends_list_server(username_desconectado)
+        for friend_username in friends_list:
+            friend_sid = social_system.presence_data.get(friend_username, {}).get('extra_data', {}).get('sid')
+            if friend_sid:
+                socketio.emit('friend_status_update', {
+                    'username': username_desconectado, # Quién cambió
+                    'status': 'offline'               # Cuál es su nuevo estado
+                }, room=friend_sid)
+    except Exception as e:
+        print(f"!!! ERROR al notificar desconexión a amigos: {e}")
 
-    # 3. Buscar en qué sala estaba el jugador
+    # Buscar en qué sala estaba el jugador
     id_sala_afectada = None
     sala_afectada = None
     for id_sala, sala in salas_activas.items():
@@ -737,7 +795,7 @@ def on_disconnect():
             sala_afectada = sala
             break
 
-    # 4. Si estaba en una sala, finalizar la desconexión inmediatamente
+    # Si estaba en una sala, finalizar la desconexión inmediatamente
     if sala_afectada:
         print(f"--- DESCONEXIÓN INMEDIATA --- Jugador: {username_desconectado} en Sala: {id_sala_afectada}.")
         _finalizar_desconexion(request.sid, id_sala_afectada, username_desconectado)
@@ -1465,6 +1523,51 @@ def seleccionar_perk(data):
         print(f"--- SELECCIONAR PERK ERROR: Sala {id_sala} no encontrada o SID {sid} no está en la sala ---")
         emit('error', {'mensaje': 'Sala no encontrada o no estás en ella.'})
 
+@socketio.on('cancelar_oferta_perk')
+def cancelar_oferta_perk(data):
+    id_sala = data.get('id_sala')
+    sid = request.sid
+    print(f"\n--- RECIBIDO EVENTO: cancelar_oferta_perk --- SID: {sid}, Sala: {id_sala}")
+    
+    if not id_sala or id_sala not in salas_activas or sid not in salas_activas[id_sala].jugadores:
+        return # Fallo silencioso, no es crítico
+
+    sala = salas_activas[id_sala]
+    nombre_jugador = sala.jugadores[sid].get('nombre')
+
+    if sala.juego and nombre_jugador:
+        try:
+            resultado = sala.juego._cancelar_oferta_perk(nombre_jugador)
+            
+            if resultado.get('exito'):
+                print(f"--- Oferta de Perk cancelada para {nombre_jugador} ---")
+                # Notificar al jugador de sus PM actualizados
+                emit('perk_activado', { 
+                    "exito": True, 
+                    "mensaje": "Oferta de perk cancelada. PM devueltos.",
+                    "pm_restantes": resultado.get('pm_restantes')
+                }, to=sid)
+
+                # Notificar a todos del estado actualizado (por los PM)
+                colores_map = getattr(sala, 'colores_map', {})
+                estado_juego_parcial = {
+                    'jugadores': sala.juego.obtener_estado_jugadores(),
+                    'turno_actual': sala.juego.obtener_turno_actual(), 
+                    'ronda': sala.juego.ronda,
+                    'estado': sala.estado,
+                    'colores_jugadores': colores_map
+                }
+                socketio.emit('habilidad_usada_parcial', { 
+                    'jugador': nombre_jugador, 
+                    'habilidad': {'nombre': 'Canceló Perk', 'tipo': 'control', 'simbolo': '↩️'}, 
+                    'resultado': {'eventos': [resultado.get('mensaje')]}, 
+                    'estado_juego_parcial': estado_juego_parcial 
+                }, room=id_sala)
+
+        except Exception as e:
+            print(f"!!! ERROR en 'cancelar_oferta_perk': {e}")
+            traceback.print_exc()
+
 @socketio.on('solicitar_precios_perks')
 def solicitar_precios_perks(data):
     id_sala = data.get('id_sala')
@@ -1734,6 +1837,65 @@ def cancelar_revancha(data):
             print(f"Revancha Sala {id_sala_original}: Solicitud de {username} cancelada.")
             # Aquí podrías notificar a otros si lo deseas, pero usualmente no es necesario
 
+@socketio.on('abandonar_revancha')
+def abandonar_revancha(data):
+    id_sala_original = data.get('id_sala_original')
+    username = sessions_activas.get(request.sid, {}).get('username')
+
+    if not id_sala_original or not username or id_sala_original not in revanchas_pendientes:
+        return # No hay nada que hacer
+
+    info_revancha = revanchas_pendientes[id_sala_original]
+    
+    # Removerlo de la lista de participantes
+    participante_encontrado = None
+    for p in info_revancha['participantes']:
+        if p['nombre'] == username:
+            participante_encontrado = p
+            break
+    
+    if participante_encontrado:
+        info_revancha['participantes'].remove(participante_encontrado)
+        print(f"--- REVANCHA ABANDONADA ---: {username} salió de la cola de revancha de {id_sala_original}.")
+
+        # Si él estaba en la lista de solicitudes, removerlo también
+        if username in info_revancha['solicitudes']:
+            info_revancha['solicitudes'].remove(username)
+        
+        # Si todos los que *quedan* han aceptado
+        if len(info_revancha['solicitudes']) == len(info_revancha['participantes']) and len(info_revancha['solicitudes']) >= MIN_JUGADORES_REVANCHA:
+            print(f"--- Revancha (por abandono) ---: Todos los restantes ({len(info_revancha['solicitudes'])}) aceptaron. Iniciando.")
+            _crear_nueva_sala_revancha(id_sala_original)
+
+        # Si ahora es imposible alcanzar el mínimo
+        elif len(info_revancha['participantes']) < MIN_JUGADORES_REVANCHA:
+            print(f"--- Revancha (por abandono) ---: Imposible alcanzar el mínimo. Cancelando.")
+            # Notificar a los que SÍ se quedaron esperando
+            for p_data in info_revancha['participantes']:
+                p_sid_original = p_data.get('sid') # El SID original de la sala anterior
+                if p_sid_original:
+                     # Usamos el SID original porque el jugador está en el modal de fin de juego
+                     socketio.emit('revancha_cancelada', {'mensaje': f'{username} abandonó. Revancha cancelada.'}, room=p_sid_original)
+            
+            # Limpiar
+            if info_revancha.get('timer'): info_revancha['timer'].cancel()
+            revanchas_pendientes.pop(id_sala_original, None)
+
+        # Si todavía es posible pero no todos han aceptado 
+        else:
+            # Emitir la actualización para que el que se quedó vea que el otro se fue
+            try:
+                lista_solicitudes = list(info_revancha['solicitudes'])
+                lista_participantes = [p['nombre'] for p in info_revancha['participantes']]
+                
+                # Emitir a la sala original (que es donde están los modales)
+                socketio.emit('revancha_actualizada', {
+                    'lista_solicitudes': lista_solicitudes,
+                    'lista_participantes': lista_participantes
+                }, room=id_sala_original)
+            except Exception as e:
+                print(f"!!! ERROR al emitir 'revancha_actualizada' (por abandono): {e}")
+    
 @socketio.on('pedir_top_5')
 def manejar_pedir_top_5():
     # Handler para obtener el top 5 (parece específico para alguna UI, mantener por si acaso)
@@ -1758,6 +1920,47 @@ def manejar_pedir_top_5():
 
 def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
     print(f"--- Finalizando desconexión de {username_desconectado} (SID: {sid_original}) de sala {id_sala}")
+
+    # Si un jugador se desconecta, hay que sacarlo de la cola de revancha
+    if id_sala in revanchas_pendientes:
+        info_revancha = revanchas_pendientes[id_sala]
+        
+        participante_encontrado = None
+        for p in info_revancha['participantes']:
+            if p['nombre'] == username_desconectado:
+                participante_encontrado = p
+                break
+        
+        if participante_encontrado:
+            info_revancha['participantes'].remove(participante_encontrado)
+            print(f"--- REVANCHA (Desconexión) ---: {username_desconectado} salió de la cola de revancha de {id_sala}.")
+
+            if username_desconectado in info_revancha['solicitudes']:
+                info_revancha['solicitudes'].remove(username_desconectado)
+            
+            # Recalcular (misma lógica que 'abandonar_revancha')
+            if len(info_revancha['solicitudes']) == len(info_revancha['participantes']) and len(info_revancha['solicitudes']) >= MIN_JUGADORES_REVANCHA:
+                print(f"--- Revancha (por desconexión) ---: Todos los restantes ({len(info_revancha['solicitudes'])}) aceptaron. Iniciando.")
+                _crear_nueva_sala_revancha(id_sala)
+            elif len(info_revancha['participantes']) < MIN_JUGADORES_REVANCHA:
+                print(f"--- Revancha (por desconexión) ---: Imposible alcanzar el mínimo. Cancelando.")
+                for p_data in info_revancha['participantes']:
+                    p_sid_original = p_data.get('sid')
+                    if p_sid_original:
+                         socketio.emit('revancha_cancelada', {'mensaje': f'{username_desconectado} se desconectó. Revancha cancelada.'}, room=p_sid_original)
+                if info_revancha.get('timer'): info_revancha['timer'].cancel()
+                revanchas_pendientes.pop(id_sala, None)
+            else:
+                # Notificar a los que quedan
+                try:
+                    lista_solicitudes = list(info_revancha['solicitudes'])
+                    lista_participantes = [p['nombre'] for p in info_revancha['participantes']]
+                    socketio.emit('revancha_actualizada', {
+                        'lista_solicitudes': lista_solicitudes,
+                        'lista_participantes': lista_participantes
+                    }, room=id_sala)
+                except Exception as e:
+                    print(f"!!! ERROR al emitir 'revancha_actualizada' (por desconexión): {e}")
 
     sala = salas_activas.get(id_sala)
     if not sala:
@@ -1833,7 +2036,10 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
             # Comprobar si el juego termina
             if sala.juego.ha_terminado():
                 print(f"--- JUEGO TERMINADO POR DESCONEXIÓN --- Sala: {id_sala}")
+                
+                # Cancelar cualquier timer de turno al terminar el juego
                 _cancelar_temporizador_turno(id_sala)
+                
                 sala.estado = 'terminado'
                 
                 ganador_obj = sala.juego.determinar_ganador()
@@ -1877,7 +2083,7 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
                                 unlocked_achievements = achievement_system.check_achievement(username, 'game_finished', event_data)
                                 if unlocked_achievements:
                                     socketio.emit('achievements_unlocked', {
-                                        'achievements': unlocked_achievements
+                                        'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_achievements]
                                     }, to=sid)
                             
                             # Actualizar presencia a 'online'
@@ -1928,8 +2134,11 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
                     'estado_juego': estado_juego_actualizado,
                     'eventos_recientes': eventos_recientes
                 }, room=id_sala)
+                
+                # Iniciar el timer para el *siguiente* jugador
                 if nuevo_turno_actual:
                     _iniciar_temporizador_turno(id_sala, nuevo_turno_actual)
+
         # Si la sala queda vacía, eliminarla
         if len(sala.jugadores) == 0:
             print(f"Sala {id_sala} vacía tras desconexión. Eliminando...")
@@ -2234,6 +2443,17 @@ def _procesar_estadisticas_fin_juego_async(app, jugadores_items, ganador_nombre,
         except Exception as e:
             print(f"!!! ERROR FATAL en hilo _procesar_estadisticas_fin_juego: {e}")
             traceback.print_exc()
+
+def get_friends_list_server_safe(username):
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return []
+    # Obtener los nombres de usuario de los amigos
+    friends = [friend.username for friend in user.friends]
+    return friends
+
+# Asignar la función a social_system para que el código anterior funcione
+social_system.get_friends_list_server = get_friends_list_server_safe
 
 def _procesar_login_diario(user_obj):
     if not user_obj:

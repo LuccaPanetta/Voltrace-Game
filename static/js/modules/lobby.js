@@ -12,6 +12,10 @@ let btnIniciarJuego, btnSalirSala, logEventosDisplay, chatMensajesLobbyDisplay;
 let mensajeLobbyInput, btnEnviarMensajeLobby;
 let tabRules, tabRanking, rulesContent, rankingContent;
 
+// --- INICIO DE MODIFICACIÓN (Glosario) ---
+let tabGlossary, glossaryContent, glossaryAbilitiesList, glossaryPerksList;
+// --- FIN DE MODIFICACIÓN ---
+
 // Referencias a funciones/elementos externos
 let _setLoadingFunc = null;
 let _showFunc = null;
@@ -27,6 +31,17 @@ const rankingCache = {
     lastLoaded: 0 // Timestamp
 };
 const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutos
+
+// --- INICIO DE MODIFICACIÓN (Glosario) ---
+// --- Caché del Glosario ---
+const glossaryCache = {
+    abilities: null,
+    perks: null,
+    isLoaded: false,
+    isLoading: false,
+};
+// --- FIN DE MODIFICACIÓN ---
+
 
 /**
  * Inicializa el módulo del lobby, cachea elementos y asigna listeners.
@@ -47,6 +62,13 @@ export function initLobby(socketRef, screensRef, showFuncRef, setLoadingFuncRef,
     tabRanking = document.getElementById("tab-ranking");
     rulesContent = document.getElementById("rules-content");
     rankingContent = document.getElementById("ranking-content");
+    
+    // --- INICIO DE MODIFICACIÓN (Glosario) ---
+    tabGlossary = document.getElementById("tab-glossary");
+    glossaryContent = document.getElementById("glossary-content");
+    glossaryAbilitiesList = document.getElementById("glossary-abilities-list");
+    glossaryPerksList = document.getElementById("glossary-perks-list");
+    // --- FIN DE MODIFICACIÓN ---
 
     // Cachear elementos DOM de Sala de Espera
     codigoSalaActualDisplay = document.getElementById("codigo-sala-actual");
@@ -66,6 +88,10 @@ export function initLobby(socketRef, screensRef, showFuncRef, setLoadingFuncRef,
     codigoSalaInput?.addEventListener("keypress", (e) => { if (e.key === 'Enter') handleUnirseSala(); });
     tabRules?.addEventListener("click", handleLobbyTabClick);
     tabRanking?.addEventListener("click", handleLobbyTabClick);
+    
+    // --- INICIO DE MODIFICACIÓN (Glosario) ---
+    tabGlossary?.addEventListener("click", handleLobbyTabClick);
+    // --- FIN DE MODIFICACIÓN ---
 
     btnCopiarCodigo?.addEventListener("click", handleCopiarCodigo);
     btnIniciarJuego?.addEventListener("click", handleIniciarJuego);
@@ -103,17 +129,29 @@ function handleUnirseSala() {
     _socket.emit("unirse_sala", { id_sala: codigo });
 }
 
+// --- INICIO DE MODIFICACIÓN (Glosario) ---
 function handleLobbyTabClick(event) {
     playSound('ClickMouse', 0.3);
-    const isRules = event.currentTarget === tabRules;
-    tabRules?.classList.toggle("active", isRules);
-    tabRanking?.classList.toggle("active", !isRules);
-    rulesContent?.classList.toggle("active", isRules);
-    rankingContent?.classList.toggle("active", !isRules);
-    if (!isRules) {
+    const target = event.currentTarget;
+
+    // Desactivar todos los botones y contenidos
+    [tabRules, tabRanking, tabGlossary].forEach(tab => tab?.classList.remove('active'));
+    [rulesContent, rankingContent, glossaryContent].forEach(content => content?.classList.remove('active'));
+
+    // Activar el botón y contenido correctos
+    if (target === tabRules) {
+        rulesContent?.classList.add('active');
+    } else if (target === tabRanking) {
+        rankingContent?.classList.add('active');
         loadTopPlayers(); // Carga ranking (ahora usa caché)
+    } else if (target === tabGlossary) {
+        glossaryContent?.classList.add('active');
+        loadGlossaryData(); // Carga el glosario (usa caché)
     }
+
+    target?.classList.add('active'); // Activa la pestaña clickeada
 }
+// --- FIN DE MODIFICACIÓN ---
 
 function handleCopiarCodigo() {
     playSound('ClickMouse', 0.3);
@@ -259,3 +297,133 @@ export function appendLobbyChatMessage(data) {
     chatMensajesLobbyDisplay.appendChild(div);
     chatMensajesLobbyDisplay.scrollTop = chatMensajesLobbyDisplay.scrollHeight;
 }
+
+// --- Funciones del Glosario ---
+
+/**
+ * Carga los datos de habilidades y perks desde la API (con caché).
+ */
+async function loadGlossaryData() {
+    if (glossaryCache.isLoaded || glossaryCache.isLoading) {
+        return; // Ya está cargado o cargando
+    }
+
+    console.log("Cargando datos del glosario...");
+    glossaryCache.isLoading = true;
+    if (glossaryAbilitiesList) glossaryAbilitiesList.innerHTML = '<p>Cargando habilidades...</p>';
+    if (glossaryPerksList) glossaryPerksList.innerHTML = '<p>Cargando perks...</p>';
+
+    try {
+        const [abilitiesResponse, perksResponse] = await Promise.all([
+            fetch('/api/get_all_abilities'),
+            fetch('/api/get_all_perks')
+        ]);
+
+        if (!abilitiesResponse.ok || !perksResponse.ok) {
+            throw new Error('No se pudo conectar con la API del glosario.');
+        }
+
+        const abilitiesData = await abilitiesResponse.json();
+        const perksData = await perksResponse.json();
+
+        glossaryCache.abilities = abilitiesData;
+        glossaryCache.perks = perksData;
+        glossaryCache.isLoaded = true;
+
+        _displayGlossaryAbilities(abilitiesData);
+        _displayGlossaryPerks(perksData);
+
+    } catch (error) {
+        console.error("Error al cargar glosario:", error);
+        if (glossaryAbilitiesList) glossaryAbilitiesList.innerHTML = `<p style="color: var(--danger);">Error al cargar habilidades.</p>`;
+        if (glossaryPerksList) glossaryPerksList.innerHTML = `<p style="color: var(--danger);">Error al cargar perks.</p>`;
+        glossaryCache.isLoaded = false; // Permitir reintento
+    } finally {
+        glossaryCache.isLoading = false;
+    }
+}
+
+/**
+ * Renderiza la lista de habilidades en el glosario.
+ * @param {object} data - Datos de habilidades (ej. {ofensiva: [], ...})
+ */
+function _displayGlossaryAbilities(data) {
+    if (!glossaryAbilitiesList || !data) return;
+    glossaryAbilitiesList.innerHTML = "";
+
+    const categorias = ['ofensiva', 'defensiva', 'movimiento', 'control'];
+
+    for (const categoria of categorias) {
+        const habilidades = data[categoria];
+        if (!habilidades || habilidades.length === 0) continue;
+
+        const categoriaTitle = document.createElement('h4');
+        categoriaTitle.textContent = categoria.charAt(0).toUpperCase() + categoria.slice(1);
+        categoriaTitle.style.cssText = "color: var(--text); border-bottom: 1px solid #374151; padding-bottom: 5px; margin-top: 10px;";
+        glossaryAbilitiesList.appendChild(categoriaTitle);
+
+        habilidades.forEach(hab => {
+            const item = document.createElement("div");
+            item.className = "glossary-item";
+            item.innerHTML = `
+                <div class="glossary-item-header">
+                    <h4><span class="simbolo">${hab.simbolo}</span>${escapeHTML(hab.nombre)}</h4>
+                    <span class="glossary-item-tag">CD: ${hab.cooldown_base}</span>
+                </div>
+                <p>${escapeHTML(hab.descripcion)}</p>
+            `;
+            glossaryAbilitiesList.appendChild(item);
+        });
+    }
+}
+
+/**
+ * Renderiza la lista de perks en el glosario.
+ * @param {object} data - Datos de perks (ej. {recarga_constante: {...}, ...})
+ */
+function _displayGlossaryPerks(data) {
+    if (!glossaryPerksList || !data) return;
+    glossaryPerksList.innerHTML = "";
+
+    // Convertir el objeto en un array y clasificar por tier
+    const perksPorTier = {
+        basico: [],
+        medio: [],
+        alto: []
+    };
+    
+    for (const perk of Object.values(data)) {
+        if (perksPorTier[perk.tier]) {
+            perksPorTier[perk.tier].push(perk);
+        }
+    }
+
+    // Renderizar por tier
+    for (const [tier, perks] of Object.entries(perksPorTier)) {
+        if (!perks || perks.length === 0) continue;
+
+        const tierTitle = document.createElement('h4');
+        tierTitle.textContent = `Tier ${tier.charAt(0).toUpperCase() + tier.slice(1)}`;
+        tierTitle.style.cssText = "color: var(--text); border-bottom: 1px solid #374151; padding-bottom: 5px; margin-top: 10px;";
+        glossaryPerksList.appendChild(tierTitle);
+
+        perks.forEach(perk => {
+            const item = document.createElement("div");
+            item.className = "glossary-item";
+            const requiresHtml = perk.requires_habilidad 
+                ? `<p class="requires">Requiere: ${escapeHTML(perk.requires_habilidad)}</p>` 
+                : '';
+                
+            item.innerHTML = `
+                <div class="glossary-item-header">
+                    <h4>${escapeHTML(perk.nombre)}</h4>
+                    <span class="glossary-item-tag">${escapeHTML(perk.tier)}</span>
+                </div>
+                <p>${escapeHTML(perk.desc)}</p>
+                ${requiresHtml}
+            `;
+            glossaryPerksList.appendChild(item);
+        });
+    }
+}
+// --- FIN DE MODIFICACIÓN ---
