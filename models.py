@@ -65,6 +65,8 @@ class User(db.Model, UserMixin):
     avatar_emoji = db.Column(db.String(10), nullable=False, default='👤')
     kit_id = db.Column(db.String(50), nullable=False, default='tactico')
     
+    maestrias = db.relationship('UserKitMaestria', backref='user', lazy='dynamic')
+
     # Estadísticas del jugador
     level = db.Column(db.Integer, default=1)
     xp = db.Column(db.Integer, default=0)
@@ -210,6 +212,18 @@ class User(db.Model, UserMixin):
             return None
         # Devuelve el usuario si el ID es válido
         return User.query.get(user_id)
+    
+class UserKitMaestria(db.Model):
+    __tablename__ = 'user_kit_maestria'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    kit_id = db.Column(db.String(50), nullable=False, index=True) # ej: "tactico", "espectro"
+    xp = db.Column(db.Integer, nullable=False, default=0)
+    level = db.Column(db.Integer, nullable=False, default=1) # (Por ahora solo guardamos XP, pero preparamos el nivel)
+
+    def __repr__(self):
+        return f'<Maestria {self.user_id} - {self.kit_id}: XP {self.xp}>'
 
 class PrivateMessage(db.Model):
     __tablename__ = 'private_message'

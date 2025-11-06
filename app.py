@@ -50,7 +50,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from juego_web import JuegoOcaWeb        # Lógica del juego
 from achievements import AchievementSystem  # Sistema de logros
 from social import SocialSystem          # Sistema social
-from models import User, db              # Modelos de base de datos
+from models import User, db, UserKitMaestria # Modelos de base de datos
 from habilidades import crear_habilidades, KITS_VOLTRACE
 from perks import PERKS_CONFIG
 
@@ -1737,6 +1737,48 @@ def solicitar_precios_perks(data):
 # --- 5. HANDLERS DE SOCKET.IO (Chat y Social) ---
 # ===================================================================
 
+@socketio.on('arsenal:cargar_maestria')
+def arsenal_cargar_maestria():
+    sid = request.sid
+    if sid not in sessions_activas:
+        emit('error', {'mensaje': 'No autenticado.'})
+        return
+        
+    username = sessions_activas[sid]['username']
+    print(f"--- RECIBIDO EVENTO: arsenal:cargar_maestria --- Usuario: {username}")
+
+    try:
+        user = User.query.filter_by(username=username).first()
+        if not user:
+            emit('error', {'mensaje': 'Usuario no encontrado.'})
+            return
+
+        # Consultar la DB por todas las maestrías de este usuario
+        maestrias_db = UserKitMaestria.query.filter_by(user_id=user.id).all()
+        # Convertir a un dict para búsqueda rápida: {'tactico': 150, 'espectro': 50}
+        maestrias_map = {m.kit_id: m.xp for m in maestrias_db}
+        
+        # Construir la lista completa de todos los kits
+        lista_completa_maestria = []
+        
+        # Usamos KITS_VOLTRACE como la fuente maestra
+        for kit_id, kit_config in KITS_VOLTRACE.items():
+            xp_actual = maestrias_map.get(kit_id, 0) # 0 si no está en la DB
+            
+            lista_completa_maestria.append({
+                "kit_id": kit_id,
+                "nombre": kit_config.get('nombre', kit_id.capitalize()),
+                "xp": xp_actual
+            })
+            
+        # Enviar los datos al cliente
+        emit('arsenal:maestria_data', lista_completa_maestria)
+
+    except Exception as e:
+        print(f"!!! ERROR en 'arsenal:cargar_maestria': {e}")
+        traceback.print_exc()
+        emit('error', {'mensaje': 'Error del servidor al cargar maestría.'})
+
 @socketio.on('enviar_mensaje')
 def manejar_mensaje(data):
     # Maneja mensajes enviados al chat de la sala (lobby o juego)
@@ -2520,6 +2562,34 @@ def _procesar_estadisticas_fin_juego_async(app, jugadores_items, ganador_nombre,
                                 # Resetear racha de victorias
                                 user_db.consecutive_wins = 0
                                 current_consecutive_wins = 0
+                            if user_db.level >= 5:
+                                try:
+                                    kit_usado = jugador_data.get('kit_id', 'tactico')
+                                    xp_maestria_ganada = 100 if is_winner else 50 # 100 XP por ganar, 50 por jugar
+                                    
+                                    # Buscar la maestría de este kit para este usuario
+                                    maestria = UserKitMaestria.query.filter_by(
+                                        user_id=user_db.id,
+                                        kit_id=kit_usado
+                                    ).first()
+                                    
+                                    if not maestria:
+                                        # Si no existe, crearla
+                                        maestria = UserKitMaestria(
+                                            user_id=user_db.id,
+                                            kit_id=kit_usado,
+                                            xp=0,
+                                            level=1
+                                        )
+                                    
+                                    # Añadir XP y guardar en la sesión de la DB
+                                    maestria.xp += xp_maestria_ganada
+                                    db.session.add(maestria)
+                                    print(f"--- MAESTRÍA: {xp_maestria_ganada} XP añadidos a {user_db.username} para kit {kit_usado}. Total: {maestria.xp}")
+
+                                except Exception as e:
+                                    db.session.rollback() # Revertir solo la maestría
+                                    print(f"!!! ERROR al procesar Maestría de Kit: {e}")
 
                             level_up = update_xp_and_level(user_db, xp_ganada) 
                             

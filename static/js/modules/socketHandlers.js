@@ -9,6 +9,7 @@ import { actualizarEstadoJuego, renderEventos, agregarAlLog, appendGameChatMessa
 import { displayPerkOffer, handlePerkActivated, updatePerkPrices } from './perks.js';
 import { appendPrivateMessage, updateSocialNotificationIndicator, invalidateSocialCache } from './social.js';
 import { invalidateAchievementsCache } from './achievements.js'; 
+import { handleMaestriaData } from './arsenal.js';
 
 let _socket = null;
 let _screens = null;
@@ -301,10 +302,14 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
              console.warn("Oferta de perk recibida pero modal cerrado.");
         }
     });
+    
     _socket.on("perk_activado", (data) => {
         handlePerkActivated(data); 
     });
 
+    _socket.on("arsenal:maestria_data", (data) => {
+        handleMaestriaData(data);
+    });
     _socket.on("achievements_unlocked", (data) => {
         if (data.achievements?.length > 0) {
             data.achievements.forEach(ach => {

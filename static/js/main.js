@@ -14,6 +14,7 @@ import { initSocial, loadSocialData } from './modules/social.js';
 import { initAchievements, loadAchievementsData } from './modules/achievements.js';
 import { setupSocketHandlers } from './modules/socketHandlers.js';
 import { AnimationSystem } from './animations.js';
+import { initArsenal } from './modules/arsenal.js';
 
 (function () {
     "use strict";
@@ -133,6 +134,7 @@ import { AnimationSystem } from './animations.js';
     initGameUI(socket, state, state.idSala, state.estadoJuego, state.mapaColores, state.habilidadUsadaTurno, openPerkModal);
     initPerks(socket, state, state.idSala, state.estadoJuego); 
     setupSocketHandlers(socket, screens, loadingElement, notificacionesContainer, state, gameAnimations);
+    initArsenal(socket, state);
 
     // --- Listeners para Kits ---
     const modalKits = document.getElementById('modal-kits');
