@@ -12,7 +12,9 @@ let userUsernameDisplay, userLevelDisplay, userXpDisplay;
 let statGamesPlayed, statGamesWon, statWinRate;
 let btnEditAvatar;
 let tabLogin, tabRegister, loginForm, registerForm;
-let modalAvatar, btnCerrarAvatar, avatarGrid;
+
+let modalAvatar, btnCerrarAvatar;
+
 let _setLoadingFunc = null;
 let _showFunc = null;
 let _screens = null;
@@ -66,7 +68,6 @@ export function initAuth(screensRef, showFuncRef, setLoadingFuncRef, loadingElem
 
     modalAvatar = document.getElementById("modal-avatar");
     btnCerrarAvatar = document.getElementById("btn-cerrar-avatar");
-    avatarGrid = document.getElementById("avatar-selection-grid");
 
 
     // --- Asignar Listeners ---
@@ -104,6 +105,11 @@ export function initAuth(screensRef, showFuncRef, setLoadingFuncRef, loadingElem
         if (e.target === modalAvatar) {
             closeAvatarModal();
         }
+    });
+
+    const avatarButtons = document.querySelectorAll('.avatar-btn');
+    avatarButtons.forEach(button => {
+        button.addEventListener('click', handleAvatarSelection);
     });
     
     console.log("Módulo Auth inicializado.");
@@ -264,30 +270,18 @@ async function registerAPI(email, username, password) {
 // --- Actualización de UI del Perfil ---
 
 /**
- * Prepara y abre el modal de selección de avatar.
+ * Prepara y abre el modal de selección de avatar (OPTIMIZADO).
  */
 function openAvatarModal() {
     playSound('OpenCloseModal', 0.3);
-    if (!_state || !_state.currentUser || !avatarGrid || !modalAvatar) return;
+    if (!_state || !_state.currentUser || !modalAvatar) return;
 
-    avatarGrid.innerHTML = ''; // Limpiar botones anteriores
-
-    // Generar un botón por cada emoji aprobado
-    AVATAR_LISTA_APROBADA.forEach(emoji => {
-        const button = document.createElement("button");
-        button.className = "avatar-btn";
-        button.textContent = emoji;
-        button.dataset.emoji = emoji; // Guardar el emoji en el data-attribute
-
-        // Marcar el que está seleccionado actualmente
-        if (emoji === _state.currentUser.avatar_emoji) {
-            button.classList.add("seleccionado");
-        }
-
-        // Añadir listener para manejar la selección
-        button.addEventListener('click', handleAvatarSelection);
-        
-        avatarGrid.appendChild(button);
+    // En lugar de crear botones, solo los marcamos/desmarcamos
+    const currentAvatar = _state.currentUser.avatar_emoji || '👤';
+    const avatarButtons = document.querySelectorAll('.avatar-btn');
+    
+    avatarButtons.forEach(button => {
+        button.classList.toggle('seleccionado', button.dataset.emoji === currentAvatar);
     });
 
     modalAvatar.style.display = 'flex';
@@ -302,13 +296,12 @@ function closeAvatarModal() {
 }
 
 /**
- * Se ejecuta al hacer clic en un botón de emoji.
+ * Se ejecuta al hacer clic en un botón de emoji (SIN CAMBIOS).
  */
 async function handleAvatarSelection(event) {
     const nuevoEmoji = event.currentTarget.dataset.emoji;
-
     // Si hace clic en el que ya tiene, solo cerrar
-    if (!nuevoEmoji || nuevoEmoji === _state.currentUser.avatar_emoji) {
+    if (!nuevoEmoji || !_state || !_state.currentUser || nuevoEmoji === _state.currentUser.avatar_emoji) {
         closeAvatarModal();
         return;
     }
@@ -316,7 +309,7 @@ async function handleAvatarSelection(event) {
     try {
         const response = await fetch('/api/set_avatar', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': "application/json" },
             body: JSON.stringify({ avatar_emoji: nuevoEmoji })
         });
         const data = await response.json();
@@ -335,6 +328,7 @@ async function handleAvatarSelection(event) {
         showNotification("Error de conexión al guardar avatar.", document.getElementById('notificaciones'), "error");
     }
 }
+
 export function updateProfileUI(user) {
     if (user) {
         // --- Header ---
@@ -369,6 +363,7 @@ export function updateProfileUI(user) {
 }
 
 export async function fetchAndUpdateUserProfile(username) {
+
     const notifContainer = document.getElementById('notificaciones'); 
     if (!username) {
         updateProfileUI(null); 
