@@ -182,10 +182,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    flex-wrap: wrap; /* Para que se vea bien en pantallas pequeñas */
 }
-/* --- FIN DE LAYOUT DEL LOBBY --- */
-
 
 .action-cards {
   display: grid;
@@ -1068,6 +1065,8 @@ button:active::after {
   align-items: center;
   gap: var(--gap-medium); /* Más espacio */
   flex-wrap: wrap; /* Permitir envolver */
+  flex-grow: 1; /* Ocupa el espacio disponible */
+  justify-content: flex-end; /* Alinea los botones a la derecha */
 }
 .user-profile {
   display: flex;

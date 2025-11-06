@@ -334,6 +334,18 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
         let updated = false;
         
         // Actualizar los valores en el estado local
+        if (data.games_played !== undefined) {
+            _state.currentUser.games_played = data.games_played;
+            updated = true;
+        }
+        if (data.games_won !== undefined) {
+            _state.currentUser.games_won = data.games_won;
+            updated = true;
+        }
+        if (data.consecutive_wins !== undefined) {
+            _state.currentUser.consecutive_wins = data.consecutive_wins;
+            updated = true;
+        }
         if (data.rooms_created !== undefined) {
             _state.currentUser.rooms_created = data.rooms_created;
             updated = true;
@@ -410,8 +422,21 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
     });
     _socket.on("friend_status_update", (data) => {
         const friendName = escapeHTML(data.username || data.friend);
-        let message = `👤 Estado de ${friendName} actualizado.`;
-        if (data.type === "accepted") { message = `🎉 ¡Ahora eres amigo de ${friendName}!`; }
+        let message = `👤 Estado de ${friendName} actualizado.`; // Mensaje por defecto
+
+        // Comprobar el tipo de actualización para mensajes más claros
+        if (data.type === "accepted") {
+            message = `🎉 ¡Ahora eres amigo de ${friendName}!`;
+        } else if (data.status === 'online') {
+            message = `✅ ${friendName} se ha conectado.`;
+        } else if (data.status === 'offline') {
+            message = `🔌 ${friendName} se ha desconectado.`;
+        } else if (data.status === 'in_game') {
+            message = `⚔️ ${friendName} ha entrado en una partida.`;
+        } else if (data.status === 'in_lobby') {
+            message = `🚪 ${friendName} está en una sala de espera.`;
+        }
+
         showNotification(message, _notificacionesContainer, "info");
         invalidateSocialCache(); // Invalida el caché social
     });

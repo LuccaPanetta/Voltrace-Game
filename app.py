@@ -2511,10 +2511,15 @@ def _procesar_estadisticas_fin_juego_async(app, jugadores_items, ganador_nombre,
                                 user_db.consecutive_wins = 0
                                 current_consecutive_wins = 0
 
-                            level_up = update_xp_and_level(user_db, xp_ganada) # Esto hace db.session.commit()
+                            level_up = update_xp_and_level(user_db, xp_ganada) 
                             
-                            if level_up:
-                                socketio.emit('level_up', {'new_level': user_db.level, 'xp': user_db.xp}, to=sid)
+                            socketio.emit('profile_stats_updated', {
+                                'games_played': user_db.games_played,
+                                'games_won': user_db.games_won,
+                                'consecutive_wins': user_db.consecutive_wins,
+                                'xp': user_db.xp,
+                                'level': user_db.level
+                            }, to=sid)
                             
                             event_data = {
                                 'won': is_winner,

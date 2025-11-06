@@ -647,7 +647,7 @@ export function actualizarCooldownsUI(username, habilidadUsada) {
 }
 
 function handleUsarHabilidadClick(e) {
-    const btn = e.target.closest('.btn-usar-habilidad'); // Busca el botón
+    const btn = e.target.closest('.btn-usar-habilidad'); 
     if (!btn || btn.disabled) return;
 
     const indice = parseInt(btn.dataset.indice, 10);
@@ -657,12 +657,13 @@ function handleUsarHabilidadClick(e) {
     if (isNaN(indice)) return;
 
     let objetivo = null;
-    if (["Sabotaje", "Intercambio Forzado", "Retroceso", "Bloqueo Energético"].includes(nombre)) {
+    
+    if (["Sabotaje", "Intercambio Forzado", "Retroceso", "Bloqueo Energético", "Fuga de Energía"].includes(nombre)) {
         objetivo = prompt(`¿A quién quieres usar ${nombre}? Ingresa el nombre exacto:`);
-        if (objetivo === null) return;
+        if (objetivo === null) return; // Si el usuario presiona "Cancelar"
     } else if (nombre === "Dado Perfecto") {
         objetivo = prompt("¿Cuánto quieres avanzar? (1-6)?");
-        if (objetivo === null) return;
+        if (objetivo === null) return; // Si el usuario presiona "Cancelar"
     }
 
     // Reproducir sonidos
