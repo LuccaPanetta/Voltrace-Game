@@ -1020,7 +1020,7 @@ def guardar_kit(data):
     kit_id = data.get('kit_id')
     sid = request.sid
     
-    if not sid in sessions_activas:
+    if not session.get('username'):
         emit('error', {'mensaje': 'No autenticado.'})
         return
 

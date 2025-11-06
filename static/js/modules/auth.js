@@ -216,6 +216,8 @@ async function handleLogout() {
         }
         if (loginEmailInput) loginEmailInput.value = "";
         if (loginPasswordInput) loginPasswordInput.value = "";
+        document.getElementById("btn-crear-sala").disabled = true;
+        document.getElementById("btn-unirse-sala").disabled = true;
         _showFunc('auth', _screens); 
     }
 }
@@ -310,6 +312,17 @@ async function handleAvatarSelection(event) {
         closeAvatarModal();
         return;
     }
+    
+    // Guardar el emoji anterior por si falla el guardado
+    const emojiAnterior = _state.currentUser.avatar_emoji;
+
+    // Actualizar la UI y el estado local INMEDIATAMENTE
+    _state.currentUser.avatar_emoji = nuevoEmoji;
+    updateProfileUI(_state.currentUser);
+    showNotification("¡Avatar actualizado!", document.getElementById('notificaciones'), "success");
+    closeAvatarModal(); // Cerrar modal al instante
+
+    // Intentar guardar en el servidor en segundo plano
 
     try {
         const response = await fetch('/api/set_avatar', {
@@ -319,18 +332,20 @@ async function handleAvatarSelection(event) {
         });
         const data = await response.json();
 
-        if (data.success) {
-            // Actualizar estado local y UI
-            _state.currentUser.avatar_emoji = data.avatar_emoji;
-            updateProfileUI(_state.currentUser);
-            showNotification("¡Avatar actualizado!", document.getElementById('notificaciones'), "success");
-            closeAvatarModal(); // Cerrar modal al éxito
-        } else {
+        if (!data.success) {
+            // Si falla, revertir el cambio y notificar
+            console.error("Error del servidor al guardar avatar:", data.message);
             showNotification(data.message || "Error al guardar el avatar.", document.getElementById('notificaciones'), "error");
+            _state.currentUser.avatar_emoji = emojiAnterior; // Revertir
+            updateProfileUI(_state.currentUser); // Actualizar UI a la versión anterior
         }
+        // Si tiene éxito, no hacer nada (ya lo actualizamos)
     } catch (error) {
+        // Si falla por conexión, revertir el cambio y notificar
         console.error("Error en fetch /api/set_avatar:", error);
-        showNotification("Error de conexión al guardar avatar.", document.getElementById('notificaciones'), "error");
+        showNotification("Error de conexión. Revirtiendo avatar.", document.getElementById('notificaciones'), "error");
+        _state.currentUser.avatar_emoji = emojiAnterior; // Revertir
+        updateProfileUI(_state.currentUser); // Actualizar UI a la versión anterior
     }
 }
 

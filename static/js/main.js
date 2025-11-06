@@ -79,6 +79,8 @@ import { AnimationSystem } from './animations.js';
             console.log("Iniciando precarga de datos sociales y de logros...");
             loadSocialData();
             loadAchievementsData();
+            document.getElementById("btn-crear-sala").disabled = false;
+            document.getElementById("btn-unirse-sala").disabled = false;
 
         } else {
             // --- Caso de Logout ---
