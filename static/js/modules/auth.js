@@ -12,6 +12,7 @@ let userUsernameDisplay, userLevelDisplay, userXpDisplay;
 let statGamesPlayed, statGamesWon, statWinRate;
 let btnEditAvatar;
 let tabLogin, tabRegister, loginForm, registerForm;
+let modalAvatar, btnCerrarAvatar, avatarGrid;
 let _setLoadingFunc = null;
 let _showFunc = null;
 let _screens = null;
@@ -37,7 +38,7 @@ export function initAuth(screensRef, showFuncRef, setLoadingFuncRef, loadingElem
     _loadingElement = loadingElementRef;
     _onLoginSuccessCallback = onLoginSuccess;
     _gameAnimations = gameAnimationsInstance; 
-    _state = stateRef;
+    _state = stateRef; 
 
     // --- Cachear Elementos DOM ---
     tabLogin = document.getElementById("tab-login");
@@ -62,6 +63,11 @@ export function initAuth(screensRef, showFuncRef, setLoadingFuncRef, loadingElem
     const btnToggleAnimations = document.getElementById("btn-toggle-animations"); 
     const volumeIcon = document.getElementById("volume-icon"); 
     const volumeSlider = document.getElementById("volume-slider");
+
+    modalAvatar = document.getElementById("modal-avatar");
+    btnCerrarAvatar = document.getElementById("btn-cerrar-avatar");
+    avatarGrid = document.getElementById("avatar-selection-grid");
+
 
     // --- Asignar Listeners ---
     tabLogin?.addEventListener("click", handleTabClick);
@@ -90,38 +96,34 @@ export function initAuth(screensRef, showFuncRef, setLoadingFuncRef, loadingElem
     }
     
     if (btnEditAvatar) {
-        btnEditAvatar.addEventListener('click', handleEditAvatar);
+        btnEditAvatar.addEventListener('click', openAvatarModal);
     }
+
+    btnCerrarAvatar?.addEventListener('click', closeAvatarModal);
+    modalAvatar?.addEventListener('click', (e) => {
+        if (e.target === modalAvatar) {
+            closeAvatarModal();
+        }
+    });
     
     console.log("Módulo Auth inicializado.");
 
     if (volumeIcon && volumeSlider) {
-        // Cargar estado guardado al iniciar
         const initialAudioSettings = loadAudioSettings();
         volumeSlider.value = initialAudioSettings.volume;
         volumeIcon.textContent = initialAudioSettings.volume <= 0.01 ? "🔇" : "🔊";
         volumeIcon.title = initialAudioSettings.volume <= 0.01 ? "Activar sonido" : "Silenciar";
-
-        // Añadir listener al SLIDER (evento 'input' para cambio en vivo)
         volumeSlider.addEventListener("input", (e) => {
             const newVolume = parseFloat(e.target.value);
-            setVolume(newVolume); // Actualiza el audioSettings global
-            
-            // Actualizar icono
+            setVolume(newVolume); 
             volumeIcon.textContent = newVolume <= 0.01 ? "🔇" : "🔊";
             volumeIcon.title = newVolume <= 0.01 ? "Activar sonido" : "Silenciar";
         });
-        
-        // Añadir listener al ICONO (para Mute/Unmute)
         volumeIcon.addEventListener("click", () => {
-            const newSettings = toggleMute(); // utils.js hace la lógica
-            
-            // Actualizar UI
+            const newSettings = toggleMute(); 
             volumeSlider.value = newSettings.volume;
             volumeIcon.textContent = newSettings.volume <= 0.01 ? "🔇" : "🔊";
             volumeIcon.title = newSettings.volume <= 0.01 ? "Activar sonido" : "Silenciar";
-            
-            // Tocar sonido SÓLO si se está activando
             if (newSettings.volume > 0.01) {
                 playSound('ClickMouse', 0.3);
             }
@@ -142,25 +144,19 @@ function handleTabClick(event) {
     registerForm?.classList.toggle("active", !isLoginTab);
 }
 
-/** Maneja el intento de inicio de sesión */
 async function handleLogin() {
     playSound('ClickMouse', 0.3);
     const email = loginEmailInput?.value.trim();
     const password = loginPasswordInput?.value;
     const notifContainer = document.getElementById('notificaciones');
-
     if (!email || !password) {
         return showNotification("Por favor, completa todos los campos", notifContainer, "error");
     }
-
     _setLoadingFunc(true, _loadingElement); 
     const result = await loginAPI(email, password); 
     _setLoadingFunc(false, _loadingElement); 
-
     if (result.success && result.user_data) {
-        // Si el login fue exitoso, llama al callback de main.js
         if (_onLoginSuccessCallback) {
-            // Pasamos el objeto user_data completo
             _onLoginSuccessCallback(result.user_data);
         }
     } else {
@@ -168,14 +164,12 @@ async function handleLogin() {
     }
 }
 
-/** Maneja el intento de registro */
 async function handleRegister() {
     playSound('ClickMouse', 0.3);
     const email = registerEmailInput?.value.trim();
     const username = registerUsernameInput?.value.trim();
     const password = registerPasswordInput?.value;
     const notifContainer = document.getElementById('notificaciones');
-
     if (!email || !username || !password) {
         return showNotification("Por favor, completa todos los campos", notifContainer, "error");
     }
@@ -185,14 +179,11 @@ async function handleRegister() {
      if (password.length < 6) {
          return showNotification("La contraseña debe tener al menos 6 caracteres", notifContainer, "warning");
     }
-
     _setLoadingFunc(true, _loadingElement);
     const result = await registerAPI(email, username, password); 
     _setLoadingFunc(false, _loadingElement);
-
     if (result.success && result.user_data) {
         showNotification("¡Cuenta creada! Iniciando sesión...", notifContainer, "success");
-        // El servidor ya nos dio los datos del usuario, llamamos al callback
         if (_onLoginSuccessCallback) {
             _onLoginSuccessCallback(result.user_data);
         }
@@ -220,11 +211,11 @@ async function handleLogout() {
         console.error("Error al cerrar sesión:", error);
     } finally {
         if (_onLoginSuccessCallback) {
-            _onLoginSuccessCallback(null); // Llama al callback con null
+            _onLoginSuccessCallback(null); 
         }
         if (loginEmailInput) loginEmailInput.value = "";
         if (loginPasswordInput) loginPasswordInput.value = "";
-        _showFunc('auth', _screens); // Vuelve a la pantalla de login/registro
+        _showFunc('auth', _screens); 
     }
 }
 
@@ -238,12 +229,11 @@ async function loginAPI(email, password) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email, password }),
         });
-        
         if (!response.ok) {
             const errorData = await response.json();
             return { success: false, message: errorData.message || `Error ${response.status}` };
         }
-        return await response.json(); // Espera { success: true, user_data: {...} }
+        return await response.json(); 
     } catch (error) { 
         console.error("Login API error:", error); 
         showNotification("Error de conexión al iniciar sesión.", notifContainer, "error");
@@ -263,7 +253,7 @@ async function registerAPI(email, username, password) {
             const errorData = await response.json();
             return { success: false, message: errorData.message || `Error ${response.status}` };
         }
-        return await response.json(); // Espera { success: true, user_data: {...} }
+        return await response.json(); 
     } catch (error) {
         console.error("Register API error:", error);
         showNotification("Error de conexión al registrar.", notifContainer, "error");
@@ -273,27 +263,56 @@ async function registerAPI(email, username, password) {
 
 // --- Actualización de UI del Perfil ---
 
-async function handleEditAvatar() {
-    if (!_state || !_state.currentUser) return;
+/**
+ * Prepara y abre el modal de selección de avatar.
+ */
+function openAvatarModal() {
+    playSound('OpenCloseModal', 0.3);
+    if (!_state || !_state.currentUser || !avatarGrid || !modalAvatar) return;
 
-    // Mostrar la lista al usuario en un prompt
-    const emojiListaStr = AVATAR_LISTA_APROBADA.join(' ');
-    const nuevoEmoji = prompt(
-        "Elige tu nuevo avatar copiando y pegando uno de la lista:\n\n" + emojiListaStr,
-        _state.currentUser.avatar_emoji || '👤'
-    );
+    avatarGrid.innerHTML = ''; // Limpiar botones anteriores
 
-    // Validar
+    // Generar un botón por cada emoji aprobado
+    AVATAR_LISTA_APROBADA.forEach(emoji => {
+        const button = document.createElement("button");
+        button.className = "avatar-btn";
+        button.textContent = emoji;
+        button.dataset.emoji = emoji; // Guardar el emoji en el data-attribute
+
+        // Marcar el que está seleccionado actualmente
+        if (emoji === _state.currentUser.avatar_emoji) {
+            button.classList.add("seleccionado");
+        }
+
+        // Añadir listener para manejar la selección
+        button.addEventListener('click', handleAvatarSelection);
+        
+        avatarGrid.appendChild(button);
+    });
+
+    modalAvatar.style.display = 'flex';
+}
+
+/**
+ * Cierra el modal de selección de avatar.
+ */
+function closeAvatarModal() {
+    playSound('OpenCloseModal', 0.2);
+    if (modalAvatar) modalAvatar.style.display = 'none';
+}
+
+/**
+ * Se ejecuta al hacer clic en un botón de emoji.
+ */
+async function handleAvatarSelection(event) {
+    const nuevoEmoji = event.currentTarget.dataset.emoji;
+
+    // Si hace clic en el que ya tiene, solo cerrar
     if (!nuevoEmoji || nuevoEmoji === _state.currentUser.avatar_emoji) {
-        return; // No hizo cambios o canceló
-    }
-
-    if (!AVATAR_LISTA_APROBADA.includes(nuevoEmoji)) {
-        showNotification("Emoji no válido. Por favor, elige uno de la lista.", document.getElementById('notificaciones'), "error");
+        closeAvatarModal();
         return;
     }
 
-    // Enviar al servidor
     try {
         const response = await fetch('/api/set_avatar', {
             method: 'POST',
@@ -307,6 +326,7 @@ async function handleEditAvatar() {
             _state.currentUser.avatar_emoji = data.avatar_emoji;
             updateProfileUI(_state.currentUser);
             showNotification("¡Avatar actualizado!", document.getElementById('notificaciones'), "success");
+            closeAvatarModal(); // Cerrar modal al éxito
         } else {
             showNotification(data.message || "Error al guardar el avatar.", document.getElementById('notificaciones'), "error");
         }
@@ -315,7 +335,6 @@ async function handleEditAvatar() {
         showNotification("Error de conexión al guardar avatar.", document.getElementById('notificaciones'), "error");
     }
 }
-
 export function updateProfileUI(user) {
     if (user) {
         // --- Header ---
