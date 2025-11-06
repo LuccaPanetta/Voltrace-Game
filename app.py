@@ -1044,9 +1044,14 @@ def guardar_kit(data):
     kit_id = data.get('kit_id')
     sid = request.sid
     
-    if not session.get('username'):
-        emit('error', {'mensaje': 'No autenticado.'})
+    sesion_del_socket = sessions_activas.get(sid)
+    
+    if not sesion_del_socket or 'username' not in sesion_del_socket:
+        print(f"--- ERROR guardar_kit: SID {sid} no autenticado en sessions_activas.")
+        emit('error', {'mensaje': 'No autenticado en el socket.'})
         return
+    
+    username = sesion_del_socket['username']
 
     # Verificamos que el kit exista en nuestra constante
     if kit_id in KITS_VOLTRACE:
