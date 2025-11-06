@@ -880,8 +880,12 @@ def crear_sala(data):
     join_room(id_sala) # Unir al creador a la room de SocketIO
 
     # Leer el kit guardado en la sesión del usuario
-    kit_seleccionado = session.get('kit_seleccionado', 'tactico')
-    avatar_guardado = session.get('avatar_emoji', '👤')
+    user = User.query.filter_by(username=username).first()
+    kit_seleccionado = 'tactico'
+    avatar_guardado = '👤'
+    if user:
+        kit_seleccionado = getattr(user, 'kit_id', 'tactico')
+        avatar_guardado = getattr(user, 'avatar_emoji', '👤')
     
     # Pasarlo al agregar_jugador
     if salas_activas[id_sala].agregar_jugador(request.sid, username, kit_seleccionado, avatar_guardado): 
@@ -941,8 +945,12 @@ def unirse_sala(data):
             emit('unido_exitoso', {'id_sala': id_sala, 'mensaje': 'Ya estabas en esta sala.'})
             return
 
-    kit_seleccionado = session.get('kit_seleccionado', 'tactico')
-    avatar_guardado = session.get('avatar_emoji', '👤')
+    user = User.query.filter_by(username=username).first()
+    kit_seleccionado = 'tactico'
+    avatar_guardado = '👤'
+    if user:
+        kit_seleccionado = getattr(user, 'kit_id', 'tactico')
+        avatar_guardado = getattr(user, 'avatar_emoji', '👤')
 
     # Intentar agregar al jugador
     if sala.agregar_jugador(request.sid, username, kit_seleccionado, avatar_guardado):
@@ -2108,45 +2116,17 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
             print(f"El turno ANTES de la desconexión era de: {turno_antes_de_desconexion}")
             
             sala.juego.marcar_jugador_inactivo(username_desconectado)
-
-            try:
-                print(f"Actualizando estadísticas de abandono para {username_desconectado}...")
-                user_db = User.query.filter_by(username=username_desconectado).first()
-                jugador_juego = sala.juego._encontrar_jugador(username_desconectado) # Obtener su estado en el juego
-
-                if user_db and jugador_juego:
-                    user_db.games_played += 1
-                    # No sumar victoria 
-                    update_xp_and_level(user_db, 25) # Dar una pequeña cantidad de XP por participar
-
-                    # Verificar logros de "fin de partida" para el que abandonó
-                    event_data = {
-                        'won': False, # Abandono nunca es victoria
-                        'final_energy': jugador_juego.get_puntaje(),
-                        'reached_position': jugador_juego.get_posicion(),
-                        'total_rounds': sala.juego.ronda,
-                        'player_count': len(sala.jugadores) + 1, 
-                        'colisiones': getattr(jugador_juego, 'colisiones_causadas', 0),
-                        'special_tiles_activated': getattr(jugador_juego, 'tipos_casillas_visitadas', set()),
-                        'abilities_used': getattr(jugador_juego, 'habilidades_usadas_en_partida', 0),
-                        'treasures_this_game': getattr(jugador_juego, 'tesoros_recogidos', 0),
-                        'completed_without_traps': getattr(jugador_juego, 'trampas_evitadas', True),
-                        'precision_laser': getattr(jugador_juego, 'dado_perfecto_usado', 0),
-                        'messages_this_game': getattr(jugador_juego, 'game_messages_sent_this_match', 0),
-                        'only_active_player': False,
-                        'never_eliminated': False, 
-                        'energy_packs_collected': getattr(jugador_juego, 'energy_packs_collected', 0)
-                    }
-                    unlocked_achievements = achievement_system.check_achievement(username_desconectado, 'game_finished', event_data)
-                    if unlocked_achievements:
-                        # No podemos emitir al SID original
-                        print(f"Logros de abandono guardados para {username_desconectado}.")
-                else:
-                    print(f"WARN: No se encontró el usuario {username_desconectado} en la DB o en el juego para actualizar stats de abandono.")
-            except Exception as e:
-                db.session.rollback()
-                print(f"!!! ERROR al actualizar stats de abandono: {e}")
-                traceback.print_exc()
+            # Mover el procesamiento de estadísticas de abandono a un hilo
+            print(f"Iniciando hilo para procesar abandono de {username_desconectado}...")
+            threading.Thread(
+                target=_procesar_abandono_db_async,
+                args=(
+                    current_app._get_current_object(),
+                    username_desconectado,
+                    sala.juego, # Pasar el objeto juego
+                    len(sala.jugadores) # Pasar el N° de jugadores (los que quedan)
+                )
+            ).start()
 
             # Comprobar si el juego termina
             if sala.juego.ha_terminado():
@@ -2160,50 +2140,30 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
                 ganador_obj = sala.juego.determinar_ganador()
                 ganador_nombre = ganador_obj.get_nombre() if ganador_obj else None
                 
-                for sid, jugador_data_loop in list(sala.jugadores.items()):
-                    if sid in sessions_activas: 
-                        username = sessions_activas[sid]['username']
-                        jugador_nombre_loop = jugador_data_loop['nombre']
-                        jugador_juego = sala.juego._encontrar_jugador(jugador_nombre_loop)
+                # --- PROCESAMIENTO DE STATS PARA JUGADORES RESTANTES ---
+                # Preparar los datos para el hilo (copiar datos)
+                jugadores_items_copia = list(sala.jugadores.items())
+                ronda_copia = sala.juego.ronda
+                player_count_copia = len(sala.jugadores) + 1 # +1 por el que se fue
+                juego_obj_copia = sala.juego # El objeto juego ya no se modificará
 
-                        if jugador_juego:
-                            is_winner = (jugador_nombre_loop == ganador_nombre)
-
-                            # Actualizar estadísticas en la DB
-                            user_db = User.query.filter_by(username=username).first()
-                            if user_db:
-                                user_db.games_played += 1
-                                if is_winner: user_db.games_won += 1
-                                user_db.xp += 50 + (25 if is_winner else 0) # XP base + bonus
-                                db.session.commit()
-
-                                # Verificar logros
-                                event_data = {
-                                    'won': is_winner,
-                                    'final_energy': jugador_juego.get_puntaje(),
-                                    'reached_position': jugador_juego.get_posicion(),
-                                    'total_rounds': sala.juego.ronda,
-                                    'player_count': len(sala.jugadores) + 1,
-                                    'colisiones': getattr(jugador_juego, 'colisiones_causadas', 0),
-                                    'special_tiles_activated': getattr(jugador_juego, 'tipos_casillas_visitadas', set()),
-                                    'abilities_used': getattr(jugador_juego, 'habilidades_usadas_en_partida', 0),
-                                    'treasures_this_game': getattr(jugador_juego, 'tesoros_recogidos', 0),
-                                    'completed_without_traps': getattr(jugador_juego, 'trampas_evitadas', True),
-                                    'precision_laser': getattr(jugador_juego, 'dado_perfecto_usado', 0),
-                                    'messages_this_game': getattr(jugador_juego, 'game_messages_sent_this_match', 0),
-                                    'only_active_player': True, 
-                                    'never_eliminated': jugador_juego.esta_activo(),
-                                    'energy_packs_collected': getattr(jugador_juego, 'energy_packs_collected', 0)
-                                }
-                                unlocked_achievements = achievement_system.check_achievement(username, 'game_finished', event_data)
-                                if unlocked_achievements:
-                                    socketio.emit('achievements_unlocked', {
-                                        'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_achievements]
-                                    }, to=sid)
-                            
-                            # Actualizar presencia a 'online'
-                            social_system.update_user_presence(username, 'online', {'sid': sid})
-
+                # Iniciar el hilo para procesar DB en segundo plano
+                print("--- Iniciando hilo para procesar estadísticas de fin de juego (por desconexión)...")
+                stats_thread = threading.Thread(
+                    target=_procesar_estadisticas_fin_juego_async,
+                    args=(
+                        current_app._get_current_object(), 
+                        jugadores_items_copia,
+                        ganador_nombre,
+                        ronda_copia,
+                        player_count_copia,
+                        juego_obj_copia
+                    )
+                )
+                stats_thread.start()
+                
+                # --- EMITIR FIN DE JUEGO INMEDIATAMENTE ---
+                
                 stats_finales_dict = sala.juego.obtener_estadisticas_finales()
                 
                 socketio.emit('juego_terminado', {
@@ -2211,6 +2171,12 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
                     'estadisticas_finales': stats_finales_dict.get('lista_final'),
                     'mensaje': f"🔌 {username_desconectado} se desconectó. ¡Juego terminado!"
                 }, room=id_sala)
+                
+                # Actualizar presencia de los jugadores restantes (rápido)
+                for sid, jugador_data_loop in jugadores_items_copia:
+                     if sid in sessions_activas:
+                        username = sessions_activas[sid]['username']
+                        social_system.update_user_presence(username, 'online', {'sid': sid})
                 
                 return # Salir 
 
@@ -2221,12 +2187,28 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
                 if turno_antes_de_desconexion == username_desconectado:
                     print(f"¡Era el turno de {username_desconectado}! Forzando Paso 2 (efectos de casilla)...")
                     try:
-                        sala.juego.paso_2_procesar_casilla_y_avanzar(username_desconectado)
+                        # Esto ahora solo avanza el turno si fue un dado
+                        resultado_paso_2 = sala.juego.paso_2_procesar_casilla_y_avanzar(username_desconectado)
+                        
+                        # Si el paso 2 causó que el juego termine 
+                        if sala.juego.ha_terminado():
+                            print(f"--- JUEGO TERMINADO (En Paso 2 por Desconexión) --- Sala: {id_sala}")
+                            _cancelar_temporizador_turno(id_sala)
+                            sala.estado = 'terminado'
+
+                            stats_finales_dict = sala.juego.obtener_estadisticas_finales()
+                            socketio.emit('juego_terminado', {
+                                'ganador': stats_finales_dict.get('ganador'),
+                                'estadisticas_finales': stats_finales_dict.get('lista_final'),
+                                'mensaje': f"🔌 {username_desconectado} se desconectó y fue eliminado."
+                            }, room=id_sala)
+                            return # Salir
+                            
                     except Exception as e:
                         print(f"!!! ERROR al forzar Paso 2 en desconexión: {e}")
                         traceback.print_exc()
                         if not sala.juego.ha_terminado():
-                             sala.juego._avanzar_turno()
+                             sala.juego._avanzar_turno() # Forzar avance si paso_2 falló
                 
                 # Ahora, el estado del juego (incluido el turno) está actualizado.
                 colores_map = getattr(sala, 'colores_map', {})
@@ -2506,6 +2488,9 @@ def _procesar_estadisticas_fin_juego_async(app, jugadores_items, ganador_nombre,
                     username = sessions_activas[sid]['username']
                     jugador_nombre_loop = jugador_data['nombre']
                     jugador_juego = juego_obj._encontrar_jugador(jugador_nombre_loop) # Usar método interno seguro
+                    if not jugador_juego:
+                        print(f"ADVERTENCIA: No se encontró a {jugador_nombre_loop} en el objeto juego. Omitiendo stats.")
+                        continue
 
                     if jugador_juego:
                         is_winner = jugador_nombre_loop == ganador_nombre
@@ -2561,6 +2546,44 @@ def _procesar_estadisticas_fin_juego_async(app, jugadores_items, ganador_nombre,
             print("--- THREAD: Procesamiento de estadísticas COMPLETO.")
         except Exception as e:
             print(f"!!! ERROR FATAL en hilo _procesar_estadisticas_fin_juego: {e}")
+            traceback.print_exc()
+
+def _procesar_abandono_db_async(app, username, juego_obj, sala_jugadores_count):
+    with app.app_context():
+        try:
+            print(f"--- THREAD: Actualizando estadísticas de abandono para {username}...")
+            user_db = User.query.filter_by(username=username).first()
+            jugador_juego = juego_obj._encontrar_jugador(username) 
+
+            if user_db and jugador_juego:
+                user_db.games_played += 1
+                update_xp_and_level(user_db, 25) # Dar una pequeña cantidad de XP por participar
+                
+                # Re-crear el event_data que estaba en _finalizar_desconexion
+                event_data = {
+                    'won': False, 
+                    'final_energy': jugador_juego.get_puntaje(),
+                    'reached_position': jugador_juego.get_posicion(),
+                    'total_rounds': juego_obj.ronda,
+                    'player_count': sala_jugadores_count + 1, # Los que quedan + el que se fue
+                    'colisiones': getattr(jugador_juego, 'colisiones_causadas', 0),
+                    'special_tiles_activated': getattr(jugador_juego, 'tipos_casillas_visitadas', set()),
+                    'abilities_used': getattr(jugador_juego, 'habilidades_usadas_en_partida', 0),
+                    'treasures_this_game': getattr(jugador_juego, 'tesoros_recogidos', 0),
+                    'completed_without_traps': getattr(jugador_juego, 'trampas_evitadas', True),
+                    'precision_laser': getattr(jugador_juego, 'dado_perfecto_usado', 0),
+                    'messages_this_game': getattr(jugador_juego, 'game_messages_sent_this_match', 0),
+                    'only_active_player': False,
+                    'never_eliminated': False, 
+                    'energy_packs_collected': getattr(jugador_juego, 'energy_packs_collected', 0)
+                }
+                achievement_system.check_achievement(username, 'game_finished', event_data)
+                print(f"--- THREAD: Estadísticas de abandono para {username} actualizadas.")
+            else:
+                print(f"--- THREAD (WARN): No se encontró {username} en DB o juego para stats de abandono.")
+        except Exception as e:
+            db.session.rollback()
+            print(f"!!! ERROR en _procesar_abandono_db_async: {e}")
             traceback.print_exc()
 
 def get_friends_list_server_safe(username):

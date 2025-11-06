@@ -198,6 +198,15 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
         try {
             const estado_nuevo = data.estado_juego;
             const eventos_paso_2 = data.eventos || [];
+            if (estado_nuevo && _state.currentUser) {
+                const nuevoTurnoDe = estado_nuevo.turno_actual;
+                const miNombre = _state.currentUser.username;
+                
+                if (nuevoTurnoDe === miNombre && _estadoJuego.turno_actual !== miNombre) {
+                    _habilidadUsadaTurno.value = false;
+                    console.log("¡Comienzo de mi turno! Habilidades reseteadas.");
+                }
+            }
             let jugador_movido_nombre = null;
             let pos_vieja_real = -1;
             let pos_nueva_real = -1;
