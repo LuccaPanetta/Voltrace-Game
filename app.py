@@ -162,6 +162,11 @@ def calculate_level_from_xp(xp):
     level = int(xp // XP_BASE_PARA_NIVEL) + 1
     return level
 
+def get_xp_for_next_level(current_level):
+    if current_level < 1:
+        current_level = 1
+    return (current_level) * XP_BASE_PARA_NIVEL
+
 def update_xp_and_level(user, xp_to_add):
     if not user or xp_to_add == 0:
         return False
@@ -196,7 +201,8 @@ def _procesar_creacion_sala_db_async(app, sid, username):
                 socketio.emit('profile_stats_updated', {
                     'rooms_created': user.rooms_created,
                     'xp': user.xp,
-                    'level': user.level
+                    'level': user.level,
+                    'xp_next_level': get_xp_for_next_level(user.level)
                 }, to=sid)
                 if level_up:
                     socketio.emit('level_up', {'new_level': user.level, 'xp': user.xp}, to=sid)
@@ -227,7 +233,8 @@ def _procesar_habilidad_db_async(app, sid, username, event_data=None):
                 socketio.emit('profile_stats_updated', {
                     'abilities_used': user_db.abilities_used,
                     'xp': user_db.xp,
-                    'level': user_db.level
+                    'level': user_db.level,
+                    'xp_next_level': get_xp_for_next_level(user_db.level)
                 }, to=sid)
                 if level_up:
                     socketio.emit('level_up', {'new_level': user_db.level, 'xp': user_db.xp}, to=sid)
@@ -372,6 +379,7 @@ def index():
                 'username': user.username,
                 'level': user.level,
                 'xp': user.xp,
+                'xp_next_level': get_xp_for_next_level(user.level),
                 'games_played': user.games_played, 
                 'games_won': user.games_won,
                 'avatar_emoji': user.avatar_emoji,
@@ -436,6 +444,7 @@ def register():
             'username': new_user.username,
             'level': new_user.level,
             'xp': new_user.xp,
+            'xp_next_level': get_xp_for_next_level(new_user.level),
             'games_played': new_user.games_played, 
             'games_won': new_user.games_won,
             'avatar_emoji': new_user.avatar_emoji,
@@ -482,6 +491,7 @@ def login():
                 'username': user.username,
                 'level': user.level,
                 'xp': user.xp,
+                'xp_next_level': get_xp_for_next_level(user.level),
                 'games_played': user.games_played, 
                 'games_won': user.games_won,
                 'avatar_emoji': user.avatar_emoji,
@@ -2518,7 +2528,8 @@ def _procesar_estadisticas_fin_juego_async(app, jugadores_items, ganador_nombre,
                                 'games_won': user_db.games_won,
                                 'consecutive_wins': user_db.consecutive_wins,
                                 'xp': user_db.xp,
-                                'level': user_db.level
+                                'level': user_db.level,
+                                'xp_next_level': get_xp_for_next_level(user_db.level)
                             }, to=sid)
                             
                             event_data = {

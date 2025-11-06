@@ -362,7 +362,10 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
             _state.currentUser.level = data.level;
             updated = true;
         }
-        
+        if (data.xp_next_level !== undefined) {
+            _state.currentUser.xp_next_level = data.xp_next_level;
+            updated = true;
+        }
         if (updated) {
             // Volver a renderizar la UI del perfil con los nuevos datos
             updateProfileUI(_state.currentUser);

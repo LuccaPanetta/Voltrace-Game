@@ -91,8 +91,11 @@
                     <div class="user-profile">
                         <span id="user-username">👤 Usuario</span>
                         <button id="btn-edit-avatar" class="btn-secondary" title="Cambiar Avatar" style="padding: 2px 6px; font-size: 0.8em;">✏️</button>
-                        <span id="user-level">⭐ Nivel 1</span>
-                        <span id="user-xp">0 XP</span>
+                        <div class="xp-bar-container">
+                            <span id="user-level-text">⭐ Nivel 1</span>
+                            <progress id="user-xp-bar" value="0" max="500"></progress>
+                            <span id="user-xp-text">0 / 500 XP</span>
+                        </div>
                         <button id="btn-social" class="btn-secondary" title="Amigos y Chat">👥 Social</button>
                         <button id="btn-show-achievements" class="btn-secondary" title="Ver Logros">🏆 Logros</button>
                         <button id="btn-show-glossary" class="btn-secondary" title="Ver Glosario">📚 Glosario</button>

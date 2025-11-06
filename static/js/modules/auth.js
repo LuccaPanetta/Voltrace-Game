@@ -51,8 +51,9 @@ export function initAuth(screensRef, showFuncRef, setLoadingFuncRef, loadingElem
     registerPasswordInput = document.getElementById("register-password");
     btnRegister = document.getElementById("btn-register");
     userUsernameDisplay = document.getElementById("user-username");
-    userLevelDisplay = document.getElementById("user-level");
-    userXpDisplay = document.getElementById("user-xp");
+    userLevelText = document.getElementById("user-level-text");
+    userXpBar = document.getElementById("user-xp-bar");
+    userXpText = document.getElementById("user-xp-text");
     btnEditAvatar = document.getElementById("btn-edit-avatar");
     statGamesPlayed = document.getElementById("stat-games-played");
     statGamesWon = document.getElementById("stat-games-won");
@@ -357,9 +358,19 @@ export function updateProfileUI(user) {
     if (user) {
         // --- Header ---
         const avatar = user.avatar_emoji || '👤';
+        const level = user.level || 1;
+        const xp = user.xp || 0;
+        const xpNextLevel = user.xp_next_level || (level * 500);
+        
         if (userUsernameDisplay) userUsernameDisplay.textContent = `${avatar} ${escapeHTML(user.username)}`; 
-        if (userLevelDisplay) userLevelDisplay.textContent = `⭐ Nivel ${user.level || 1}`;
-        if (userXpDisplay) userXpDisplay.textContent = `${user.xp || 0} XP`;
+        
+        // Actualizar barra de XP
+        if (userLevelText) userLevelText.textContent = `⭐ Nivel ${level}`;
+        if (userXpBar) {
+            userXpBar.value = xp;
+            userXpBar.max = xpNextLevel;
+        }
+        if (userXpText) userXpText.textContent = `${xp} / ${xpNextLevel} XP`;
 
         // --- Panel de Estadísticas del Lobby ---
         const gamesPlayed = user.games_played || 0;
@@ -380,8 +391,14 @@ export function updateProfileUI(user) {
     } else {
         // --- Logout  ---
         if (userUsernameDisplay) userUsernameDisplay.textContent = "👤 Usuario";
-        if (userLevelDisplay) userLevelDisplay.textContent = "⭐ Nivel 1";
-        if (userXpDisplay) userXpDisplay.textContent = "0 XP";
+        
+        // Resetear barra de XP
+        if (userLevelText) userLevelText.textContent = `⭐ Nivel 1`;
+        if (userXpBar) {
+            userXpBar.value = 0;
+            userXpBar.max = 500; 
+        }
+        if (userXpText) userXpText.textContent = `0 / 500 XP`;
 
         if (statGamesPlayed) statGamesPlayed.textContent = "0";
         if (statGamesWon) statGamesWon.textContent = "0";
