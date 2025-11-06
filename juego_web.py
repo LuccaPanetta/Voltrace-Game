@@ -1244,7 +1244,7 @@ class JuegoOcaWeb:
     def _hab_transferencia_de_fase(self, jugador, habilidad, objetivo):
         eventos = []
         # Aplicar un efecto temporal que se verificará en _procesar_efectos_posicion y _verificar_colision
-        duracion_turnos = 1
+        duracion_turnos = 2
         jugador.efectos_activos.append({"tipo": "fase_activa", "turnos": duracion_turnos})
         eventos.append("👻 Transferencia de Fase: Serás intangible e inmune a casillas negativas en tu próximo movimiento de dado.")
         return {"exito": True, "eventos": eventos}
@@ -1274,9 +1274,10 @@ class JuegoOcaWeb:
              return {"exito": False, "eventos": eventos}
 
         # Aplicar el efecto de bloqueo 
-        duracion_turnos = 2 # 2 rondas
-        jugador_objetivo.efectos_activos.append({"tipo": "bloqueo_energia", "turnos": duracion_turnos})
-        eventos.append(f"🚫 {jugador_objetivo.get_nombre()} no podrá ganar energía durante {duracion_turnos} turnos.")
+        rondas_duracion = 2
+        turnos_duracion = rondas_duracion * len(self.jugadores)
+        jugador_objetivo.efectos_activos.append({"tipo": "bloqueo_energia", "turnos": turnos_duracion})
+        eventos.append(f"🚫 {jugador_objetivo.get_nombre()} no podrá ganar energía durante {rondas_duracion} rondas.")
         
         return {"exito": True, "eventos": eventos}
     
@@ -1612,7 +1613,7 @@ class JuegoOcaWeb:
             rondas_duracion += 1 # 4 rondas total
             eventos.append("🛡️ Escudo Duradero: ¡El escudo durará 1 ronda adicional!")
 
-        turnos_duracion = rondas_duracion
+        turnos_duracion = rondas_duracion * len(self.jugadores)
         jugador.efectos_activos.append({"tipo": "escudo", "turnos": turnos_duracion})
         eventos.append(f"🛡️ ¡Protección activada por {rondas_duracion} rondas ({turnos_duracion} turnos)!")
         return {"exito": True, "eventos": eventos}
@@ -1843,7 +1844,7 @@ class JuegoOcaWeb:
 
     def _hab_doble_turno(self, jugador, habilidad, objetivo):
         eventos = []
-        duracion_turnos = len(self.jugadores) + 1
+        duracion_turnos = 1
         jugador.efectos_activos.append({"tipo": "doble_dado", "turnos": duracion_turnos})
         eventos.append(f"🔄 Lanzarás dos dados este turno.")
         return {"exito": True, "eventos": eventos}

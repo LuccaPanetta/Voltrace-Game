@@ -2248,6 +2248,26 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
                             _cancelar_temporizador_turno(id_sala)
                             sala.estado = 'terminado'
 
+                            ganador_obj = sala.juego.determinar_ganador()
+                            ganador_nombre = ganador_obj.get_nombre() if ganador_obj else None
+                            jugadores_items_copia = list(sala.jugadores.items())
+                            ronda_copia = sala.juego.ronda
+                            player_count_copia = len(sala.jugadores) + 1 
+                            juego_obj_copia = sala.juego 
+
+                            print("--- Iniciando hilo para procesar estadísticas (Paso 2 por Desconexión)...")
+                            stats_thread = threading.Thread(
+                                target=_procesar_estadisticas_fin_juego_async,
+                                args=(
+                                    current_app._get_current_object(), 
+                                    jugadores_items_copia,
+                                    ganador_nombre,
+                                    ronda_copia,
+                                    player_count_copia,
+                                    juego_obj_copia
+                                )
+                            )
+                            stats_thread.start()
                             stats_finales_dict = sala.juego.obtener_estadisticas_finales()
                             socketio.emit('juego_terminado', {
                                 'ganador': stats_finales_dict.get('ganador'),
