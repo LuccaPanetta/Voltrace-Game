@@ -311,7 +311,8 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
         if (data.cosmetics_unlocked) {
             _state.cosmeticsUnlocked = data.cosmetics_unlocked;
         }
-        handleMaestriaData(data);
+        // Pasa solo el array 'maestrias' a la función
+        handleMaestriaData(data.maestrias); 
     });
 
     _socket.on("arsenal:title_equipped", (data) => {
