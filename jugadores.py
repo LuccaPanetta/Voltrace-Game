@@ -21,6 +21,7 @@ class JugadorWeb:
     def __init__(self, nombre):
         # 1. ATRIBUTOS BÁSICOS Y DE IDENTIFICACIÓN
         self.nombre = nombre
+        self.avatar_emoji = '👤'
         self.__posicion = 1 
         self.__puntaje = 600
         self.__activo = True
@@ -200,6 +201,7 @@ class JugadorWeb:
     def to_dict(self):
         return {
             'nombre': self.nombre, 
+            'avatar_emoji': self.avatar_emoji,
             'posicion': self.__posicion,
             'puntaje': self.__puntaje,
             'activo': self.__activo,

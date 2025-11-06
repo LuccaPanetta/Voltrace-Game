@@ -43,7 +43,8 @@ class JuegoOcaWeb:
         for config in jugadores_config:
             jugador = JugadorWeb(config['nombre'])
             # Guardamos el kit_id en la instancia del jugador para usarlo después
-            jugador.kit_seleccionado = config.get('kit_id', 'tactico') 
+            jugador.kit_seleccionado = config.get('kit_id', 'tactico')
+            jugador.avatar_emoji = config.get('avatar_emoji', '👤')
             jugador.juego_actual = self
             self.jugadores.append(jugador)
             

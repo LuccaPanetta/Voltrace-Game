@@ -26,7 +26,6 @@
         .kit-card:hover {
             background-color: #3a3a3a; /* Asumiendo un tema oscuro */
         }
-        /* Esta clase la pondrá el JS */
         .kit-card.seleccionado {
             border-color: #00ff99; /* Color brillante para selección */
             background-color: #2a3a34;
@@ -48,7 +47,7 @@
             font-size: 0.9em;
         }
         
-        /* Asegurarnos que los modales tengan estilos base */
+        /* --- ESTILOS DE MODAL (Genérico) --- */
         .modal {
             display: none; 
             position: fixed; 
@@ -94,8 +93,59 @@
         .btn-close:hover {
             color: white;
         }
-    </style>
 
+        /* --- NUEVO: ESTILOS PARA LAYOUT DEL LOBBY Y STATS --- */
+        .lobby-content {
+            /* Convertimos el lobby en un layout flex */
+            display: flex;
+            flex-wrap: wrap; /* Permitir que se reordene en pantallas pequeñas */
+            gap: 20px; /* Espacio entre columnas */
+        }
+        
+        .lobby-column {
+            /* Cada columna tomará el espacio que necesite, pero base 30% */
+            flex-basis: 300px;
+            flex-grow: 1;
+            min-width: 280px;
+        }
+        
+        #actions-column .card {
+            /* Asegurarse que las tarjetas de acción ocupen todo el ancho de su columna */
+            width: 100%;
+            box-sizing: border-box; /* Incluir padding en el ancho */
+        }
+        
+        #info-column {
+            /* La columna de info puede ser un poco más grande */
+            flex-grow: 1.5;
+        }
+
+        /* Estilos para el nuevo panel de estadísticas */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 15px;
+        }
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: #374151; /* Fondo de stat */
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-item span {
+            font-size: 0.9em;
+            color: #9CA3AF; /* Muted */
+            margin-bottom: 5px;
+        }
+        .stat-item strong {
+            font-size: 1.5em;
+            color: #00ff99; /* Color destacado */
+        }
+    </style>
 </head>
 
 <body>
@@ -121,59 +171,52 @@
                 <h1>🎲 VoltRace Online</h1>
                 <p>¡Crea tu cuenta o inicia sesión para jugar!</p>
             </div>
-
             <div class="auth-content">
                 <div class="auth-tabs">
                     <button id="tab-login" class="tab-button active">Iniciar Sesión</button>
                     <button id="tab-register" class="tab-button">Registrarse</button>
                 </div>
-
-            <div id="login-form" class="auth-form active">
-                <div class="card">
-                    <h3>🔐 Iniciar Sesión</h3>
-                    <div class="form-group auth-form-column">
-                        
-                        <div class="input-group">
-                            <label for="login-email">Email:</label>
-                            <input type="email" id="login-email" placeholder="tu@email.com" required class="text-input">
+                <div id="login-form" class="auth-form active">
+                    <div class="card">
+                        <h3>🔐 Iniciar Sesión</h3>
+                        <div class="form-group auth-form-column">
+                            <div class="input-group">
+                                <label for="login-email">Email:</label>
+                                <input type="email" id="login-email" placeholder="tu@email.com" required class="text-input">
+                            </div>
+                            <div class="input-group">
+                                <label for="login-password">Contraseña:</label>
+                                <input type="password" id="login-password" placeholder="Contraseña" required class="text-input">
+                            </div>
+                            <div style="text-align: right; font-size: 0.9em; margin-top: 5px; margin-bottom: 10px;">
+                                <a href="{{ url_for('forgot_password') }}" style="color: var(--primary); text-decoration: none;">
+                                    ¿Olvidaste tu contraseña?
+                                </a>
+                            </div>
+                            <button id="btn-login" class="btn-primary">Entrar</button>
                         </div>
-
-                        <div class="input-group">
-                            <label for="login-password">Contraseña:</label>
-                            <input type="password" id="login-password" placeholder="Contraseña" required class="text-input">
-                        </div>
-
-                        <div style="text-align: right; font-size: 0.9em; margin-top: 5px; margin-bottom: 10px;">
-                            <a href="{{ url_for('forgot_password') }}" style="color: var(--primary); text-decoration: none;">
-                                ¿Olvidaste tu contraseña?
-                            </a>
-                        </div>
-
-                        <button id="btn-login" class="btn-primary">Entrar</button>
                     </div>
                 </div>
-            </div>
-
                 <div id="register-form" class="auth-form">
-                <div class="card">
-                    <h3>📝 Crear Cuenta</h3>
-                    <div class="form-group auth-form-column">
-                        <div class="input-group">
-                            <label for="register-email">Email:</label>
-                            <input type="email" id="register-email" placeholder="tu@email.com" required autocomplete="email" class="text-input">
+                    <div class="card">
+                        <h3>📝 Crear Cuenta</h3>
+                        <div class="form-group auth-form-column">
+                            <div class="input-group">
+                                <label for="register-email">Email:</label>
+                                <input type="email" id="register-email" placeholder="tu@email.com" required autocomplete="email" class="text-input">
+                            </div>
+                            <div class="input-group">
+                                <label for="register-username">Nombre de Usuario:</label>
+                                <input type="text" id="register-username" placeholder="min. 3 caracteres" required minlength="3" autocomplete="username" class="text-input">
+                            </div>
+                            <div class="input-group">
+                                <label for="register-password">Contraseña:</label>
+                                <input type="password" id="register-password" placeholder="min. 6 caracteres" required minlength="6" autocomplete="new-password" class="text-input">
+                            </div>
+                            <button id="btn-register" class="btn-success">Crear Cuenta</button>
                         </div>
-                        <div class="input-group">
-                            <label for="register-username">Nombre de Usuario:</label>
-                            <input type="text" id="register-username" placeholder="min. 3 caracteres" required minlength="3" autocomplete="username" class="text-input">
-                        </div>
-                        <div class="input-group">
-                            <label for="register-password">Contraseña:</label>
-                            <input type="password" id="register-password" placeholder="min. 6 caracteres" required minlength="6" autocomplete="new-password" class="text-input">
-                        </div>
-                        <button id="btn-register" class="btn-success">Crear Cuenta</button>
                     </div>
                 </div>
-            </div>
             </div>
         </div>
 
@@ -186,14 +229,13 @@
                 <div class="user-info">
                     <div class="user-profile">
                         <span id="user-username">👤 Usuario</span>
+                        <button id="btn-edit-avatar" class="btn-secondary" title="Cambiar Avatar" style="padding: 2px 6px; font-size: 0.8em;">✏️</button>
                         <span id="user-level">⭐ Nivel 1</span>
                         <span id="user-xp">0 XP</span>
                         <button id="btn-social" class="btn-secondary" title="Amigos y Chat">👥 Social</button>
                         <button id="btn-show-achievements" class="btn-secondary" title="Ver Logros">🏆 Logros</button>
                         <button id="btn-show-glossary" class="btn-secondary" title="Ver Glosario">📚 Glosario</button>
-                        
                         <button id="btn-abrir-kits" class="btn-secondary" title="Elegir Kit">🛠️ Elegir Kit</button>
-
                         <button id="btn-toggle-animations" class="btn-secondary" title="Activar/Desactivar animaciones">🎬</button>
                         
                         <div class="volume-control">
@@ -206,7 +248,28 @@
             </div>
 
             <div class="lobby-content">
-                <div class="action-cards">
+                
+                <div class="lobby-column" id="stats-column">
+                    <div class="card">
+                        <h3>📊 Mis Estadísticas</h3>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <span>Partidas Jugadas</span>
+                                <strong id="stat-games-played">0</strong>
+                            </div>
+                            <div class="stat-item">
+                                <span>Victorias</span>
+                                <strong id="stat-games-won">0</strong>
+                            </div>
+                            <div class="stat-item">
+                                <span>% de Victorias</span>
+                                <strong id="stat-win-rate">0%</strong>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+
+                <div class="lobby-column" id="actions-column">
                     <div class="card">
                         <h3>🆕 Crear Sala Nueva</h3>
                         <div class="form-group">
@@ -223,36 +286,38 @@
                     </div>
                 </div>
 
-                <div class="info-section">
-                    <div class="info-tabs">
-                        <button id="btn-abrir-reglas" class="info-tab-button">📖 Cómo Jugar</button>
-                        <button id="tab-ranking" class="info-tab-button">Top 5</button>
-                    </div>
-                    
-                    <div id="rules-content" class="info-content active">
-                        <h3>📋 Cómo Jugar - VoltRace</h3>
-                        <ul>
-                            <li><strong>Objetivo:</strong> Sé el primer jugador en llegar a la casilla 75 o el último en pie con energía.</li>
-                            <li><strong>Jugadores:</strong> 2 a 4 personas por partida.</li>
-                            <li><strong>Energía:</strong> Empiezas con 600 puntos. Si llegas a 0, ¡quedás eliminado! Recoge packs 🔋 para ganar o perder energía.</li>
-                            <li><strong>Tablero:</strong> Avanza según el dado 🎲. ¡Cuidado con las casillas especiales (Trampas 💀, Tesoros 💰, Portales 🌀)!</li>
-                            <li><strong>Colisiones:</strong> Si caes en la misma casilla que otro jugador, ¡ambos pierden energía! 💥</li>
-                            <li><strong>Habilidades:</strong> Cada jugador recibe 4 habilidades únicas al inicio. Úsalas estratégicamente, ¡tienen un cooldown antes de poder volver a usarlas! ⏱️</li>
-                            <li><strong>Puntos de Mejora (PM):</strong> Gana Puntos de Mejora (PM) ✨ durante la partida al recoger energía o usar habilidades.</li>
-                            <li><strong>Perks:</strong> ¡Usa tus PM al inicio de tu turno para comprar Perks! Son ventajas pasivas que duran toda la partida. ⭐</li>
-                            <li><strong>Ganador:</strong> Al llegar a la meta, el jugador vivo con más Energía al final de la partida gana!. 🏆</li>
-                        </ul>
-                    </div>
-                    <div id="ranking-content" class="info-content">
-                        <h3>🏆 Top 5 Jugadores</h3>
-                        <div id="top-players" class="top-players">
-                            <div class="loading-rankings">Cargando rankings...</div>
+                <div class="lobby-column" id="info-column">
+                    <div class="info-section">
+                        <div class="info-tabs">
+                            <button id="btn-abrir-reglas" class="info-tab-button">📖 Cómo Jugar</button>
+                            <button id="tab-ranking" class="info-tab-button">Top 5</button>
+                        </div>
+                        
+                        <div id="rules-content" class="info-content active">
+                            <h3>📋 Cómo Jugar - VoltRace</h3>
+                            <ul>
+                                <li><strong>Objetivo:</strong> Sé el primer jugador en llegar a la casilla 75 o el último en pie con energía.</li>
+                                <li><strong>Jugadores:</strong> 2 a 4 personas por partida.</li>
+                                <li><strong>Energía:</strong> Empiezas con 600 puntos. Si llegas a 0, ¡quedás eliminado! Recoge packs 🔋 para ganar o perder energía.</li>
+                                <li><strong>Tablero:</strong> Avanza según el dado 🎲. ¡Cuidado con las casillas especiales (Trampas 💀, Tesoros 💰, Portales 🌀)!</li>
+                                <li><strong>Colisiones:</strong> Si caes en la misma casilla que otro jugador, ¡ambos pierden energía! 💥</li>
+                                <li><strong>Habilidades:</strong> Cada jugador recibe 4 habilidades únicas al inicio. Úsalas estratégicamente, ¡tienen un cooldown antes de poder volver a usarlas! ⏱️</li>
+                                <li><strong>Puntos de Mejora (PM):</strong> Gana Puntos de Mejora (PM) ✨ durante la partida al recoger energía o usar habilidades.</li>
+                                <li><strong>Perks:</strong> ¡Usa tus PM al inicio de tu turno para comprar Perks! Son ventajas pasivas que duran toda la partida. ⭐</li>
+                                <li><strong>Ganador:</strong> Al llegar a la meta, el jugador vivo con más Energía al final de la partida gana!. 🏆</li>
+                            </ul>
+                        </div>
+                        <div id="ranking-content" class="info-content">
+                            <h3>🏆 Top 5 Jugadores</h3>
+                            <div id="top-players" class="top-players">
+                                <div class="loading-rankings">Cargando rankings...</div>
+                            </div>
                         </div>
                     </div>
-                    
                 </div>
+
             </div>
-        </div>
+            </div>
 
         <div id="waiting-screen" class="screen">
             <div class="header">
@@ -260,13 +325,11 @@
                 <button id="btn-copiar-codigo" class="btn-secondary">📋 Copiar Código</button>
                 <button id="btn-social-waiting" class="btn-secondary" title="Amigos y Chat">👥 Social</button>
             </div>
-
             <div class="waiting-content">
                 <div class="jugadores-lista">
                     <h3>👥 Jugadores (<span id="contador-jugadores">0</span>/4)</h3>
                     <ul id="lista-jugadores"></ul>
                 </div>
-
                 <div class="chat-waiting">
                     <h3>💬 Chat de Sala</h3>
                     <div id="chat-mensajes" class="chat-mensajes"></div>
@@ -275,12 +338,10 @@
                         <button id="btn-enviar-mensaje">Enviar</button>
                     </div>
                 </div>
-
                 <div class="controles-sala">
                     <button id="btn-iniciar-juego" class="btn-success" disabled>🎮 Iniciar Juego</button>
                     <button id="btn-salir-sala" class="btn-danger">🚪 Salir de la Sala</button>
                 </div>
-
                 <div class="eventos-sala">
                     <h4>📝 Eventos</h4>
                     <ul id="log-eventos"></ul>
@@ -301,22 +362,18 @@
                     </div>
                 </div>
             </div>
-
             <div class="game-content">
                 <div class="panel-jugadores">
                     <h3>👥 Jugadores</h3>
                     <div id="jugadores-estado"></div>
                 </div>
-
                 <div class="tablero-container">
                     <div id="tablero" class="tablero"></div>
-                    
                     <div class="controles-turno">
                         <button id="btn-mostrar-habilidades" class="btn-secondary">⚡ Habilidades</button>
                         <button id="btn-lanzar-dado" class="btn-primary" disabled>🎲 Lanzar Dado</button>
                         <div id="resultado-dado" class="resultado-dado"></div>
                     </div>
-
                     <div id="guia-partida-drawer" class="guia-drawer">
                         <button id="guia-partida-toggle" class="guia-toggle-btn">
                             📖 Guía Rápida de Símbolos (Click para expandir)
@@ -354,7 +411,8 @@
                             <li><strong>🩸 Fuga de Energía:</strong> Pierdes energía al inicio de tu turno.</li>
                         </ul>
                     </div>
-                </div> <div class="panel-eventos">
+                </div> 
+                <div class="panel-eventos">
                     <div class="eventos-juego">
                         <h4>📋 Eventos del Juego</h4>
                         <div id="eventos-lista" class="eventos-scroll"></div>
@@ -367,7 +425,9 @@
                             <button id="btn-enviar-mensaje-juego">📤</button>
                         </div>
                     </div>
-                </div> </div> </div>
+                </div> 
+            </div> 
+        </div>
 
         <div id="modal-habilidades" class="modal">
             <div class="modal-content">
@@ -379,39 +439,37 @@
             </div>
         </div>
         <div id="modal-perks" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>⭐ Compra de Perks</h3>
-                <button id="btn-cerrar-perks" class="btn-close">×</button>
-            </div>
-            <div class="perks-info">
-                <span>Puntos de Mejora (PM): <strong id="pm-actual">0</strong></span>
-                <span>Perks Activos: <span id="perks-activos-list">-</span></span>
-            </div>
-            <h4>Selecciona un Pack:</h4>
-            <div class="perk-packs">
-                <button id="btn-pack-basico" class="pack-button" data-pack-type="basico" data-cost="4">
-                    <h4>Pack Básico</h4>
-                    <small>Coste: 4 PM</small>
-                    <small>(Ofrece 2 Básicos)</small>
-                </button>
-
-                <button id="btn-pack-intermedio" class="pack-button" data-pack-type="intermedio" data-cost="8">
-                    <h4>Pack Intermedio</h4>
-                    <small>Coste: 8 PM</small>
-                    <small>(Ofrece 2 Medios, 1 Básico)</small>
-                </button>
-
-                <button id="btn-pack-avanzado" class="pack-button" data-pack-type="avanzado" data-cost="12">
-                    <h4>Pack Avanzado</h4>
-                    <small>Coste: 12 PM</small>
-                    <small>(Ofrece 1 Alto, 2 Medios)</small>
-                </button>
-                            </div>
-            <div id="perk-offer-container">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>⭐ Compra de Perks</h3>
+                    <button id="btn-cerrar-perks" class="btn-close">×</button>
                 </div>
+                <div class="perks-info">
+                    <span>Puntos de Mejora (PM): <strong id="pm-actual">0</strong></span>
+                    <span>Perks Activos: <span id="perks-activos-list">-</span></span>
+                </div>
+                <h4>Selecciona un Pack:</h4>
+                <div class="perk-packs">
+                    <button id="btn-pack-basico" class="pack-button" data-pack-type="basico" data-cost="4">
+                        <h4>Pack Básico</h4>
+                        <small>Coste: 4 PM</small>
+                        <small>(Ofrece 2 Básicos)</small>
+                    </button>
+                    <button id="btn-pack-intermedio" class="pack-button" data-pack-type="intermedio" data-cost="8">
+                        <h4>Pack Intermedio</h4>
+                        <small>Coste: 8 PM</small>
+                        <small>(Ofrece 2 Medios, 1 Básico)</small>
+                    </button>
+                    <button id="btn-pack-avanzado" class="pack-button" data-pack-type="avanzado" data-cost="12">
+                        <h4>Pack Avanzado</h4>
+                        <small>Coste: 12 PM</small>
+                        <small>(Ofrece 1 Alto, 2 Medios)</small>
+                    </button>
+                </div>
+                <div id="perk-offer-container">
+                </div>
+            </div>
         </div>
-    </div>
         <div id="modal-final" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -424,7 +482,6 @@
                 </div>
             </div>
         </div>
-
         <div id="modal-private-chat" class="modal">
             <div class="modal-content">
                 <div class="social-header">
@@ -438,7 +495,6 @@
                 </div>
             </div>
         </div>
-
         <div id="modal-social" class="modal">
             <div class="modal-content">
                 <div class="social-header">
@@ -465,21 +521,19 @@
                 </div>
             </div>
         </div>
-
         <div id="modal-achievements" class="modal">
-        <div class="modal-content" style="max-height: 80vh; overflow-y: auto;">
-            <div class="modal-header">
-                <h3>🏆 Mis Logros</h3>
-                <button id="btn-cerrar-achievements" class="btn-close">×</button>
-            </div>
-            <div id="achievements-summary" style="text-align: center; margin-bottom: 15px; color: var(--muted);">
-                Cargando progreso...
-            </div>
-            <div id="achievements-list" style="display: flex; flex-direction: column; gap: 10px;">
+            <div class="modal-content" style="max-height: 80vh; overflow-y: auto;">
+                <div class="modal-header">
+                    <h3>🏆 Mis Logros</h3>
+                    <button id="btn-cerrar-achievements" class="btn-close">×</button>
                 </div>
+                <div id="achievements-summary" style="text-align: center; margin-bottom: 15px; color: var(--muted);">
+                    Cargando progreso...
+                </div>
+                <div id="achievements-list" style="display: flex; flex-direction: column; gap: 10px;">
+                </div>
+            </div>
         </div>
-        </div>
-        
         <div id="modal-glossary" class="modal">
             <div class="modal-content" style="max-height: 80vh; overflow-y: auto;">
                 <div class="modal-header">
@@ -505,10 +559,11 @@
 
         <div id="modal-kits" class="modal" style="display:none;">
             <div class="modal-content">
-                <span class="btn-close" id="close-modal-kits">&times;</span>
-                <h2>🛠️ Elige tu Kit de Habilidades</h2>
+                <div class="modal-header">
+                    <h3>🛠️ Elegir Kit</h3>
+                    <span class="btn-close" id="close-modal-kits">&times;</span>
+                </div>
                 <p>Esta será tu configuración de habilidades al entrar en una partida. Tu elección se guardará.</p>
-                
                 <div id="contenedor-kits">
                     <div class="kit-card" data-kit="tactico">
                         <h3>Táctico</h3>
@@ -520,7 +575,6 @@
                             <li>Dado Perfecto</li>
                         </ul>
                     </div>
-    
                     <div class="kit-card" data-kit="ingeniero">
                         <h3>Ingeniero</h3>
                         <p>Zona y velocidad. Rápido para escapar y poner trampas.</p>
@@ -531,7 +585,6 @@
                             <li>Mina de Energía</li>
                         </ul>
                     </div>
-    
                     <div class="kit-card" data-kit="espectro">
                         <h3>Espectro</h3>
                         <p>Caos y evasión. Ignora las reglas del tablero y altera posiciones.</p>
@@ -542,7 +595,6 @@
                             <li>Caos</li>
                         </ul>
                     </div>
-    
                     <div class="kit-card" data-kit="guardian">
                         <h3>Guardián</h3>
                         <p>Anti-habilidades. Difícil de matar y castiga a quienes dependen de la energía.</p>
@@ -553,7 +605,6 @@
                             <li>Bloqueo Energético</li>
                         </ul>
                     </div>
-    
                     <div class="kit-card" data-kit="estratega">
                         <h3>El Estratega</h3>
                         <p>Alto riesgo, alta recompensa. Sin escape, pero gran control y tempo.</p>

@@ -309,7 +309,8 @@ class SalaJuego:
                 'nombre': nombre,
                 'sid': sid,
                 'conectado': True,
-                'kit_id': kit_id  
+                'kit_id': kit_id,
+                'avatar_emoji': avatar_emoji
             }
             self.log_eventos.append(f"{nombre} se unió al juego")
             return True
@@ -333,7 +334,8 @@ class SalaJuego:
             for datos in self.jugadores.values():
                 jugadores_config.append({
                     'nombre': datos['nombre'],
-                    'kit_id': datos.get('kit_id', 'tactico') # Pasa el kit guardado
+                    'kit_id': datos.get('kit_id', 'tactico'), # Pasa el kit guardado
+                    'avatar_emoji': datos.get('avatar_emoji', '👤')
                 })
             
             # Pasar la lista de configs al constructor del juego
@@ -415,7 +417,10 @@ def register():
         user_data = {
             'username': new_user.username,
             'level': new_user.level,
-            'xp': new_user.xp
+            'xp': new_user.xp,
+            'games_played': new_user.games_played, 
+            'games_won': new_user.games_won,
+            'avatar_emoji': new_user.avatar_emoji
         }
         return jsonify({"success": True, "user_data": user_data})
         
@@ -454,7 +459,10 @@ def login():
             user_data = {
                 'username': user.username,
                 'level': user.level,
-                'xp': user.xp
+                'xp': user.xp,
+                'games_played': user.games_played, 
+                'games_won': user.games_won,
+                'avatar_emoji': user.avatar_emoji
             }
             return jsonify({"success": True, "user_data": user_data})
 
@@ -467,6 +475,8 @@ def login():
                 session['username'] = user.username
                 session['level'] = user.level
                 session['xp'] = user.xp
+                session['games_played'] = user.games_played
+                session['games_won'] = user.games_won
                 
                 _procesar_login_diario(user)
                 
@@ -503,7 +513,26 @@ def forgot_password():
     # Esto ahora solo se ejecuta en el GET 
     return render_template('forgot_password.html')
 
+@app.route('/api/set_avatar', methods=['POST'])
+@login_required
+def set_avatar():
+    data = request.get_json()
+    new_emoji = data.get('avatar_emoji')
 
+    if not new_emoji or len(new_emoji) > 5: # Validación simple
+        return jsonify({"success": False, "message": "Emoji inválido."}), 400
+
+    try:
+        user = current_user
+        user.avatar_emoji = new_emoji
+        db.session.commit()
+        print(f"Usuario {user.username} actualizó su avatar a: {new_emoji}")
+        return jsonify({"success": True, "avatar_emoji": new_emoji})
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error al guardar avatar: {e}")
+        return jsonify({"success": False, "message": "Error del servidor."}), 500
+    
 @app.route("/reset-password/<token>", methods=['GET', 'POST'])
 def reset_token(token):
     if current_user.is_authenticated:
@@ -553,7 +582,6 @@ def profile(username):
         'xp': user.xp,
         'games_played': user.games_played,
         'games_won': user.games_won
-        # Añade más campos si los tienes en el modelo User
     }
 
     try:
@@ -829,6 +857,7 @@ def crear_sala(data):
 
     # Leer el kit guardado en la sesión del usuario
     kit_seleccionado = session.get('kit_seleccionado', 'tactico')
+    avatar_guardado = session.get('avatar_emoji', '👤')
     
     # Pasarlo al agregar_jugador
     if salas_activas[id_sala].agregar_jugador(request.sid, username, kit_seleccionado):
@@ -889,6 +918,7 @@ def unirse_sala(data):
             return
 
     kit_seleccionado = session.get('kit_seleccionado', 'tactico')
+    avatar_guardado = session.get('avatar_emoji', '👤')
 
     # Intentar agregar al jugador
     if sala.agregar_jugador(request.sid, username, kit_seleccionado):
@@ -1005,7 +1035,7 @@ def guardar_kit(data):
     else:
         print(f"Cliente {sid} intentó guardar un kit inválido: {kit_id}")
         emit('error', {'mensaje': 'Kit no válido.'})
-        
+
 @socketio.on('iniciar_juego')
 def iniciar_juego_manual(data):
     # Handler para el botón "Iniciar Juego" en la sala de espera

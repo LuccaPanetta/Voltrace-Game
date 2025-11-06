@@ -11,6 +11,8 @@ import { showNotification, playSound, loadAudioSettings, setVolume, toggleMute, 
 let loginEmailInput, loginPasswordInput, btnLogin;
 let registerEmailInput, registerUsernameInput, registerPasswordInput, btnRegister;
 let userUsernameDisplay, userLevelDisplay, userXpDisplay;
+let statGamesPlayed, statGamesWon, statWinRate;
+let btnEditAvatar;
 let tabLogin, tabRegister, loginForm, registerForm;
 let _setLoadingFunc = null;
 let _showFunc = null;
@@ -18,6 +20,13 @@ let _screens = null;
 let _loadingElement = null;
 let _onLoginSuccessCallback = null; 
 let _gameAnimations = null; 
+
+const AVATAR_LISTA_APROBADA = [
+    '🦄', '🐲', '🦖', '🐙', '🦊', '🐼', '🦁', '🐸', 
+    '🤖', '👽', '👻', '🤠', '🧙', '🧛', '🧟',
+    '⚡', '🚀', '🎯', '💥', '☄️', '☢️', '💎', 
+    '👑', '🍀', '🍄', '🪐', '🔥', '💀', '👤' 
+];
 
 /**
  * Inicializa el módulo de autenticación, cachea elementos DOM y asigna listeners.
@@ -45,6 +54,10 @@ export function initAuth(screensRef, showFuncRef, setLoadingFuncRef, loadingElem
     userUsernameDisplay = document.getElementById("user-username");
     userLevelDisplay = document.getElementById("user-level");
     userXpDisplay = document.getElementById("user-xp");
+    btnEditAvatar = document.getElementById("btn-edit-avatar");
+    statGamesPlayed = document.getElementById("stat-games-played");
+    statGamesWon = document.getElementById("stat-games-won");
+    statWinRate = document.getElementById("stat-win-rate");
     const btnLogout = document.getElementById("btn-logout");
     const btnToggleAnimations = document.getElementById("btn-toggle-animations"); 
     const volumeIcon = document.getElementById("volume-icon"); 
@@ -76,6 +89,12 @@ export function initAuth(screensRef, showFuncRef, setLoadingFuncRef, loadingElem
         console.warn("Botón de animaciones o instancia no encontrados en initAuth.");
     }
     
+    if (btnEditAvatar) {
+        btnEditAvatar.addEventListener('click', handleEditAvatar);
+    }
+    
+    console.log("Módulo Auth inicializado.");
+
     if (volumeIcon && volumeSlider) {
         // Cargar estado guardado al iniciar
         const initialAudioSettings = loadAudioSettings();
@@ -254,19 +273,79 @@ async function registerAPI(email, username, password) {
 
 // --- Actualización de UI del Perfil ---
 
-export function updateProfileUI(userStats) {
-    if (userUsernameDisplay && userLevelDisplay && userXpDisplay) {
-        if (userStats && userStats.username) {
-            userUsernameDisplay.textContent = `👤 ${userStats.username}`;
-            userLevelDisplay.textContent = `Nivel ${userStats.level || 1}`;
-            userXpDisplay.textContent = `${userStats.xp || 0} XP`;
+async function handleEditAvatar() {
+    if (!_state || !_state.currentUser) return;
+
+    // Mostrar la lista al usuario en un prompt
+    const emojiListaStr = AVATAR_LISTA_APROBADA.join(' ');
+    const nuevoEmoji = prompt(
+        "Elige tu nuevo avatar copiando y pegando uno de la lista:\n\n" + emojiListaStr,
+        _state.currentUser.avatar_emoji || '👤'
+    );
+
+    // Validar
+    if (!nuevoEmoji || nuevoEmoji === _state.currentUser.avatar_emoji) {
+        return; // No hizo cambios o canceló
+    }
+
+    if (!AVATAR_LISTA_APROBADA.includes(nuevoEmoji)) {
+        showNotification("Emoji no válido. Por favor, elige uno de la lista.", document.getElementById('notificaciones'), "error");
+        return;
+    }
+
+    // Enviar al servidor
+    try {
+        const response = await fetch('/api/set_avatar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ avatar_emoji: nuevoEmoji })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            // Actualizar estado local y UI
+            _state.currentUser.avatar_emoji = data.avatar_emoji;
+            updateProfileUI(_state.currentUser);
+            showNotification("¡Avatar actualizado!", document.getElementById('notificaciones'), "success");
         } else {
-            userUsernameDisplay.textContent = `👤 Desconectado`;
-            userLevelDisplay.textContent = `Nivel -`;
-            userXpDisplay.textContent = `- XP`;
+            showNotification(data.message || "Error al guardar el avatar.", document.getElementById('notificaciones'), "error");
         }
+    } catch (error) {
+        console.error("Error en fetch /api/set_avatar:", error);
+        showNotification("Error de conexión al guardar avatar.", document.getElementById('notificaciones'), "error");
+    }
+}
+
+export function updateProfileUI(user) {
+    if (user) {
+        // --- Header ---
+        const avatar = user.avatar_emoji || '👤';
+        if (userUsernameDisplay) userUsernameDisplay.textContent = `${avatar} ${escapeHTML(user.username)}`; 
+        if (userLevelDisplay) userLevelDisplay.textContent = `⭐ Nivel ${user.level || 1}`;
+        if (userXpDisplay) userXpDisplay.textContent = `${user.xp || 0} XP`;
+
+        // --- Panel de Estadísticas del Lobby ---
+        const gamesPlayed = user.games_played || 0;
+        const gamesWon = user.games_won || 0;
+        
+        let winRate = 0;
+        if (gamesPlayed > 0) {
+            winRate = ((gamesWon / gamesPlayed) * 100).toFixed(1);
+        }
+
+        if (statGamesPlayed) statGamesPlayed.textContent = gamesPlayed;
+        if (statGamesWon) statGamesWon.textContent = gamesWon;
+        if (statWinRate) statWinRate.textContent = `${winRate}%`;
+
     } else {
-        console.warn("Elementos de UI del perfil no encontrados al intentar actualizar.");
+        // --- Logout  ---
+        if (userUsernameDisplay) userUsernameDisplay.textContent = "👤 Usuario";
+        if (userLevelDisplay) userLevelDisplay.textContent = "⭐ Nivel 1";
+        if (userXpDisplay) userXpDisplay.textContent = "0 XP";
+
+        if (statGamesPlayed) statGamesPlayed.textContent = "0";
+        if (statGamesWon) statGamesWon.textContent = "0";
+        if (statWinRate) statWinRate.textContent = "0%";
     }
 }
 
