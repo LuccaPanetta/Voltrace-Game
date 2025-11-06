@@ -66,11 +66,15 @@ import { AnimationSystem } from './animations.js';
             // Autenticar el socket inmediatamente
             socket.emit('authenticate', { username: user_data.username });
 
-            // Guardar el estado COMPLETO
+            // Guardar el estado
             state.currentUser = user_data; 
             
             // Actualizar la UI del header (
             updateProfileUI(state.currentUser);
+            
+            if (user_data.kit_id) {
+                actualizarKitUI(user_data.kit_id); 
+            }
 
             // Mostrar el lobby
             show('lobby', screens);

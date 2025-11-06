@@ -10,6 +10,7 @@ let loginEmailInput, loginPasswordInput, btnLogin;
 let registerEmailInput, registerUsernameInput, registerPasswordInput, btnRegister;
 let userUsernameDisplay, userLevelDisplay, userXpDisplay;
 let statGamesPlayed, statGamesWon, statWinRate;
+let statWinStreak, statAbilitiesUsed, statRoomsCreated;
 let btnEditAvatar;
 let tabLogin, tabRegister, loginForm, registerForm;
 let modalAvatar, btnCerrarAvatar;
@@ -56,6 +57,9 @@ export function initAuth(screensRef, showFuncRef, setLoadingFuncRef, loadingElem
     statGamesPlayed = document.getElementById("stat-games-played");
     statGamesWon = document.getElementById("stat-games-won");
     statWinRate = document.getElementById("stat-win-rate");
+    statWinStreak = document.getElementById("stat-win-streak");
+    statAbilitiesUsed = document.getElementById("stat-abilities-used");
+    statRoomsCreated = document.getElementById("stat-rooms-created");
     const btnLogout = document.getElementById("btn-logout");
     const btnToggleAnimations = document.getElementById("btn-toggle-animations"); 
     const volumeIcon = document.getElementById("volume-icon"); 
@@ -369,6 +373,9 @@ export function updateProfileUI(user) {
         if (statGamesPlayed) statGamesPlayed.textContent = gamesPlayed;
         if (statGamesWon) statGamesWon.textContent = gamesWon;
         if (statWinRate) statWinRate.textContent = `${winRate}%`;
+        if (statWinStreak) statWinStreak.textContent = user.consecutive_wins || 0;
+        if (statAbilitiesUsed) statAbilitiesUsed.textContent = user.abilities_used || 0;
+        if (statRoomsCreated) statRoomsCreated.textContent = user.rooms_created || 0;
 
     } else {
         // --- Logout  ---
@@ -379,6 +386,9 @@ export function updateProfileUI(user) {
         if (statGamesPlayed) statGamesPlayed.textContent = "0";
         if (statGamesWon) statGamesWon.textContent = "0";
         if (statWinRate) statWinRate.textContent = "0%";
+        if (statWinStreak) statWinStreak.textContent = "0";
+        if (statAbilitiesUsed) statAbilitiesUsed.textContent = "0";
+        if (statRoomsCreated) statRoomsCreated.textContent = "0";
     }
 }
 

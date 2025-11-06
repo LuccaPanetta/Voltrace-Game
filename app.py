@@ -364,7 +364,11 @@ def index():
                 'xp': user.xp,
                 'games_played': user.games_played, 
                 'games_won': user.games_won,
-                'avatar_emoji': user.avatar_emoji
+                'avatar_emoji': user.avatar_emoji,
+                'kit_id': session.get('kit_seleccionado', 'tactico'),
+                'consecutive_wins': getattr(user, 'consecutive_wins', 0),
+                'abilities_used': getattr(user, 'abilities_used', 0),
+                'rooms_created': getattr(user, 'rooms_created', 0)
             }
             
             session['user_id'] = user.id
@@ -424,7 +428,10 @@ def register():
             'xp': new_user.xp,
             'games_played': new_user.games_played, 
             'games_won': new_user.games_won,
-            'avatar_emoji': new_user.avatar_emoji
+            'avatar_emoji': new_user.avatar_emoji,
+            'consecutive_wins': 0,
+            'abilities_used': 0,
+            'rooms_created': 0
         }
         return jsonify({"success": True, "user_data": user_data})
         
@@ -466,7 +473,10 @@ def login():
                 'xp': user.xp,
                 'games_played': user.games_played, 
                 'games_won': user.games_won,
-                'avatar_emoji': user.avatar_emoji
+                'avatar_emoji': user.avatar_emoji,
+                'consecutive_wins': getattr(user, 'consecutive_wins', 0),
+                'abilities_used': getattr(user, 'abilities_used', 0),
+                'rooms_created': getattr(user, 'rooms_created', 0)
             }
             return jsonify({"success": True, "user_data": user_data})
 
@@ -775,8 +785,6 @@ def on_connect():
     # Se ejecuta cuando un cliente establece una conexión WebSocket
     print(f"Cliente conectado: {request.sid}")
     emit('conectado', {'mensaje': 'Conexión exitosa'}) # Enviar confirmación al cliente
-    kit_guardado = session.get('kit_seleccionado', 'tactico')
-    emit('kit_actual', {'kit_id': kit_guardado})
 
 @socketio.on('authenticate')
 def authenticate(data):

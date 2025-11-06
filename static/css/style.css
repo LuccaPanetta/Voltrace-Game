@@ -129,16 +129,69 @@ body {
     flex-direction: column;
   }
 }
+
+/* --- ESTILOS PARA LAYOUT DEL LOBBY Y STATS (Migrado de HTML) --- */
 .lobby-content {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--gap-medium);
+    /* Convertimos el lobby en un layout flex */
+    display: flex;
+    flex-wrap: wrap; /* Permitir que se reordene en pantallas pequeñas */
+    gap: 20px; /* Espacio entre columnas */
 }
-@media (min-width: 768px) {
-  .lobby-content {
-    grid-template-columns: 2fr 1fr;
-  }
+
+.lobby-column {
+    /* Cada columna tomará el espacio que necesite, pero base 30% */
+    flex-basis: 300px;
+    flex-grow: 1;
+    min-width: 280px;
 }
+
+#actions-column .card {
+    /* Asegurarse que las tarjetas de acción ocupen todo el ancho de su columna */
+    width: 100%;
+    box-sizing: border-box; /* Incluir padding en el ancho */
+}
+
+#info-column {
+    /* La columna de info puede ser un poco más grande */
+    flex-grow: 1.5;
+}
+
+/* Estilos para el nuevo panel de estadísticas */
+#stats-column .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 15px;
+}
+#stats-column .stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: #374151; /* Fondo de stat */
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+}
+#stats-column .stat-item span {
+    font-size: 0.9em;
+    color: #9CA3AF; /* Muted */
+    margin-bottom: 5px;
+}
+#stats-column .stat-item strong {
+    font-size: 1.5em;
+    color: #00ff99; /* Color destacado */
+}
+
+/* CSS PARA EL HEADER DEL LOBBY (Migrado de HTML) */
+#lobby-screen .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap; /* Para que se vea bien en pantallas pequeñas */
+}
+/* --- FIN DE LAYOUT DEL LOBBY --- */
+
+
 .action-cards {
   display: grid;
   grid-template-columns: 1fr;
@@ -1602,4 +1655,80 @@ input[type="range"]::-moz-range-thumb {
 }
 input[type="range"]::-moz-range-thumb:hover {
     background: #a5b4fc;
+}
+
+/* ===================================================================
+   MODULO: FEATURES (Kits) 
+   =================================================================== */
+#contenedor-kits {
+    max-height: 60vh;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+.kit-card {
+    border: 2px solid #555;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+.kit-card:hover {
+    background-color: #3a3a3a;
+}
+.kit-card.seleccionado {
+    border-color: #00ff99;
+    background-color: #2a3a34;
+    box-shadow: 0 0 10px #00ff9944;
+}
+.kit-card h3 {
+    margin-top: 0;
+    color: #00ff99;
+}
+.kit-card p {
+    font-size: 0.9em;
+    color: #9CA3AF;
+    margin-bottom: 10px;
+}
+.kit-card ul {
+    list-style-type: disc;
+    padding-left: 20px;
+    margin: 0;
+    font-size: 0.9em;
+}
+
+/* ===================================================================
+   MODULO: FEATURES (Avatar) 
+   =================================================================== */
+#avatar-selection-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    max-height: 50vh;
+    overflow-y: auto;
+    padding: 10px;
+    background-color: #111827;
+    border-radius: 8px;
+}
+.avatar-btn {
+    background-color: #374151;
+    border: 2px solid #4B5563;
+    color: white;
+    padding: 0;
+    width: 50px;
+    height: 50px;
+    font-size: 24px;
+    line-height: 50px;
+    text-align: center;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+.avatar-btn:hover {
+    background-color: #4B5563;
+}
+.avatar-btn.seleccionado {
+    border-color: #00ff99;
+    box-shadow: 0 0 10px #00ff9944;
 }
