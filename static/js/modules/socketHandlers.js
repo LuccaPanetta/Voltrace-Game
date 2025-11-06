@@ -318,6 +318,35 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
         invalidateAchievementsCache(); // Borra el caché
     });
 
+    _socket.on("profile_stats_updated", (data) => {
+        if (!_state.currentUser) return; 
+        
+        console.log("Recibidas estadísticas actualizadas:", data);
+        let updated = false;
+        
+        // Actualizar los valores en el estado local
+        if (data.rooms_created !== undefined) {
+            _state.currentUser.rooms_created = data.rooms_created;
+            updated = true;
+        }
+        if (data.abilities_used !== undefined) {
+            _state.currentUser.abilities_used = data.abilities_used;
+            updated = true;
+        }
+        if (data.xp !== undefined) {
+            _state.currentUser.xp = data.xp;
+            updated = true;
+        }
+            if (data.level !== undefined) {
+            _state.currentUser.level = data.level;
+            updated = true;
+        }
+        
+        if (updated) {
+            // Volver a renderizar la UI del perfil con los nuevos datos
+            updateProfileUI(_state.currentUser);
+        }
+    });
     // --- Fin de Juego y Revancha ---
     _socket.on("juego_terminado", (data) => {
         mostrarModalFinJuego(data);

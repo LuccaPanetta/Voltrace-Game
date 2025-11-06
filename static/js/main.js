@@ -66,6 +66,8 @@ import { AnimationSystem } from './animations.js';
             // Autenticar el socket inmediatamente
             socket.emit('authenticate', { username: user_data.username });
 
+            socket.emit('cargar_mi_kit');
+
             // Guardar el estado
             state.currentUser = user_data; 
             

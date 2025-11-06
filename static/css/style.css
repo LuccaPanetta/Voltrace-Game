@@ -124,11 +124,6 @@ body {
   flex-wrap: wrap;
   gap: var(--gap-small);
 }
-@media (max-width: 768px) {
-  .header {
-    flex-direction: column;
-  }
-}
 
 /* --- ESTILOS PARA LAYOUT DEL LOBBY Y STATS (Migrado de HTML) --- */
 .lobby-content {
