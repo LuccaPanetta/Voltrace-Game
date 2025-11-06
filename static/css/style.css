@@ -1906,3 +1906,39 @@ progress#user-xp-bar::-moz-progress-bar {
     color: var(--muted);
     cursor: default;
 }
+
+/* ===================================================================
+   MODULO: UI (Controles Globales en Juego)
+   =================================================================== */
+
+.game-controls-global {
+    display: flex;
+    align-items: center;
+    gap: 8px; /* Espacio entre el botón de animaciones y el de volumen */
+}
+
+/* Ajustar el .game-info para que tenga espacio */
+.game-info {
+    display: flex;
+    flex-wrap: wrap; /* Permitir que se envuelva en pantallas pequeñas */
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px; /* Espacio entre los elementos */
+}
+
+/* Usar los mismos estilos que los botones del lobby */
+.game-controls-global .btn-secondary,
+.game-controls-global .volume-control {
+    background-color: #374151;
+    border-radius: 6px;
+}
+.game-controls-global .volume-control {
+    padding: 0 6px; /* Pequeño padding para el contenedor de volumen */
+}
+.game-controls-global .btn-secondary {
+    padding: 6px 10px;
+    font-size: 13px;
+}
+.game-controls-global .volume-control input[type="range"] {
+    height: 4px; /* Hacer la barra un poco más fina */
+}

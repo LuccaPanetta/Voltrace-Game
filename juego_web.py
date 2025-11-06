@@ -1329,7 +1329,7 @@ class JuegoOcaWeb:
                 jugador.efectos_activos.append({"tipo": "pausa", "turnos": turnos_pausa_total})
                 eventos.append(f"⚔️ ¡{jugador.get_nombre()} se auto-saboteó y perderá {rondas_pausa} turno(s)!")
                 
-            return {"exito": False, "eventos": eventos, "reflejo_exitoso": True} 
+            return {"exito": True, "eventos": eventos, "reflejo_exitoso": True} # Robo REFLEJADO 
 
         # Verificar Escudo 
         if self._verificar_efecto_activo(obj, "escudo"):
@@ -1476,7 +1476,7 @@ class JuegoOcaWeb:
                 elif getattr(jugador_afectado, '_ultimo_aliento_usado', False) and not getattr(jugador_afectado, '_ultimo_aliento_notificado', False):
                     self.eventos_turno.append(f"❤️‍🩹 ¡Último Aliento salvó a {jugador_afectado.get_nombre()}! Sobrevive con 50 E y Escudo (3 Turnos).")
                     jugador_afectado._ultimo_aliento_notificado = True
-            return {"exito": False, "eventos": eventos, "reflejo_exitoso": True} # Robo fallido por reflejo
+            return {"exito": True, "eventos": eventos, "reflejo_exitoso": True} # Robo REFLEJADO # Robo fallido por reflejo
 
         # Comprobar Escudo del objetivo (bloquea)
         elif self._verificar_efecto_activo(obj, "escudo"):
@@ -1590,7 +1590,7 @@ class JuegoOcaWeb:
                 jugador.efectos_activos.append({"tipo": "fuga_energia", "turnos": duracion_dot, "dano": dano_dot})
                 eventos.append(f"🩸 ¡{jugador.get_nombre()} se auto-infligió Fuga de Energía!")
                 
-            return {"exito": False, "eventos": eventos, "reflejo_exitoso": True} # Cuenta como reflejo exitoso
+            return {"exito": True, "eventos": eventos, "reflejo_exitoso": True} # Robo REFLEJADO # Cuenta como reflejo exitoso
 
         # Verificar Escudo (Bloquea)
         if self._verificar_efecto_activo(obj, "escudo"):

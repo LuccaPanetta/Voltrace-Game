@@ -62,13 +62,19 @@ export function initAuth(screensRef, showFuncRef, setLoadingFuncRef, loadingElem
     statAbilitiesUsed = document.getElementById("stat-abilities-used");
     statRoomsCreated = document.getElementById("stat-rooms-created");
     const btnLogout = document.getElementById("btn-logout");
-    const btnToggleAnimations = document.getElementById("btn-toggle-animations"); 
-    const volumeIcon = document.getElementById("volume-icon"); 
-    const volumeSlider = document.getElementById("volume-slider");
+    
+    // Controles (Lobby)
+    const btnToggleAnimationsLobby = document.getElementById("btn-toggle-animations"); 
+    const volumeIconLobby = document.getElementById("volume-icon"); 
+    const volumeSliderLobby = document.getElementById("volume-slider");
+    
+    // Controles (Juego)
+    const btnToggleAnimationsGame = document.getElementById("btn-toggle-animations-game");
+    const volumeIconGame = document.getElementById("volume-icon-game");
+    const volumeSliderGame = document.getElementById("volume-slider-game");
 
     modalAvatar = document.getElementById("modal-avatar");
     btnCerrarAvatar = document.getElementById("btn-cerrar-avatar");
-
 
     // --- Asignar Listeners ---
     tabLogin?.addEventListener("click", handleTabClick);
@@ -79,64 +85,91 @@ export function initAuth(screensRef, showFuncRef, setLoadingFuncRef, loadingElem
     registerPasswordInput?.addEventListener("keypress", handleEnterKeyPress);
     btnLogout?.addEventListener("click", handleLogout);
 
-    if (btnToggleAnimations && _gameAnimations) {
-        btnToggleAnimations.addEventListener("click", () => {
-            playSound('ClickMouse', 0.3);
-            _gameAnimations.toggleAnimations(); 
-            const isEnabled = _gameAnimations.getSettings().enabled;
-            btnToggleAnimations.textContent = isEnabled ? "🎬" : "🚫";
-            btnToggleAnimations.title = isEnabled ? "Desactivar animaciones" : "Activar animaciones";
-            const notifContainer = document.getElementById("notificaciones"); 
-            showNotification(isEnabled ? "✨ Animaciones activadas" : "🚫 Animaciones desactivadas", notifContainer, "info");
-        });
-        const isEnabledInitial = _gameAnimations.getSettings().enabled;
-        btnToggleAnimations.textContent = isEnabledInitial ? "🎬" : "🚫";
-        btnToggleAnimations.title = isEnabledInitial ? "Desactivar animaciones" : "Activar animaciones";
-    } else {
-        console.warn("Botón de animaciones o instancia no encontrados en initAuth.");
-    }
+    // --- Lógica de Control de Animaciones (Refactorizada) ---
+    const setupAnimationToggle = (buttonEl) => {
+        if (buttonEl && _gameAnimations) {
+            const isEnabledInitial = _gameAnimations.getSettings().enabled;
+            buttonEl.textContent = isEnabledInitial ? "🎬" : "🚫";
+            buttonEl.title = isEnabledInitial ? "Desactivar animaciones" : "Activar animaciones";
+
+            buttonEl.addEventListener("click", () => {
+                playSound('ClickMouse', 0.3);
+                _gameAnimations.toggleAnimations(); 
+                const isEnabled = _gameAnimations.getSettings().enabled;
+                const notifContainer = document.getElementById("notificaciones"); 
+                showNotification(isEnabled ? "✨ Animaciones activadas" : "🚫 Animaciones desactivadas", notifContainer, "info");
+                // Actualizar AMBOS botones
+                [btnToggleAnimationsLobby, btnToggleAnimationsGame].forEach(btn => {
+                    if(btn) {
+                        btn.textContent = isEnabled ? "🎬" : "🚫";
+                        btn.title = isEnabled ? "Desactivar animaciones" : "Activar animaciones";
+                    }
+                });
+            });
+        }
+    };
     
+    // Configurar ambos botones
+    setupAnimationToggle(btnToggleAnimationsLobby);
+    setupAnimationToggle(btnToggleAnimationsGame);
+    
+    // --- Lógica de Control de Volumen (Refactorizada) ---
+    const setupVolumeControls = (iconEl, sliderEl) => {
+        if (iconEl && sliderEl) {
+            const initialAudioSettings = loadAudioSettings();
+            sliderEl.value = initialAudioSettings.volume;
+            iconEl.textContent = initialAudioSettings.volume <= 0.01 ? "🔇" : "🔊";
+            iconEl.title = initialAudioSettings.volume <= 0.01 ? "Activar sonido" : "Silenciar";
+
+            sliderEl.addEventListener("input", (e) => {
+                const newVolume = parseFloat(e.target.value);
+                setVolume(newVolume); 
+                // Actualizar AMBOS iconos
+                [volumeIconLobby, volumeIconGame].forEach(icon => {
+                    if(icon) {
+                        icon.textContent = newVolume <= 0.01 ? "🔇" : "🔊";
+                        icon.title = newVolume <= 0.01 ? "Activar sonido" : "Silenciar";
+                    }
+                });
+                // Sincronizar AMBOS sliders
+                if (volumeSliderLobby) volumeSliderLobby.value = newVolume;
+                if (volumeSliderGame) volumeSliderGame.value = newVolume;
+            });
+
+            iconEl.addEventListener("click", () => {
+                const newSettings = toggleMute(); 
+                if (newSettings.volume > 0.01) playSound('ClickMouse', 0.3);
+                // Actualizar AMBOS iconos y sliders
+                [volumeIconLobby, volumeIconGame].forEach(icon => {
+                    if(icon) {
+                        icon.textContent = newSettings.volume <= 0.01 ? "🔇" : "🔊";
+                        icon.title = newSettings.volume <= 0.01 ? "Activar sonido" : "Silenciar";
+                    }
+                });
+                if (volumeSliderLobby) volumeSliderLobby.value = newSettings.volume;
+                if (volumeSliderGame) volumeSliderGame.value = newSettings.volume;
+            });
+        }
+    };
+    
+    // Configurar ambos sets de controles
+    setupVolumeControls(volumeIconLobby, volumeSliderLobby);
+    setupVolumeControls(volumeIconGame, volumeSliderGame);
+    
+    // --- Listeners de Avatar ---
     if (btnEditAvatar) {
         btnEditAvatar.addEventListener('click', openAvatarModal);
     }
-
     btnCerrarAvatar?.addEventListener('click', closeAvatarModal);
     modalAvatar?.addEventListener('click', (e) => {
-        if (e.target === modalAvatar) {
-            closeAvatarModal();
-        }
+        if (e.target === modalAvatar) closeAvatarModal();
     });
-
     const avatarButtons = document.querySelectorAll('#modal-avatar .avatar-btn');
     avatarButtons.forEach(button => {
         button.addEventListener('click', handleAvatarSelection);
     });
     
     console.log("Módulo Auth inicializado.");
-
-    if (volumeIcon && volumeSlider) {
-        const initialAudioSettings = loadAudioSettings();
-        volumeSlider.value = initialAudioSettings.volume;
-        volumeIcon.textContent = initialAudioSettings.volume <= 0.01 ? "🔇" : "🔊";
-        volumeIcon.title = initialAudioSettings.volume <= 0.01 ? "Activar sonido" : "Silenciar";
-        volumeSlider.addEventListener("input", (e) => {
-            const newVolume = parseFloat(e.target.value);
-            setVolume(newVolume); 
-            volumeIcon.textContent = newVolume <= 0.01 ? "🔇" : "🔊";
-            volumeIcon.title = newVolume <= 0.01 ? "Activar sonido" : "Silenciar";
-        });
-        volumeIcon.addEventListener("click", () => {
-            const newSettings = toggleMute(); 
-            volumeSlider.value = newSettings.volume;
-            volumeIcon.textContent = newSettings.volume <= 0.01 ? "🔇" : "🔊";
-            volumeIcon.title = newSettings.volume <= 0.01 ? "Activar sonido" : "Silenciar";
-            if (newSettings.volume > 0.01) {
-                playSound('ClickMouse', 0.3);
-            }
-        });
-    } else {
-        console.warn("Controles de audio (icono o slider) no encontrados en initAuth.");
-    }
 }
 
 // --- Manejadores de Eventos ---

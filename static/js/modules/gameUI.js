@@ -667,10 +667,39 @@ function handleUsarHabilidadClick(e) {
     }
 
     // Reproducir sonidos
-    if (tipo === 'movimiento') playSound('MovementAbility', 0.3);
-    else if (tipo === 'ofensiva') playSound('OffensiveAbility', 0.3);
-    else if (tipo === 'defensiva' || tipo === 'control') playSound('DefensiveAbility', 0.3);
-    else playSound('ClickMouse', 0.3);
+    switch (nombre) {
+        // Táctico
+        case "Sabotaje": playSound('Sabotaje', 0.3); break;
+        case "Barrera": playSound('Barrera', 0.3); break;
+        case "Rebote Controlado": playSound('ReboteControlado', 0.3); break;
+        case "Dado Perfecto": playSound('DadoPerfecto', 0.3); break;
+        
+        // Ingeniero
+        case "Bomba Energética": playSound('BombaEnergética', 0.4); break; 
+        case "Invisibilidad": playSound('Invisibilidad', 0.3); break;
+        case "Cohete": playSound('Cohete', 0.4); break; 
+        case "Mina de Energía": playSound('MinaDeEnergía', 0.3); break;
+
+        // Espectro
+        case "Fuga de Energía": playSound('FugaDeEnergía', 0.3); break;
+        case "Transferencia de Fase": playSound('TransferenciaDeFase', 0.3); break;
+        case "Intercambio Forzado": playSound('IntercambioForzado', 0.3); break;
+        case "Caos": playSound('Caos', 0.3); break;
+
+        // Guardián
+        case "Tsunami": playSound('Tsunami', 0.3); break;
+        case "Escudo Total": playSound('EscudoTotal', 0.3); break;
+        case "Retroceso": playSound('Retroceso', 0.3); break;
+        case "Bloqueo Energético": playSound('BloqueoEnergético', 0.3); break;
+        
+        // Estratega
+        case "Robo": playSound('Robo', 0.3); break;
+        case "Curación": playSound('Curación', 0.3); break;
+        case "Doble Turno": playSound('DobleTurno', 0.3); break;
+        case "Sobrecarga Inestable": playSound('Sobrecarga Inestable', 0.3); break;
+        
+        default: playSound('ClickMouse', 0.3);
+    }
 
     _socket.emit("usar_habilidad", {
         id_sala: _idSala.value,
