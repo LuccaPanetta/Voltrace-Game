@@ -18,6 +18,7 @@ let _screens = null;
 let _loadingElement = null;
 let _onLoginSuccessCallback = null; 
 let _gameAnimations = null; 
+let _state = null;
 
 const AVATAR_LISTA_APROBADA = [
     '🦄', '🐲', '🦖', '🐙', '🦊', '🐼', '🦁', '🐸', 
@@ -29,13 +30,14 @@ const AVATAR_LISTA_APROBADA = [
 /**
  * Inicializa el módulo de autenticación, cachea elementos DOM y asigna listeners.
  */
-export function initAuth(screensRef, showFuncRef, setLoadingFuncRef, loadingElementRef, onLoginSuccess, gameAnimationsInstance) {
+export function initAuth(screensRef, showFuncRef, setLoadingFuncRef, loadingElementRef, onLoginSuccess, gameAnimationsInstance, stateRef) {
     _screens = screensRef;
     _showFunc = showFuncRef;
     _setLoadingFunc = setLoadingFuncRef;
     _loadingElement = loadingElementRef;
     _onLoginSuccessCallback = onLoginSuccess;
     _gameAnimations = gameAnimationsInstance; 
+    _state = stateRef;
 
     // --- Cachear Elementos DOM ---
     tabLogin = document.getElementById("tab-login");

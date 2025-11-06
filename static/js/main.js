@@ -119,7 +119,7 @@ import { AnimationSystem } from './animations.js';
 
 
     // --- Inicialización de Módulos ---
-    initAuth(screens, show, setLoading, loadingElement, handleLoginSuccess, gameAnimations);
+    initAuth(screens, show, setLoading, loadingElement, handleLoginSuccess, gameAnimations, state);
     initLobby(socket, screens, show, setLoading, state);
     initSocial(socket, state); 
     initAchievements(state); 
