@@ -66,8 +66,6 @@ import { AnimationSystem } from './animations.js';
             // Autenticar el socket inmediatamente
             socket.emit('authenticate', { username: user_data.username });
 
-            socket.emit('cargar_mi_kit');
-
             // Guardar el estado
             state.currentUser = user_data; 
             
@@ -185,14 +183,6 @@ import { AnimationSystem } from './animations.js';
                 actualizarKitUI(kitId);
             }
         });
-    });
-
-    // Listener del servidor para saber el kit guardado
-    socket.on('kit_actual', (data) => {
-        if (data.kit_id) {
-            console.log(`Recibido 'kit_actual' del servidor: ${data.kit_id}`);
-            actualizarKitUI(data.kit_id);
-        }
     });
 
     // --- Listener Global para Tecla Escape ---
