@@ -51,7 +51,8 @@ import { AnimationSystem } from './animations.js';
         idSala: { value: null }, 
         estadoJuego: {},
         mapaColores: {},
-        habilidadUsadaTurno: { value: false }
+        habilidadUsadaTurno: { value: false },
+        kitSeleccionado: { value: 'tactico' }
     };
     
     /**
@@ -128,6 +129,65 @@ import { AnimationSystem } from './animations.js';
     initGameUI(socket, state, state.idSala, state.estadoJuego, state.mapaColores, state.habilidadUsadaTurno, openPerkModal);
     initPerks(socket, state, state.idSala, state.estadoJuego); 
     setupSocketHandlers(socket, screens, loadingElement, notificacionesContainer, state, gameAnimations);
+
+    // --- Listeners para Kits ---
+    const modalKits = document.getElementById('modal-kits');
+    const btnAbrirKits = document.getElementById('btn-abrir-kits');
+    const btnCerrarKits = document.getElementById('close-modal-kits');
+    const kitCards = document.querySelectorAll('.kit-card');
+
+    // Función para actualizar la UI del Kit
+    function actualizarKitUI(kitId) {
+        if (!kitId) kitId = 'tactico';
+        state.kitSeleccionado.value = kitId;
+        kitCards.forEach(card => {
+            card.classList.toggle('seleccionado', card.dataset.kit === kitId);
+        });
+        console.log(`UI actualizada al kit: ${kitId}`);
+    }
+
+    // Abrir modal
+    btnAbrirKits?.addEventListener('click', () => {
+        playSound('OpenCloseModal', 0.3);
+        actualizarKitUI(state.kitSeleccionado.value); // Asegurarse que muestre el correcto
+        if (modalKits) modalKits.style.display = 'flex';
+    });
+
+    // Cerrar modal
+    btnCerrarKits?.addEventListener('click', () => {
+        playSound('OpenCloseModal', 0.2);
+        if (modalKits) modalKits.style.display = 'none';
+    });
+    modalKits?.addEventListener('click', (e) => {
+        if (e.target === modalKits) {
+            playSound('OpenCloseModal', 0.2);
+            if (modalKits) modalKits.style.display = 'none';
+        }
+    });
+
+    // Seleccionar un kit
+    kitCards.forEach(card => {
+        card.addEventListener('click', (e) => {
+            const kitId = e.currentTarget.dataset.kit;
+            if (kitId && kitId !== state.kitSeleccionado.value) {
+                playSound('ClickMouse', 0.3);
+                // Guardar en servidor
+                socket.emit('guardar_kit', { kit_id: kitId });
+                // Actualizar estado local 
+                state.kitSeleccionado.value = kitId;
+                // Actualizar UI
+                actualizarKitUI(kitId);
+            }
+        });
+    });
+
+    // Listener del servidor para saber el kit guardado
+    socket.on('kit_actual', (data) => {
+        if (data.kit_id) {
+            console.log(`Recibido 'kit_actual' del servidor: ${data.kit_id}`);
+            actualizarKitUI(data.kit_id);
+        }
+    });
 
     // --- Listener Global para Tecla Escape ---
     document.addEventListener("keydown", (e) => {

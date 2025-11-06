@@ -303,7 +303,7 @@ class SalaJuego:
         self.log_eventos = [] # Log para la sala de espera
         self.turn_timer = None
 
-    def agregar_jugador(self, sid, nombre, kit_id='tactico'):
+    def agregar_jugador(self, sid, nombre, kit_id='tactico', avatar_emoji='👤'):
         if len(self.jugadores) < 4 and sid not in self.jugadores:
             self.jugadores[sid] = {
                 'nombre': nombre,
@@ -361,13 +361,17 @@ def index():
             user_data = {
                 'username': user.username,
                 'level': user.level,
-                'xp': user.xp
+                'xp': user.xp,
+                'games_played': user.games_played, 
+                'games_won': user.games_won,
+                'avatar_emoji': user.avatar_emoji
             }
             
             session['user_id'] = user.id
             session['username'] = user.username
             session['level'] = user.level
             session['xp'] = user.xp
+            session['avatar_emoji'] = user.avatar_emoji
 
             _procesar_login_diario(user)
 
@@ -860,7 +864,7 @@ def crear_sala(data):
     avatar_guardado = session.get('avatar_emoji', '👤')
     
     # Pasarlo al agregar_jugador
-    if salas_activas[id_sala].agregar_jugador(request.sid, username, kit_seleccionado):
+    if salas_activas[id_sala].agregar_jugador(request.sid, username, kit_seleccionado, avatar_guardado): 
         # Enviar respuesta al cliente INMEDIATAMENTE
         emit('sala_creada', {
             'id_sala': id_sala,
@@ -921,7 +925,7 @@ def unirse_sala(data):
     avatar_guardado = session.get('avatar_emoji', '👤')
 
     # Intentar agregar al jugador
-    if sala.agregar_jugador(request.sid, username, kit_seleccionado):
+    if sala.agregar_jugador(request.sid, username, kit_seleccionado, avatar_guardado):
         join_room(id_sala) # Unir a la room de SocketIO
 
         # Actualizar presencia a 'in_lobby'
@@ -2309,7 +2313,7 @@ def _crear_nueva_sala_revancha(id_sala_original):
             
             # Solo unir si tiene SID y está 'online' (no en otra sala o juego)
             if p_sid_actual and estado_actual == 'online':
-                jugadores_a_unir.append({'sid': p_sid_actual, 'nombre': p_username})
+                jugadores_a_unir.append({'sid': p_sid_actual, 'nombre': p_username, 'data_original': p_data})
             else:
                 jugadores_rechazados.append({'sid': p_sid_actual, 'nombre': p_username})
                 print(f"WARN (Revancha): Jugador {p_username} solicitó pero su estado es '{estado_actual}'. No será unido.")
@@ -2328,7 +2332,9 @@ def _crear_nueva_sala_revancha(id_sala_original):
     for jugador_info in jugadores_a_unir:
         sid_a_unir = jugador_info['sid']
         nombre_a_unir = jugador_info['nombre']
-        if nueva_sala.agregar_jugador(sid_a_unir, nombre_a_unir):
+        kit_original = jugador_info['data_original'].get('kit_id', 'tactico')
+        avatar_original = jugador_info['data_original'].get('avatar_emoji', '👤')
+        if nueva_sala.agregar_jugador(sid_a_unir, nombre_a_unir, kit_original, avatar_original):
             join_room(nueva_id_sala, sid=sid_a_unir) # Unir a la room de SocketIO
             socketio.emit('revancha_lista', {'nueva_id_sala': nueva_id_sala}, room=sid_a_unir) # Notificar al cliente
             social_system.update_user_presence(nombre_a_unir, 'in_lobby', {'room_id': nueva_id_sala, 'sid': sid_a_unir}) # Actualizar presencia
