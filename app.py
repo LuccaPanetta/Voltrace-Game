@@ -375,7 +375,7 @@ def index():
                 'games_played': user.games_played, 
                 'games_won': user.games_won,
                 'avatar_emoji': user.avatar_emoji,
-                'kit_id': session.get('kit_seleccionado', 'tactico'),
+                'kit_id': user.kit_id,
                 'consecutive_wins': getattr(user, 'consecutive_wins', 0),
                 'abilities_used': getattr(user, 'abilities_used', 0),
                 'rooms_created': getattr(user, 'rooms_created', 0)
@@ -439,7 +439,7 @@ def register():
             'games_played': new_user.games_played, 
             'games_won': new_user.games_won,
             'avatar_emoji': new_user.avatar_emoji,
-            'kit_id': 'tactico',
+            'kit_id': new_user.kit_id,
             'consecutive_wins': 0,
             'abilities_used': 0,
             'rooms_created': 0
@@ -485,7 +485,7 @@ def login():
                 'games_played': user.games_played, 
                 'games_won': user.games_won,
                 'avatar_emoji': user.avatar_emoji,
-                'kit_id': session.get('kit_seleccionado', 'tactico'),
+                'kit_id': user.kit_id,
                 'consecutive_wins': getattr(user, 'consecutive_wins', 0),
                 'abilities_used': getattr(user, 'abilities_used', 0),
                 'rooms_created': getattr(user, 'rooms_created', 0)
@@ -1033,7 +1033,6 @@ def obtener_estado_sala(data):
     else:
         # Si la sala no existe (quizás se eliminó), informar al cliente
         emit('sala_abandonada', {'success': False, 'message': 'La sala a la que intentas acceder ya no existe.'})
-        # O podrías usar emit('error', ...)
 
 # ===================================================================
 # --- 4. HANDLERS DE SOCKET.IO (Juego Activo) ---
@@ -1043,27 +1042,41 @@ def obtener_estado_sala(data):
 def guardar_kit(data):
     kit_id = data.get('kit_id')
     sid = request.sid
-    
+
+    # Autenticar el socket
     sesion_del_socket = sessions_activas.get(sid)
-    
     if not sesion_del_socket or 'username' not in sesion_del_socket:
-        print(f"--- ERROR guardar_kit: SID {sid} no autenticado en sessions_activas.")
+        print(f"--- ERROR guardar_kit: SID {sid} no autenticado.")
         emit('error', {'mensaje': 'No autenticado en el socket.'})
         return
     
     username = sesion_del_socket['username']
 
-    # Verificamos que el kit exista en nuestra constante
-    if kit_id in KITS_VOLTRACE:
-        # Guardamos el kit en la sesión del usuario (esto es persistente)
-        session['kit_seleccionado'] = kit_id
-        print(f"Cliente {sid} (User: {sessions_activas[sid]['username']}) ha guardado el kit: {kit_id}")
-        
-        # Confirmamos al cliente cuál es su kit actual
-        emit('kit_actual', {'kit_id': kit_id})
-    else:
-        print(f"Cliente {sid} intentó guardar un kit inválido: {kit_id}")
+    # Validar el Kit
+    if kit_id not in KITS_VOLTRACE:
+        print(f"Cliente {sid} (User: {username}) intentó guardar un kit inválido: {kit_id}")
         emit('error', {'mensaje': 'Kit no válido.'})
+        return
+
+    try:
+        # Encontrar al usuario en la DB
+        user = User.query.filter_by(username=username).first()
+        if user:
+            # Guardar en la Base de Datos
+            user.kit_id = kit_id
+            db.session.commit()
+            print(f"Cliente {sid} (User: {username}) guardó el kit: {kit_id} en la DB.")
+            
+            # Confirmar al cliente
+            emit('kit_actual', {'kit_id': kit_id})
+        else:
+            print(f"--- ERROR guardar_kit: No se encontró al usuario {username} en la DB.")
+            emit('error', {'mensaje': 'Usuario no encontrado en DB.'})
+            
+    except Exception as e:
+        db.session.rollback()
+        print(f"!!! ERROR al guardar kit en DB: {e}")
+        emit('error', {'mensaje': 'Error del servidor al guardar kit.'})
 
 @socketio.on('iniciar_juego')
 def iniciar_juego_manual(data):
