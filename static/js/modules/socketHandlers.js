@@ -9,7 +9,7 @@ import { actualizarEstadoJuego, renderEventos, agregarAlLog, appendGameChatMessa
 import { displayPerkOffer, handlePerkActivated, updatePerkPrices } from './perks.js';
 import { appendPrivateMessage, updateSocialNotificationIndicator, invalidateSocialCache } from './social.js';
 import { invalidateAchievementsCache } from './achievements.js'; 
-import { handleMaestriaData, invalidateArsenalCache, loadArsenalData } from '/arsenal.js';
+import { handleMaestriaData, invalidateArsenalCache, loadArsenalData } from './arsenal.js';
 
 let _socket = null;
 let _screens = null;
