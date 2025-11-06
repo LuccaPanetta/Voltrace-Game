@@ -3,9 +3,7 @@
    Maneja el login, registro y actualización del perfil de usuario.
    =================================================================== */
 
-// --- INICIO DE MODIFICACIÓN ---
-import { showNotification, playSound, loadAudioSettings, setVolume, toggleMute, getAudioSettings } from './utils.js';
-// --- FIN DE MODIFICACIÓN ---
+import { showNotification, playSound, loadAudioSettings, setVolume, toggleMute, getAudioSettings, escapeHTML } from './utils.js';
 
 // --- Variables del Módulo ---
 let loginEmailInput, loginPasswordInput, btnLogin;
