@@ -9,7 +9,7 @@ import { actualizarEstadoJuego, renderEventos, agregarAlLog, appendGameChatMessa
 import { displayPerkOffer, handlePerkActivated, updatePerkPrices } from './perks.js';
 import { appendPrivateMessage, updateSocialNotificationIndicator, invalidateSocialCache } from './social.js';
 import { invalidateAchievementsCache } from './achievements.js'; 
-import { handleMaestriaData, invalidateArsenalCache, loadArsenalData } from './modules/arsenal.js';
+import { handleMaestriaData, invalidateArsenalCache, loadArsenalData } from '/arsenal.js';
 
 let _socket = null;
 let _screens = null;
@@ -326,7 +326,7 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
             }
         }
     });
-    
+
     _socket.on("achievements_unlocked", (data) => {
         if (data.achievements?.length > 0) {
             data.achievements.forEach(ach => {
