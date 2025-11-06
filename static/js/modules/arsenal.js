@@ -1,5 +1,6 @@
 /* ===================================================================
-   MÓDULO DE ARSENAL (Maestría de Kit)
+   MÓDULO DE ARSENAL (Maestría de Kit) (arsenal.js)
+   Maneja la UI y lógica del modal de Maestría.
    =================================================================== */
 
 import { escapeHTML, playSound } from './utils.js';
@@ -12,11 +13,15 @@ let arsenalContent, arsenalLockMessage, arsenalKitList;
 let _socket = null;
 let _state = null;
 
-// Configuración de Maestría 
-const NIVEL_REQUERIDO_ARSENAL = 5;
+const arsenalCache = {
+    data: null,
+    isLoaded: false,
+    isLoading: false,
+};
 
-// Definimos los niveles y recompensas
-const MAESTRIA_XP_POR_NIVEL = 150; 
+// Configuración de Maestría
+const NIVEL_REQUERIDO_ARSENAL = 5;
+const MAESTRIA_XP_POR_NIVEL_BASE = 150; 
 const MAESTRIA_MAX_NIVEL = 10;
 
 const MAESTRIA_RECOMPENSAS = {
@@ -42,28 +47,18 @@ const MAESTRIA_RECOMPENSAS = {
     ]
 };
 
-/**
- * Inicializa el módulo de Arsenal.
- * @param {object} socketRef - Instancia de Socket.IO.
- * @param {object} stateRef - Referencia al estado global.
- */
 export function initArsenal(socketRef, stateRef) {
     _socket = socketRef;
     _state = stateRef;
-
-    // Cachear elementos DOM
     modalArsenal = document.getElementById("modal-arsenal");
     btnCerrarArsenal = document.getElementById("btn-cerrar-arsenal");
     btnShowArsenal = document.getElementById("btn-show-arsenal");
     arsenalContent = document.getElementById("arsenal-content");
     arsenalLockMessage = document.getElementById("arsenal-lock-message");
     arsenalKitList = document.getElementById("arsenal-kit-list");
-
-    // Listeners
     btnShowArsenal?.addEventListener('click', openArsenalModal);
     btnCerrarArsenal?.addEventListener('click', closeArsenalModal);
     modalArsenal?.addEventListener('click', (e) => { if (e.target === modalArsenal) closeArsenalModal(); });
-
     console.log("Módulo Arsenal inicializado.");
 }
 
@@ -74,79 +69,105 @@ function closeArsenalModal() {
 
 /**
  * Abre el modal de Arsenal.
- * Comprueba el nivel del jugador y solicita los datos de maestría.
  */
 function openArsenalModal() {
     playSound('OpenCloseModal', 0.3);
     const notifContainer = document.getElementById('notificaciones'); 
-
     if (!modalArsenal || !_state || !_state.currentUser || !_state.currentUser.username) {
          if (!_state || !_state.currentUser) {
             showNotification("Debes iniciar sesión para ver tu arsenal.", notifContainer, "warning");
          }
         return; 
     }
-
     modalArsenal.style.display = 'flex';
-    
-    // Comprobar si el jugador ha desbloqueado el sistema
     const nivelCuenta = _state.currentUser.level || 1;
     
     if (nivelCuenta < NIVEL_REQUERIDO_ARSENAL) {
-        // Mostrar mensaje de bloqueo
         if (arsenalLockMessage) arsenalLockMessage.style.display = 'block';
         if (arsenalKitList) arsenalKitList.style.display = 'none';
     } else {
-        // Mostrar contenido y cargar datos
         if (arsenalLockMessage) arsenalLockMessage.style.display = 'none';
         if (arsenalKitList) arsenalKitList.style.display = 'block';
         
-        // Mostrar "Cargando..." y pedir datos al servidor
-        if (arsenalKitList) arsenalKitList.innerHTML = '<p style="text-align:center; color: var(--muted);">Cargando maestría...</p>';
-        _socket.emit('arsenal:cargar_maestria');
+        if (arsenalCache.isLoaded && arsenalCache.data) {
+            // Cargar desde caché 
+            console.log("Cargando Arsenal desde caché...");
+            renderArsenal(arsenalCache.data);
+        } else {
+            // Cargar desde servidor 
+            if (arsenalKitList) arsenalKitList.innerHTML = '<p style="text-align:center; color: var(--muted);">Cargando maestría...</p>';
+            if (!arsenalCache.isLoading) {
+                loadArsenalData(); // Usar la nueva función de precarga
+            }
+        }
     }
 }
 
 /**
- * Calcula el Nivel y XP requerido para la Maestría.
- * @param {number} xp - XP total del kit.
- * @returns {object} - { level, xpEnNivel, xpParaSiguiente }
+ * Inicia la carga de datos de maestría (generalmente en la precarga).
  */
+export function loadArsenalData() {
+    if (arsenalCache.isLoading || arsenalCache.isLoaded) return;
+    if (!_state.currentUser || _state.currentUser.level < NIVEL_REQUERIDO_ARSENAL) {
+        // console.log("Precarga de Arsenal omitida (Nivel bajo).");
+        return; 
+    }
+    console.log("Iniciando precarga de datos de Arsenal...");
+    arsenalCache.isLoading = true;
+    _socket.emit('arsenal:cargar_maestria');
+}
+
+/**
+ * Invalida el caché. Se llama cuando el usuario gana XP de maestría.
+ */
+export function invalidateArsenalCache() {
+    console.log("Invalidando caché de Arsenal...");
+    arsenalCache.isLoaded = false;
+    arsenalCache.data = null;
+    arsenalCache.isLoading = false;
+}
+
 function calcularNivelMaestria(xp) {
     let level = 1;
     let xpAcumuladaNivel = 0;
-    
-    // (Nivel * 150)
-    // Nv 1 -> Nv 2 = 1 * 150 = 150 XP
-    // Nv 2 -> Nv 3 = 2 * 150 = 300 XP (Total: 450)
-    // Nv 3 -> Nv 4 = 3 * 150 = 450 XP (Total: 900)
-    
     while (level < MAESTRIA_MAX_NIVEL) {
-        const xpParaSiguiente = level * MAESTRIA_XP_POR_NIVEL;
+        const xpParaSiguiente = level * MAESTRIA_XP_POR_NIVEL_BASE;
         if (xp >= (xpAcumuladaNivel + xpParaSiguiente)) {
             xpAcumuladaNivel += xpParaSiguiente;
             level++;
         } else {
-            break; // No puede subir más
+            break; 
         }
     }
-
-    const xpParaSiguiente = level * MAESTRIA_XP_POR_NIVEL;
+    const xpParaSiguiente = level * MAESTRIA_XP_POR_NIVEL_BASE;
     const xpEnNivel = xp - xpAcumuladaNivel;
-    
     if (level >= MAESTRIA_MAX_NIVEL) {
         return { level: MAESTRIA_MAX_NIVEL, xpEnNivel: xp, xpParaSiguiente: xp };
     }
-    
     return { level, xpEnNivel, xpParaSiguiente };
 }
 
 /**
- * Renderiza la lista de maestrías recibida del servidor.
- * Esta función es llamada por socketHandlers.
- * @param {Array} maestriaData - Lista de objetos {kit_id, nombre, xp}
+ * 
+ * Recibe datos del socket, los GUARDA EN CACHÉ y llama al render.
  */
 export function handleMaestriaData(maestriaData) {
+    // Guardar en caché
+    arsenalCache.data = maestriaData;
+    arsenalCache.isLoaded = true;
+    arsenalCache.isLoading = false;
+    console.log("Caché de Arsenal recibido y guardado.");
+
+    // Renderizar
+    if (modalArsenal?.style.display === 'flex') {
+        renderArsenal(maestriaData);
+    }
+}
+
+/**
+ * Función Pura de Renderizado.
+ */
+function renderArsenal(maestriaData) {
     if (!arsenalKitList) return;
     
     if (!maestriaData || maestriaData.length === 0) {
@@ -154,28 +175,21 @@ export function handleMaestriaData(maestriaData) {
         return;
     }
 
-    // Ordenar (ej. por XP descendente)
     maestriaData.sort((a, b) => b.xp - a.xp);
-    
-    arsenalKitList.innerHTML = ""; // Limpiar "Cargando..."
+    arsenalKitList.innerHTML = ""; 
 
     maestriaData.forEach(kit => {
         const { level, xpEnNivel, xpParaSiguiente } = calcularNivelMaestria(kit.xp);
-        
         const item = document.createElement("div");
         item.className = "arsenal-kit-item";
-        
         let xpTexto;
         if (level >= MAESTRIA_MAX_NIVEL) {
             xpTexto = `NIVEL MÁXIMO (${kit.xp} XP)`;
         } else {
             xpTexto = `${xpEnNivel} / ${xpParaSiguiente} XP`;
         }
-
-        // --- Recompensas ---
         let recompensasHtml = "";
         const recompensasDefinidas = MAESTRIA_RECOMPENSAS[kit.kit_id] || [];
-        
         recompensasDefinidas.forEach(rec => {
             const isUnlocked = level >= rec.level;
             const cssClass = isUnlocked ? 'unlocked' : 'locked';
@@ -185,14 +199,13 @@ export function handleMaestriaData(maestriaData) {
                 </div>
             `;
         });
-        // --- Fin Recompensas ---
         
         item.innerHTML = `
             <div class="kit-maestria-header">
                 <h4>${escapeHTML(kit.nombre)}</h4>
                 <span>Maestría ${level}</span>
             </div>
-            <div class="kit-maestria-progreso">
+            <div class.kit-maestria-progreso">
                 <progress value="${xpEnNivel}" max="${xpParaSiguiente}"></progress>
                 <p>${xpTexto}</p>
             </div>

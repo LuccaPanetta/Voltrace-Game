@@ -9,7 +9,7 @@ import { actualizarEstadoJuego, renderEventos, agregarAlLog, appendGameChatMessa
 import { displayPerkOffer, handlePerkActivated, updatePerkPrices } from './perks.js';
 import { appendPrivateMessage, updateSocialNotificationIndicator, invalidateSocialCache } from './social.js';
 import { invalidateAchievementsCache } from './achievements.js'; 
-import { handleMaestriaData } from './arsenal.js';
+import { handleMaestriaData, invalidateArsenalCache } from './modules/arsenal.js';
 
 let _socket = null;
 let _screens = null;
@@ -302,7 +302,7 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
              console.warn("Oferta de perk recibida pero modal cerrado.");
         }
     });
-    
+
     _socket.on("perk_activado", (data) => {
         handlePerkActivated(data); 
     });
@@ -374,6 +374,7 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
         if (updated) {
             // Volver a renderizar la UI del perfil con los nuevos datos
             updateProfileUI(_state.currentUser);
+            invalidateArsenalCache();
         }
     });
     // --- Fin de Juego y Revancha ---

@@ -14,7 +14,7 @@ import { initSocial, loadSocialData } from './modules/social.js';
 import { initAchievements, loadAchievementsData } from './modules/achievements.js';
 import { setupSocketHandlers } from './modules/socketHandlers.js';
 import { AnimationSystem } from './animations.js';
-import { initArsenal } from './modules/arsenal.js';
+import { initArsenal, loadArsenalData } from './modules/arsenal.js';
 
 (function () {
     "use strict";
@@ -85,6 +85,7 @@ import { initArsenal } from './modules/arsenal.js';
             console.log("Iniciando precarga de datos sociales y de logros...");
             loadSocialData();
             loadAchievementsData();
+            loadArsenalData();
             document.getElementById("btn-crear-sala").disabled = false;
             document.getElementById("btn-unirse-sala").disabled = false;
 
