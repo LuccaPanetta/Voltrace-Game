@@ -8,7 +8,7 @@ import { showNotification, playSound, loadAudioSettings, setVolume, toggleMute, 
 // --- Variables del Módulo ---
 let loginEmailInput, loginPasswordInput, btnLogin;
 let registerEmailInput, registerUsernameInput, registerPasswordInput, btnRegister;
-let userUsernameDisplay, userLevelDisplay, userXpDisplay;
+let userUsernameDisplay, userLevelText, userXpBar, userXpText;
 let statGamesPlayed, statGamesWon, statWinRate;
 let statWinStreak, statAbilitiesUsed, statRoomsCreated;
 let btnEditAvatar;
