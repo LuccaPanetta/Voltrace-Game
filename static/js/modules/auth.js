@@ -12,9 +12,8 @@ let userUsernameDisplay, userLevelDisplay, userXpDisplay;
 let statGamesPlayed, statGamesWon, statWinRate;
 let btnEditAvatar;
 let tabLogin, tabRegister, loginForm, registerForm;
-
 let modalAvatar, btnCerrarAvatar;
-
+let currentSelectedAvatarBtn = null;
 let _setLoadingFunc = null;
 let _showFunc = null;
 let _screens = null;
@@ -23,12 +22,8 @@ let _onLoginSuccessCallback = null;
 let _gameAnimations = null; 
 let _state = null;
 
-const AVATAR_LISTA_APROBADA = [
-    '🦄', '🐲', '🦖', '🐙', '🦊', '🐼', '🦁', '🐸', 
-    '🤖', '👽', '👻', '🤠', '🧙', '🧛', '🧟',
-    '⚡', '🚀', '🎯', '💥', '☄️', '☢️', '💎', 
-    '👑', '🍀', '🍄', '🪐', '🔥', '💀', '👤' 
-];
+// La lista de emojis ya no es necesaria aquí, porque está en el HTML
+// const AVATAR_LISTA_APROBADA = [ ... ];
 
 /**
  * Inicializa el módulo de autenticación, cachea elementos DOM y asigna listeners.
@@ -107,7 +102,7 @@ export function initAuth(screensRef, showFuncRef, setLoadingFuncRef, loadingElem
         }
     });
 
-    const avatarButtons = document.querySelectorAll('.avatar-btn');
+    const avatarButtons = document.querySelectorAll('#modal-avatar .avatar-btn');
     avatarButtons.forEach(button => {
         button.addEventListener('click', handleAvatarSelection);
     });
@@ -274,15 +269,24 @@ async function registerAPI(email, username, password) {
  */
 function openAvatarModal() {
     playSound('OpenCloseModal', 0.3);
-    if (!_state || !_state.currentUser || !modalAvatar) return;
+    if (!_state || !_state.currentUser || !modalAvatar) {
+        console.error("No se puede abrir el modal de avatar. Estado o modal no encontrado.");
+        return;
+    }
 
-    // En lugar de crear botones, solo los marcamos/desmarcamos
     const currentAvatar = _state.currentUser.avatar_emoji || '👤';
-    const avatarButtons = document.querySelectorAll('.avatar-btn');
-    
-    avatarButtons.forEach(button => {
-        button.classList.toggle('seleccionado', button.dataset.emoji === currentAvatar);
-    });
+
+    // Quitar la clase al botón seleccionado anteriormente (si existe)
+    if (currentSelectedAvatarBtn) {
+        currentSelectedAvatarBtn.classList.remove('seleccionado');
+    }
+
+    // Encontrar y marcar el nuevo botón seleccionado
+    const newSelectedBtn = document.querySelector(`#modal-avatar .avatar-btn[data-emoji="${currentAvatar}"]`);
+    if (newSelectedBtn) {
+        newSelectedBtn.classList.add('seleccionado');
+        currentSelectedAvatarBtn = newSelectedBtn; // Guardar referencia
+    }
 
     modalAvatar.style.display = 'flex';
 }
@@ -296,10 +300,11 @@ function closeAvatarModal() {
 }
 
 /**
- * Se ejecuta al hacer clic en un botón de emoji (SIN CAMBIOS).
+ * Se ejecuta al hacer clic en un botón de emoji.
  */
 async function handleAvatarSelection(event) {
     const nuevoEmoji = event.currentTarget.dataset.emoji;
+
     // Si hace clic en el que ya tiene, solo cerrar
     if (!nuevoEmoji || !_state || !_state.currentUser || nuevoEmoji === _state.currentUser.avatar_emoji) {
         closeAvatarModal();
@@ -363,7 +368,6 @@ export function updateProfileUI(user) {
 }
 
 export async function fetchAndUpdateUserProfile(username) {
-
     const notifContainer = document.getElementById('notificaciones'); 
     if (!username) {
         updateProfileUI(null); 

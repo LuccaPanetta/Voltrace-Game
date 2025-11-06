@@ -24,10 +24,10 @@
             transition: background-color 0.2s, border-color 0.2s;
         }
         .kit-card:hover {
-            background-color: #3a3a3a;
+            background-color: #3a3a3a; /* Asumiendo un tema oscuro */
         }
         .kit-card.seleccionado {
-            border-color: #00ff99;
+            border-color: #00ff99; /* Color brillante para selección */
             background-color: #2a3a34;
             box-shadow: 0 0 10px #00ff9944;
         }
@@ -37,7 +37,7 @@
         }
         .kit-card p {
             font-size: 0.9em;
-            color: #9CA3AF;
+            color: #9CA3AF; /* Muted */
             margin-bottom: 10px;
         }
         .kit-card ul {
@@ -62,7 +62,7 @@
             justify-content: center;
         }
         .modal-content {
-            background-color: #1F2937;
+            background-color: #1F2937; /* Fondo de modal (asumiendo tema oscuro) */
             margin: auto;
             padding: 20px;
             border: 1px solid #4B5563;
@@ -82,7 +82,7 @@
         .modal-header h3 {
             margin: 0;
         }
-        .btn-close {
+        .btn-close { /* Estilo genérico para botones 'x' */
             background: none;
             border: none;
             color: #aaa;
@@ -96,27 +96,31 @@
 
         /* --- ESTILOS PARA LAYOUT DEL LOBBY Y STATS --- */
         .lobby-content {
+            /* Convertimos el lobby en un layout flex */
             display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
+            flex-wrap: wrap; /* Permitir que se reordene en pantallas pequeñas */
+            gap: 20px; /* Espacio entre columnas */
         }
         
         .lobby-column {
+            /* Cada columna tomará el espacio que necesite, pero base 30% */
             flex-basis: 300px;
             flex-grow: 1;
             min-width: 280px;
         }
         
         #actions-column .card {
+            /* Asegurarse que las tarjetas de acción ocupen todo el ancho de su columna */
             width: 100%;
-            box-sizing: border-box;
+            box-sizing: border-box; /* Incluir padding en el ancho */
         }
         
         #info-column {
+            /* La columna de info puede ser un poco más grande */
             flex-grow: 1.5;
         }
 
-        /* --- CSS CORREGIDO PARA ESTADÍSTICAS (NO AFECTA A TOP 5) --- */
+        /* Estilos para el nuevo panel de estadísticas */
         #stats-column .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
@@ -127,19 +131,19 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            background-color: #374151;
+            background-color: #374151; /* Fondo de stat */
             padding: 15px;
             border-radius: 8px;
             text-align: center;
         }
         #stats-column .stat-item span {
             font-size: 0.9em;
-            color: #9CA3AF;
+            color: #9CA3AF; /* Muted */
             margin-bottom: 5px;
         }
         #stats-column .stat-item strong {
             font-size: 1.5em;
-            color: #00ff99;
+            color: #00ff99; /* Color destacado */
         }
 
         /* --- CSS AÑADIDO PARA MODAL DE AVATAR --- */
@@ -258,10 +262,8 @@
                 </div>
                 <div class="user-info">
                     <div class="user-profile">
-                        <div style="display: flex; align-items: center; gap: 5px;">
-                            <span id="user-username">👤 Usuario</span>
-                            <button id="btn-edit-avatar" class="btn-secondary" title="Cambiar Avatar" style="padding: 2px 6px; font-size: 0.8em;">✏️</button>
-                        </div>
+                        <span id="user-username">👤 Usuario</span>
+                        <button id="btn-edit-avatar" class="btn-secondary" title="Cambiar Avatar" style="padding: 2px 6px; font-size: 0.8em;">✏️</button>
                         <span id="user-level">⭐ Nivel 1</span>
                         <span id="user-xp">0 XP</span>
                         <button id="btn-social" class="btn-secondary" title="Amigos y Chat">👥 Social</button>
@@ -299,7 +301,7 @@
                             </div>
                         </div>
                     </div>
-                </div>
+                    </div>
 
                 <div class="lobby-column" id="actions-column">
                     <div class="card">
@@ -308,6 +310,7 @@
                             <button id="btn-crear-sala" class="btn-primary">Crear Sala</button>
                         </div>
                     </div>
+
                     <div class="card">
                         <h3>🚪 Unirse a Sala</h3>
                         <div class="form-group">
@@ -346,32 +349,310 @@
                         </div>
                     </div>
                 </div>
+
+            </div>
+            </div>
+
+        <div id="waiting-screen" class="screen">
+            <div class="header">
+                <h2>🚪 Sala: <span id="codigo-sala-actual"></span></h2>
+                <button id="btn-copiar-codigo" class="btn-secondary">📋 Copiar Código</button>
+                <button id="btn-social-waiting" class="btn-secondary" title="Amigos y Chat">👥 Social</button>
+            </div>
+            <div class="waiting-content">
+                <div class="jugadores-lista">
+                    <h3>👥 Jugadores (<span id="contador-jugadores">0</span>/4)</h3>
+                    <ul id="lista-jugadores"></ul>
+                </div>
+                <div class="chat-waiting">
+                    <h3>💬 Chat de Sala</h3>
+                    <div id="chat-mensajes" class="chat-mensajes"></div>
+                    <div class="chat-input">
+                        <input type="text" id="mensaje-input" placeholder="Escribe un mensaje...">
+                        <button id="btn-enviar-mensaje">Enviar</button>
+                    </div>
+                </div>
+                <div class="controles-sala">
+                    <button id="btn-iniciar-juego" class="btn-success" disabled>🎮 Iniciar Juego</button>
+                    <button id="btn-salir-sala" class="btn-danger">🚪 Salir de la Sala</button>
+                </div>
+                <div class="eventos-sala">
+                    <h4>📝 Eventos</h4>
+                    <ul id="log-eventos"></ul>
+                </div>
             </div>
         </div>
 
-        <div id="waiting-screen" class="screen">
-             </div>
         <div id="game-screen" class="screen">
-             </div>
+            <div class="game-header">
+                <div id="global-event-banner">
+                    🌎 ¡EVENTO GLOBAL!
+                </div>
+                <div class="game-info">
+                    <h2>🎲 VoltRace</h2>
+                    <div class="game-stats">
+                        <span>Ronda: <span id="ronda-actual">1</span></span>
+                        <span>Turno: <span id="turno-jugador">-</span></span>
+                    </div>
+                </div>
+            </div>
+            <div class="game-content">
+                <div class="panel-jugadores">
+                    <h3>👥 Jugadores</h3>
+                    <div id="jugadores-estado"></div>
+                </div>
+                <div class="tablero-container">
+                    <div id="tablero" class="tablero"></div>
+                    <div class="controles-turno">
+                        <button id="btn-mostrar-habilidades" class="btn-secondary">⚡ Habilidades</button>
+                        <button id="btn-lanzar-dado" class="btn-primary" disabled>🎲 Lanzar Dado</button>
+                        <div id="resultado-dado" class="resultado-dado"></div>
+                    </div>
+                    <div id="guia-partida-drawer" class="guia-drawer">
+                        <button id="guia-partida-toggle" class="guia-toggle-btn">
+                            📖 Guía Rápida de Símbolos (Click para expandir)
+                        </button>
+                        <ul id="guia-partida-contenido" class="guia-contenido">
+                            <li><strong>Símbolos de Casilla:</strong></li>
+                            <li><strong>💰 Tesoro Menor:</strong> Ganas 70 de Energía.</li>
+                            <li><strong>🤑 Tesoro Mayor:</strong> Ganas 120 de Energía.</li>
+                            <li><strong>❌ Trampa:</strong> Pierdes 60 de Energía.</li>
+                            <li><strong>☠️ Trampa Peligrosa:</strong> Pierdes 80 de Energía.</li>
+                            <li><strong>🌀 Portal Mágico:</strong> Te envía 3-5 casillas adelante.</li>
+                            <li><strong>💠 Portal Avanzado:</strong> Te envía 4-6 casillas adelante.</li>
+                            <li><strong>✨ Multiplicador:</strong> Duplica la energía de tu próximo pack/tesoro.</li>
+                            <li><strong>🔄 Intercambio:</strong> Intercambias posición con un oponente al azar.</li>
+                            <li><strong>💸 Peaje Costoso:</strong> Pierdes 75 de Energía y 3 PM.</li>
+                            <li><strong>⚡ Turbo:</strong> Duplica tu siguiente tirada de dado.</li>
+                            <li><strong>🧛 Vampiro:</strong> Pierdes un 10% de tu energía actual.</li>
+                            <li><strong>↩️ Rebote:</strong> Retrocedes 5-10 casillas.</li>
+                            <li><strong>⚫ Agujero Negro:</strong> Retrocedes 20 casillas.</li>
+                            <li><strong>⭐ Pozo de PM:</strong> Ganas 3 Puntos de Mejora (PM).</li>
+                            <li><strong>🧲 Imán:</strong> Atraes a los demás jugadores 2 casillas hacia ti.</li>
+                            <li><strong>⚙️ Chatarrería:</strong> Intercambias 50 de Energía por 3 PM.</li>
+                            <li><br></li>
+                            <li><strong>Iconos de Efectos (Jugador):</strong></li>
+                            <li><strong>⏸️ Pausa:</strong> Perderás tu próximo turno.</li>
+                            <li><strong>🛡️ Escudo:</strong> Inmune a daño y habilidades negativas.</li>
+                            <li><strong>⚡ Turbo:</strong> Tu próxima tirada de dado se duplicará.</li>
+                            <li><strong>✨ Multiplicador:</strong> Tu próximo pack/tesoro se duplicará.</li>
+                            <li><strong>👻 Invisible:</strong> No puedes ser objetivo de habilidades.</li>
+                            <li><strong>🔮 Barrera:</strong> Refleja la próxima habilidad negativa.</li>
+                            <li><strong>🔄 Doble Dado:</strong> Lanzarás dos dados en tu próximo turno.</li>
+                            <li><strong>🚫 Bloqueo:</strong> No puedes ganar energía de packs/tesoros.</li>
+                            <li><strong>💨 Fase:</strong> Ignoras casillas negativas y colisiones.</li>
+                            <li><strong>🎲 Sobrecarga:</strong> Efecto aleatorio de energía en tu próximo turno.</li>
+                            <li><strong>🩸 Fuga de Energía:</strong> Pierdes energía al inicio de tu turno.</li>
+                        </ul>
+                    </div>
+                </div> 
+                <div class="panel-eventos">
+                    <div class="eventos-juego">
+                        <h4>📋 Eventos del Juego</h4>
+                        <div id="eventos-lista" class="eventos-scroll"></div>
+                    </div>
+                    <div class="chat-juego">
+                        <h4>💬 Chat</h4>
+                        <div id="chat-juego-mensajes" class="chat-mensajes"></div>
+                        <div class="chat-input">
+                            <input type="text" id="mensaje-juego-input" placeholder="Mensaje...">
+                            <button id="btn-enviar-mensaje-juego">📤</button>
+                        </div>
+                    </div>
+                </div> 
+            </div> 
+        </div>
 
         <div id="modal-habilidades" class="modal">
-             </div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>⚡ Tus Habilidades</h3>
+                    <button id="btn-cerrar-habilidades" class="btn-close">×</button>
+                </div>
+                <div id="habilidades-lista" class="habilidades-container"></div>
+            </div>
+        </div>
         <div id="modal-perks" class="modal">
-             </div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>⭐ Compra de Perks</h3>
+                    <button id="btn-cerrar-perks" class="btn-close">×</button>
+                </div>
+                <div class="perks-info">
+                    <span>Puntos de Mejora (PM): <strong id="pm-actual">0</strong></span>
+                    <span>Perks Activos: <span id="perks-activos-list">-</span></span>
+                </div>
+                <h4>Selecciona un Pack:</h4>
+                <div class="perk-packs">
+                    <button id="btn-pack-basico" class="pack-button" data-pack-type="basico" data-cost="4">
+                        <h4>Pack Básico</h4>
+                        <small>Coste: 4 PM</small>
+                        <small>(Ofrece 2 Básicos)</small>
+                    </button>
+                    <button id="btn-pack-intermedio" class="pack-button" data-pack-type="intermedio" data-cost="8">
+                        <h4>Pack Intermedio</h4>
+                        <small>Coste: 8 PM</small>
+                        <small>(Ofrece 2 Medios, 1 Básico)</small>
+                    </button>
+                    <button id="btn-pack-avanzado" class="pack-button" data-pack-type="avanzado" data-cost="12">
+                        <h4>Pack Avanzado</h4>
+                        <small>Coste: 12 PM</small>
+                        <small>(Ofrece 1 Alto, 2 Medios)</small>
+                    </button>
+                </div>
+                <div id="perk-offer-container">
+                </div>
+            </div>
+        </div>
         <div id="modal-final" class="modal">
-             </div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>🏆 ¡Juego Terminado!</h3>
+                </div>
+                <div id="resultados-finales" class="resultados-container"></div>
+                <div class="modal-footer">
+                    <button id="btn-nueva-partida" class="btn-primary">🎮 Nueva Partida</button>
+                    <button id="btn-volver-lobby" class="btn-secondary">🏠 Volver al Lobby</button>
+                </div>
+            </div>
+        </div>
         <div id="modal-private-chat" class="modal">
-             </div>
+            <div class="modal-content">
+                <div class="social-header">
+                    <h3>💬 Chat con <span id="chat-with-username"></span></h3>
+                    <button id="btn-cerrar-private-chat" class="btn-close">×</button>
+                </div>
+                <div id="private-chat-messages"></div>
+                <div id="private-chat-input-group" class="chat-input">
+                    <input type="text" id="private-chat-input" placeholder="Escribe un mensaje...">
+                    <button id="private-chat-send" class="btn-primary">Enviar</button>
+                </div>
+            </div>
+        </div>
         <div id="modal-social" class="modal">
-             </div>
+            <div class="modal-content">
+                <div class="social-header">
+                    <h3>👥 Social</h3>
+                    <button id="btn-cerrar-social" class="btn-close">×</button>
+                </div>
+                <div class="social-tabs">
+                    <button id="social-tab-friends" class="social-tab-button active">Amigos</button>
+                    <button id="social-tab-requests" class="social-tab-button">Solicitudes</button>
+                    <button id="social-tab-search" class="social-tab-button">Buscar</button>
+                </div>
+                <div id="social-content-friends" class="social-content active">
+                    <div id="social-friends-list">Cargando amigos...</div>
+                </div>
+                <div id="social-content-requests" class="social-content">
+                    <div id="social-requests-list">Cargando solicitudes...</div>
+                </div>
+                <div id="social-content-search" class="social-content">
+                    <div class="social-search-bar">
+                        <input type="text" id="social-search-input" placeholder="Buscar usuario...">
+                        <button id="social-search-button" class="btn-primary">Buscar</button>
+                    </div>
+                    <div id="social-search-results"></div>
+                </div>
+            </div>
+        </div>
         <div id="modal-achievements" class="modal">
-             </div>
+            <div class="modal-content" style="max-height: 80vh; overflow-y: auto;">
+                <div class="modal-header">
+                    <h3>🏆 Mis Logros</h3>
+                    <button id="btn-cerrar-achievements" class="btn-close">×</button>
+                </div>
+                <div id="achievements-summary" style="text-align: center; margin-bottom: 15px; color: var(--muted);">
+                    Cargando progreso...
+                </div>
+                <div id="achievements-list" style="display: flex; flex-direction: column; gap: 10px;">
+                </div>
+            </div>
+        </div>
         <div id="modal-glossary" class="modal">
-             </div>
-        <div id="modal-kits" class.modal">
-             </div>
-        
-        
+            <div class="modal-content" style="max-height: 80vh; overflow-y: auto;">
+                <div class="modal-header">
+                    <h3>📚 Glosario</h3>
+                    <button id="btn-cerrar-glossary" class="btn-close">×</button>
+                </div>
+                <div id="glossary-content-inner">
+                    <div class="glossary-section">
+                        <h3>⚡ Habilidades</h3>
+                        <div id="glossary-abilities-list" class="glossary-list">
+                            <p>Cargando habilidades...</p>
+                        </div>
+                    </div>
+                    <div class="glossary-section">
+                        <h3>⭐ Perks</h3>
+                        <div id="glossary-perks-list" class="glossary-list">
+                            <p>Cargando perks...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="modal-kits" class="modal" style="display:none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>🛠️ Elegir Kit</h3>
+                    <span class="btn-close" id="close-modal-kits">&times;</span>
+                </div>
+                <p>Esta será tu configuración de habilidades al entrar en una partida. Tu elección se guardará.</p>
+                <div id="contenedor-kits">
+                    <div class="kit-card" data-kit="tactico">
+                        <h3>Táctico</h3>
+                        <p>Control y precisión. Débil contra daño directo, pero excelente para controlar oponentes.</p>
+                        <ul>
+                            <li>Sabotaje</li>
+                            <li>Barrera</li>
+                            <li>Rebote Controlado</li>
+                            <li>Dado Perfecto</li>
+                        </ul>
+                    </div>
+                    <div class="kit-card" data-kit="ingeniero">
+                        <h3>Ingeniero</h3>
+                        <p>Zona y velocidad. Rápido para escapar y poner trampas.</p>
+                        <ul>
+                            <li>Bomba Energética</li>
+                            <li>Invisibilidad</li>
+                            <li>Cohete</li>
+                            <li>Mina de Energía</li>
+                        </ul>
+                    </div>
+                    <div class="kit-card" data-kit="espectro">
+                        <h3>Espectro</h3>
+                        <p>Caos y evasión. Ignora las reglas del tablero y altera posiciones.</p>
+                        <ul>
+                            <li>Fuga de Energía</li>
+                            <li>Transferencia de Fase</li>
+                            <li>Intercambio Forzado</li>
+                            <li>Caos</li>
+                        </ul>
+                    </div>
+                    <div class="kit-card" data-kit="guardian">
+                        <h3>Guardián</h3>
+                        <p>Anti-habilidades. Difícil de matar y castiga a quienes dependen de la energía.</p>
+                        <ul>
+                            <li>Tsunami</li>
+                            <li>Escudo Total</li>
+                            <li>Retroceso</li>
+                            <li>Bloqueo Energético</li>
+                        </ul>
+                    </div>
+                    <div class="kit-card" data-kit="estratega">
+                        <h3>El Estratega</h3>
+                        <p>Alto riesgo, alta recompensa. Sin escape, pero gran control y tempo.</p>
+                        <ul>
+                            <li>Robo</li>
+                            <li>Curación</li>
+                            <li>Doble Turno</li>
+                            <li>Sobrecarga Inestable</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div id="modal-avatar" class="modal" style="display:none;">
             <div class="modal-content">
                 <div class="modal-header">
@@ -412,8 +693,7 @@
                 </div>
             </div>
         </div>
-
-
+        
         <div id="notificaciones" class="notificaciones-container"></div>
 
         <div id="loading" class="loading-overlay">
