@@ -59,6 +59,7 @@ export function initArsenal(socketRef, stateRef) {
     btnShowArsenal?.addEventListener('click', openArsenalModal);
     btnCerrarArsenal?.addEventListener('click', closeArsenalModal);
     modalArsenal?.addEventListener('click', (e) => { if (e.target === modalArsenal) closeArsenalModal(); });
+    arsenalKitList?.addEventListener('click', handleEquipTitleClick);
     console.log("Módulo Arsenal inicializado.");
 }
 
@@ -190,14 +191,33 @@ function renderArsenal(maestriaData) {
         }
         let recompensasHtml = "";
         const recompensasDefinidas = MAESTRIA_RECOMPENSAS[kit.kit_id] || [];
+        
         recompensasDefinidas.forEach(rec => {
             const isUnlocked = level >= rec.level;
             const cssClass = isUnlocked ? 'unlocked' : 'locked';
-            recompensasHtml += `
-                <div class="recompensa-item ${cssClass}" title="Se desbloquea en Maestría Nv. ${rec.level}">
-                    ${isUnlocked ? '✓' : '🔒'} ${escapeHTML(rec.nombre)}
-                </div>
-            `;
+            const isTitle = rec.nombre.startsWith("Título:");
+            
+            // Comprobar si este título es el que está equipado actualmente
+            const isEquipped = isTitle && isUnlocked && _state.currentUser.equipped_title === rec.nombre;
+
+            if (isTitle && isUnlocked) {
+                // Es un Título y está desbloqueado: hacerlo un BOTÓN
+                recompensasHtml += `
+                    <button class="recompensa-item btn-equip-title ${cssClass}" 
+                            title="Haz clic para equipar este título"
+                            data-title-name="${escapeHTML(rec.nombre)}"
+                            ${isEquipped ? 'disabled' : ''}>
+                        ${isEquipped ? '✓ Equipado' : `Equipar ${escapeHTML(rec.nombre)}`}
+                    </button>
+                `;
+            } else {
+                // Es una Animación, o un Título bloqueado: hacerlo un DIV
+                recompensasHtml += `
+                    <div class="recompensa-item ${cssClass}" title="Se desbloquea en Maestría Nv. ${rec.level}">
+                        ${isUnlocked ? '✓' : '🔒'} ${escapeHTML(rec.nombre)}
+                    </div>
+                `;
+            }
         });
         
         item.innerHTML = `
@@ -220,4 +240,28 @@ function renderArsenal(maestriaData) {
         `;
         arsenalKitList.appendChild(item);
     });
+}
+
+/**
+ * Maneja el clic en un botón de "equipar título".
+ */
+function handleEquipTitleClick(event) {
+    const target = event.target.closest('.btn-equip-title');
+    if (!target || target.disabled) return;
+
+    const titleName = target.dataset.titleName;
+    if (!titleName) return;
+    
+    playSound('ClickMouse', 0.4);
+
+    // Deshabilitar todos los botones mientras se procesa
+    document.querySelectorAll('.btn-equip-title').forEach(btn => {
+        btn.disabled = true;
+        if (btn === target) {
+            btn.textContent = 'Equipando...';
+        }
+    });
+
+    // Enviar al servidor
+    _socket.emit('arsenal:equip_title', { title: titleName });
 }

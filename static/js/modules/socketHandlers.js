@@ -9,7 +9,7 @@ import { actualizarEstadoJuego, renderEventos, agregarAlLog, appendGameChatMessa
 import { displayPerkOffer, handlePerkActivated, updatePerkPrices } from './perks.js';
 import { appendPrivateMessage, updateSocialNotificationIndicator, invalidateSocialCache } from './social.js';
 import { invalidateAchievementsCache } from './achievements.js'; 
-import { handleMaestriaData, invalidateArsenalCache } from './modules/arsenal.js';
+import { handleMaestriaData, invalidateArsenalCache, loadArsenalData } from './modules/arsenal.js';
 
 let _socket = null;
 let _screens = null;
@@ -310,6 +310,23 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
     _socket.on("arsenal:maestria_data", (data) => {
         handleMaestriaData(data);
     });
+
+    _socket.on("arsenal:title_equipped", (data) => {
+        const newTitle = data.title;
+        showNotification(`Título equipado: ${escapeHTML(newTitle)}`, _notificacionesContainer, "success");
+        
+        // Actualizar el estado local
+        if (_state.currentUser) {
+            _state.currentUser.equipped_title = newTitle;
+            // Actualizar la barra de usuario (header)
+            updateProfileUI(_state.currentUser);
+            // Recargar el modal de arsenal si está abierto para mostrar el botón "Equipado"
+            if (document.getElementById('modal-arsenal')?.style.display === 'flex') {
+                loadArsenalData(); // Recarga los datos del arsenal
+            }
+        }
+    });
+    
     _socket.on("achievements_unlocked", (data) => {
         if (data.achievements?.length > 0) {
             data.achievements.forEach(ach => {

@@ -1879,3 +1879,30 @@ progress#user-xp-bar::-moz-progress-bar {
 .recompensa-item.locked {
     color: #6b7280; /* Gris (bloqueado) */
 }
+
+/* ===================================================================
+   MODULO: FEATURES (Título de Jugador)
+   =================================================================== */
+
+.user-title {
+    font-size: 0.85em;
+    font-weight: 300;
+    color: var(--primary);
+    margin-left: 6px;
+    opacity: 0.8;
+}
+
+/* Hacer que el botón de equipar título se vea bien */
+.recompensa-item.btn-equip-title {
+    border: 1px solid #166534;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.recompensa-item.btn-equip-title:hover:not(:disabled) {
+    background-color: #15803d; /* Verde más brillante al pasar el mouse */
+}
+.recompensa-item.btn-equip-title:disabled {
+    background-color: #374151; /* Gris oscuro si está equipado */
+    color: var(--muted);
+    cursor: default;
+}

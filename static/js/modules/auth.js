@@ -362,7 +362,8 @@ export function updateProfileUI(user) {
         const xp = user.xp || 0;
         const xpNextLevel = user.xp_next_level || (level * 500);
         
-        if (userUsernameDisplay) userUsernameDisplay.textContent = `${avatar} ${escapeHTML(user.username)}`; 
+        const title = user.equipped_title ? `<span class="user-title">[${escapeHTML(user.equipped_title)}]</span>` : '';
+        if (userUsernameDisplay) userUsernameDisplay.innerHTML = `${avatar} ${escapeHTML(user.username)} ${title}`; 
         
         // Actualizar barra de XP
         if (userLevelText) userLevelText.textContent = `⭐ Nivel ${level}`;

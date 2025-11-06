@@ -384,6 +384,7 @@ def index():
                 'games_won': user.games_won,
                 'avatar_emoji': user.avatar_emoji,
                 'kit_id': getattr(user, 'kit_id', 'tactico'),
+                'equipped_title': getattr(user, 'equipped_title', None),
                 'consecutive_wins': getattr(user, 'consecutive_wins', 0),
                 'abilities_used': getattr(user, 'abilities_used', 0),
                 'rooms_created': getattr(user, 'rooms_created', 0)
@@ -449,6 +450,7 @@ def register():
             'games_won': new_user.games_won,
             'avatar_emoji': new_user.avatar_emoji,
             'kit_id': getattr(new_user, 'kit_id', 'tactico'),
+            'equipped_title': None,
             'consecutive_wins': 0,
             'abilities_used': 0,
             'rooms_created': 0
@@ -496,6 +498,7 @@ def login():
                 'games_won': user.games_won,
                 'avatar_emoji': user.avatar_emoji,
                 'kit_id': getattr(user, 'kit_id', 'tactico'),
+                'equipped_title': getattr(user, 'equipped_title', None),
                 'consecutive_wins': getattr(user, 'consecutive_wins', 0),
                 'abilities_used': getattr(user, 'abilities_used', 0),
                 'rooms_created': getattr(user, 'rooms_created', 0)
@@ -1779,6 +1782,81 @@ def arsenal_cargar_maestria():
         traceback.print_exc()
         emit('error', {'mensaje': 'Error del servidor al cargar maestría.'})
 
+@socketio.on('arsenal:equip_title')
+def arsenal_equip_title(data):
+    sid = request.sid
+    if sid not in sessions_activas:
+        emit('error', {'mensaje': 'No autenticado.'})
+        return
+        
+    username = sessions_activas[sid]['username']
+    title_name = data.get('title')
+
+    if not title_name:
+        emit('error', {'mensaje': 'Título inválido.'})
+        return
+
+    try:
+        user = User.query.filter_by(username=username).first()
+        if not user:
+            emit('error', {'mensaje': 'Usuario no encontrado.'})
+            return
+            
+        # Extraer el nombre del kit del título (ej: "Táctico")
+        kit_name_from_title = None
+        if title_name.startswith("Título: '") and title_name.endswith("'"):
+            kit_name_from_title = title_name[9:-1] # Extrae 'Táctico'
+        
+        if not kit_name_from_title:
+             emit('error', {'mensaje': 'Formato de título no reconocido.'})
+             return
+
+        # Encontrar el kit_id (ej: 'tactico')
+        kit_id_real = None
+        for k_id, k_config in KITS_VOLTRACE.items():
+            if k_config.get('nombre') == kit_name_from_title:
+                kit_id_real = k_id
+                break
+        
+        if not kit_id_real:
+            emit('error', {'mensaje': 'Kit del título no encontrado.'})
+            return
+
+        # Consultar la DB de Maestría
+        maestria_db = UserKitMaestria.query.filter_by(user_id=user.id, kit_id=kit_id_real).first()
+        
+        # Verificar Nivel (Debe ser Nv. 5 según arsenal.js)
+        if not maestria_db or maestria_db.xp < 600: 
+            # Cálculo de nivel real para ser más precisos
+            current_level = 1
+            if maestria_db:
+                 # Re-usamos la lógica de JS
+                 xp_acumulada = 0
+                 xp_total = maestria_db.xp
+                 while current_level < 10:
+                    xp_para_siguiente = current_level * 150 # MAESTRIA_XP_POR_NIVEL_BASE
+                    if xp_total >= (xp_acumulada + xp_para_siguiente):
+                        xp_acumulada += xp_para_siguiente
+                        current_level += 1
+                    else:
+                        break
+            
+            if current_level < 5:
+                emit('error', {'mensaje': '¡Aún no has desbloqueado este título!'})
+                return
+
+        user.equipped_title = title_name
+        db.session.commit()
+        
+        # Enviar confirmación al cliente
+        emit('arsenal:title_equipped', {'title': title_name})
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"!!! ERROR en 'arsenal:equip_title': {e}")
+        traceback.print_exc()
+        emit('error', {'mensaje': 'Error del servidor al equipar título.'})
+
 @socketio.on('enviar_mensaje')
 def manejar_mensaje(data):
     # Maneja mensajes enviados al chat de la sala (lobby o juego)
@@ -2619,6 +2697,7 @@ def _procesar_estadisticas_fin_juego_async(app, jugadores_items, ganador_nombre,
                                 'consecutive_wins': user_db.consecutive_wins,
                                 'xp': user_db.xp,
                                 'level': user_db.level,
+                                'equipped_title': getattr(user_db, 'equipped_title', None),
                                 'xp_next_level': get_xp_for_next_level(user_db.level)
                             }, to=sid)
                             
