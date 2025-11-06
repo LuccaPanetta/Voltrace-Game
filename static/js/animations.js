@@ -121,6 +121,11 @@ export class AnimationSystem {
     }, 600);
   }
 
+  isCosmeticUnlocked(kitId) {
+        const unlockedList = window.VOLTRACE_COSMETICS || []; 
+        return unlockedList.includes(kitId);
+    }
+
   // Efecto de habilidad usada
   animateAbilityUse(abilityType, sourceElement) {
     if (!this.isEnabled || !sourceElement) return;

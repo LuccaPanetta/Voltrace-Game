@@ -53,7 +53,8 @@ import { initArsenal, loadArsenalData } from './modules/arsenal.js';
         estadoJuego: {},
         mapaColores: {},
         habilidadUsadaTurno: { value: false },
-        kitSeleccionado: { value: 'tactico' }
+        kitSeleccionado: { value: 'tactico' },
+        cosmeticsUnlocked: []
     };
     
     /**

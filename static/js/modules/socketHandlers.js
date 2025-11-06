@@ -308,6 +308,9 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
     });
 
     _socket.on("arsenal:maestria_data", (data) => {
+        if (data.cosmetics_unlocked) {
+            _state.cosmeticsUnlocked = data.cosmetics_unlocked;
+        }
         handleMaestriaData(data);
     });
 

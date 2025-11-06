@@ -217,7 +217,8 @@ class UserKitMaestria(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
     kit_id = db.Column(db.String(50), nullable=False, index=True) # ej: "tactico", "espectro"
     xp = db.Column(db.Integer, nullable=False, default=0)
-    level = db.Column(db.Integer, nullable=False, default=1) # (Por ahora solo guardamos XP, pero preparamos el nivel)
+    level = db.Column(db.Integer, nullable=False, default=1) 
+    cosmetic_unlocked = db.Column(db.Boolean, nullable=False, default=False)
 
     def __repr__(self):
         return f'<Maestria {self.user_id} - {self.kit_id}: XP {self.xp}>'

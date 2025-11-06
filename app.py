@@ -1758,7 +1758,10 @@ def arsenal_cargar_maestria():
 
         # Consultar la DB por todas las maestrías de este usuario
         maestrias_db = UserKitMaestria.query.filter_by(user_id=user.id).all()
-        # Convertir a un dict para búsqueda rápida: {'tactico': 150, 'espectro': 50}
+        
+        desbloqueados = [m.kit_id for m in maestrias_db if m.cosmetic_unlocked]
+
+        # Convertir a un dict para búsqueda rápida
         maestrias_map = {m.kit_id: m.xp for m in maestrias_db}
         
         # Construir la lista completa de todos los kits
@@ -1775,7 +1778,10 @@ def arsenal_cargar_maestria():
             })
             
         # Enviar los datos al cliente
-        emit('arsenal:maestria_data', lista_completa_maestria)
+        emit('arsenal:maestria_data', {
+            'maestrias': lista_completa_maestria,
+            'cosmetics_unlocked': desbloqueados
+        })
 
     except Exception as e:
         print(f"!!! ERROR en 'arsenal:cargar_maestria': {e}")
@@ -2636,8 +2642,9 @@ def _procesar_estadisticas_fin_juego_async(app, jugadores_items, ganador_nombre,
             for sid, jugador_data in jugadores_items:
                 if sid in sessions_activas:
                     username = sessions_activas[sid]['username']
+                    
                     jugador_nombre_loop = jugador_data['nombre']
-                    jugador_juego = juego_obj._encontrar_jugador(jugador_nombre_loop) # Usar método interno seguro
+                    jugador_juego = juego_obj._encontrar_jugador(jugador_nombre_loop)
                     if not jugador_juego:
                         print(f"ADVERTENCIA: No se encontró a {jugador_nombre_loop} en el objeto juego. Omitiendo stats.")
                         continue
@@ -2647,32 +2654,29 @@ def _procesar_estadisticas_fin_juego_async(app, jugadores_items, ganador_nombre,
                         user_db = User.query.filter_by(username=username).first()
                         if user_db:
                             user_db.games_played += 1
-                            xp_ganada = 50 # XP base por jugar
+                            xp_ganada = 50 
                             
-                            current_consecutive_wins = 0 # Valor por defecto
+                            current_consecutive_wins = 0 
                             if is_winner: 
                                 user_db.games_won += 1
-                                xp_ganada += 25 # Bonus XP por ganar
-                                # Incrementar racha de victorias
+                                xp_ganada += 25 
                                 user_db.consecutive_wins = getattr(user_db, 'consecutive_wins', 0) + 1
                                 current_consecutive_wins = user_db.consecutive_wins
                             else:
-                                # Resetear racha de victorias
                                 user_db.consecutive_wins = 0
                                 current_consecutive_wins = 0
+
                             if user_db.level >= 5:
                                 try:
                                     kit_usado = jugador_data.get('kit_id', 'tactico')
-                                    xp_maestria_ganada = 100 if is_winner else 50 # 100 XP por ganar, 50 por jugar
+                                    xp_maestria_ganada = 100 if is_winner else 50 
                                     
-                                    # Buscar la maestría de este kit para este usuario
                                     maestria = UserKitMaestria.query.filter_by(
                                         user_id=user_db.id,
                                         kit_id=kit_usado
                                     ).first()
                                     
                                     if not maestria:
-                                        # Si no existe, crearla
                                         maestria = UserKitMaestria(
                                             user_id=user_db.id,
                                             kit_id=kit_usado,
@@ -2680,13 +2684,20 @@ def _procesar_estadisticas_fin_juego_async(app, jugadores_items, ganador_nombre,
                                             level=1
                                         )
                                     
-                                    # Añadir XP y guardar en la sesión de la DB
                                     maestria.xp += xp_maestria_ganada
+                                    
+                                    MAESTRIA_XP_NV10 = 6750 
+                                    
+                                    if maestria.xp >= MAESTRIA_XP_NV10 and maestria.cosmetic_unlocked == False:
+                                        maestria.cosmetic_unlocked = True
+                                        print(f"--- COSMÉTICO DESBLOQUEADO: {kit_usado} para {user_db.username}")
+                                        socketio.emit('cosmetic_unlocked', {'kit_id': kit_usado}, to=sid)
+
                                     db.session.add(maestria)
                                     print(f"--- MAESTRÍA: {xp_maestria_ganada} XP añadidos a {user_db.username} para kit {kit_usado}. Total: {maestria.xp}")
 
                                 except Exception as e:
-                                    db.session.rollback() # Revertir solo la maestría
+                                    db.session.rollback() 
                                     print(f"!!! ERROR al procesar Maestría de Kit: {e}")
 
                             level_up = update_xp_and_level(user_db, xp_ganada) 
@@ -2721,7 +2732,6 @@ def _procesar_estadisticas_fin_juego_async(app, jugadores_items, ganador_nombre,
                                 'ultimo_en_mid_game': getattr(juego_obj, 'ultimo_en_mid_game', None)
                             }
 
-                            # check_achievement también hace db.session.commit()
                             unlocked_achievements = achievement_system.check_achievement(username, 'game_finished', event_data) 
                             if unlocked_achievements:
                                 socketio.emit('achievements_unlocked', {
