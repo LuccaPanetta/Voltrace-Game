@@ -190,7 +190,7 @@ body {
   gap: var(--gap-medium);
 }
 @media (min-width: 640px) {
-  .action-cards {
+.action-cards {
     grid-template-columns: 1fr 1fr;
   }
 }
