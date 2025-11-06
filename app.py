@@ -375,7 +375,7 @@ def index():
                 'games_played': user.games_played, 
                 'games_won': user.games_won,
                 'avatar_emoji': user.avatar_emoji,
-                'kit_id': user.kit_id,
+                'kit_id': getattr(user, 'kit_id', 'tactico'),
                 'consecutive_wins': getattr(user, 'consecutive_wins', 0),
                 'abilities_used': getattr(user, 'abilities_used', 0),
                 'rooms_created': getattr(user, 'rooms_created', 0)
@@ -439,7 +439,7 @@ def register():
             'games_played': new_user.games_played, 
             'games_won': new_user.games_won,
             'avatar_emoji': new_user.avatar_emoji,
-            'kit_id': new_user.kit_id,
+            'kit_id': getattr(new_user, 'kit_id', 'tactico'),
             'consecutive_wins': 0,
             'abilities_used': 0,
             'rooms_created': 0
@@ -485,7 +485,7 @@ def login():
                 'games_played': user.games_played, 
                 'games_won': user.games_won,
                 'avatar_emoji': user.avatar_emoji,
-                'kit_id': user.kit_id,
+                'kit_id': getattr(user, 'kit_id', 'tactico'),
                 'consecutive_wins': getattr(user, 'consecutive_wins', 0),
                 'abilities_used': getattr(user, 'abilities_used', 0),
                 'rooms_created': getattr(user, 'rooms_created', 0)
@@ -1063,7 +1063,7 @@ def guardar_kit(data):
         user = User.query.filter_by(username=username).first()
         if user:
             # Guardar en la Base de Datos
-            user.kit_id = kit_id
+            setattr(user, 'kit_id', kit_id)
             db.session.commit()
             print(f"Cliente {sid} (User: {username}) guardó el kit: {kit_id} en la DB.")
             

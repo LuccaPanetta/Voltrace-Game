@@ -63,6 +63,7 @@ class User(db.Model, UserMixin):
     password_hash = db.Column(db.String(256))
 
     avatar_emoji = db.Column(db.String(10), nullable=False, default='👤')
+    kit_id = db.Column(db.String(50), nullable=False, default='tactico')
     
     # Estadísticas del jugador
     level = db.Column(db.Integer, default=1)
