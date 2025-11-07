@@ -251,6 +251,43 @@ def _procesar_habilidad_db_async(app, sid, username, event_data=None):
         except Exception as e:
             print(f"!!! ERROR FATAL en _procesar_habilidad_db_async: {e}")
             traceback.print_exc()
+def _procesar_chat_db_async(app, sid, username, id_sala):
+    with app.app_context():
+        try:
+            
+            user_db = User.query.filter_by(username=username).first()
+            if user_db:
+                user_db.game_messages_sent = getattr(user_db, 'game_messages_sent', 0) + 1
+                update_xp_and_level(user_db, 1) # Añade 1 XP
+            
+            # Incrementar el contador de la partida actual en JuegoOcaWeb
+            sala = salas_activas.get(id_sala)
+            if sala and sala.juego:
+                jugador_juego = sala.juego._encontrar_jugador(username)
+                if jugador_juego:
+                    jugador_juego.game_messages_sent_this_match = getattr(jugador_juego, 'game_messages_sent_this_match', 0) + 1
+            
+        except Exception as e:
+            print(f"!!! ERROR en _procesar_chat_db_async: {e}")
+            traceback.print_exc()
+
+def _procesar_pm_db_async(app, sid, sender_username):
+    with app.app_context():
+        try:
+            user_db = User.query.filter_by(username=sender_username).first()
+            if user_db:
+                user_db.private_messages_sent = getattr(user_db, 'private_messages_sent', 0) + 1 
+                db.session.commit()
+            
+            unlocked = achievement_system.check_achievement(sender_username, 'private_message_sent')
+            if unlocked:
+                socketio.emit('achievements_unlocked', {
+                    'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked]
+                }, to=sid)
+            
+        except Exception as e:
+            print(f"!!! ERROR en _procesar_pm_db_async: {e}")
+            traceback.print_exc()
 
 # --- Configurar SocketIO ---
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -1715,6 +1752,35 @@ def solicitar_precios_perks(data):
         return
 
     sala = salas_activas[id_sala]
+
+    # Necesitamos al jugador para comprobar su estado
+    if sid not in sessions_activas:
+        emit('error', {'mensaje': 'No autenticado.'})
+        return
+        
+    username = sessions_activas[sid]['username']
+    jugador = sala.juego._encontrar_jugador(username) if sala.juego else None
+
+    if not jugador:
+        emit('error', {'mensaje': 'Jugador no encontrado en el juego.'})
+        return
+
+    # Comprobar si el jugador ya tiene una oferta activa
+    if hasattr(jugador, 'oferta_perk_activa') and jugador.oferta_perk_activa:
+        oferta_activa = jugador.oferta_perk_activa
+        print(f"--- Reenviando oferta de perk pendiente para {username} ---")
+        
+        # Reenviar el evento 'oferta_perk' 
+        emit('oferta_perk', {
+            "exito": True,
+            "mensaje": "¡Aún tienes una oferta pendiente! Elige un Perk:",
+            "oferta": oferta_activa.get("oferta_detallada", []),
+            "coste": oferta_activa.get("coste_pagado", 0),
+            "pm_restantes": jugador.get_pm()
+        }, to=sid)
+        return # Salir de la función, no enviar precios
+
+    # Si no hay oferta, enviar los precios (lógica original)
     costes = {"basico": 4, "intermedio": 8, "avanzado": 12} # Precios base
 
     try:
@@ -1831,21 +1897,25 @@ def arsenal_equip_title(data):
         # Consultar la DB de Maestría
         maestria_db = UserKitMaestria.query.filter_by(user_id=user.id, kit_id=kit_id_real).first()
         
-        # Verificar Nivel (Debe ser Nv. 5 según arsenal.js)
-        if not maestria_db or maestria_db.xp < 600: 
+        # Verificar Nivel 
+        if not maestria_db or maestria_db.xp < 1500:
             # Cálculo de nivel real para ser más precisos
             current_level = 1
             if maestria_db:
-                 # Re-usamos la lógica de JS
-                 xp_acumulada = 0
-                 xp_total = maestria_db.xp
-                 while current_level < 10:
+                xp_acumulada = 0
+                xp_total = maestria_db.xp
+                while current_level < 10: # MAESTRIA_MAX_NIVEL
                     xp_para_siguiente = current_level * 150 # MAESTRIA_XP_POR_NIVEL_BASE
                     if xp_total >= (xp_acumulada + xp_para_siguiente):
                         xp_acumulada += xp_para_siguiente
                         current_level += 1
                     else:
                         break
+            
+            # Verificar si el nivel es suficiente (Nivel 5 para Títulos)
+            if current_level < 5:
+                emit('error', {'mensaje': '¡Aún no has desbloqueado este título!'})
+                return
             
             if current_level < 5:
                 emit('error', {'mensaje': '¡Aún no has desbloqueado este título!'})
@@ -1872,39 +1942,33 @@ def manejar_mensaje(data):
     else:
         id_sala = id_sala_data
     mensaje = data['mensaje']
+    sid = request.sid # Guardar el SID
 
     # Verificar que la sala exista y el jugador pertenezca a ella
-    if id_sala in salas_activas and request.sid in salas_activas[id_sala].jugadores:
+    if id_sala in salas_activas and sid in salas_activas[id_sala].jugadores:
         sala = salas_activas[id_sala]
-        nombre = sala.jugadores[request.sid]['nombre']
-
-        # Actualizar estadísticas y verificar logros
-        if request.sid in sessions_activas:
-            username = sessions_activas[request.sid]['username']
-            user_db = User.query.filter_by(username=username).first()
-            if user_db:
-                user_db.game_messages_sent = getattr(user_db, 'game_messages_sent', 0) + 1
-                # No notificar level up por chat, pero sí calcularlo
-                update_xp_and_level(user_db, 1) # Añade 1 XP
-            
-            # Incrementar el contador de la partida actual en JuegoOcaWeb
-            if sala.juego:
-                jugador_juego = sala.juego._encontrar_jugador(nombre)
-                if jugador_juego:
-                    jugador_juego.game_messages_sent_this_match = getattr(jugador_juego, 'game_messages_sent_this_match', 0) + 1
-
-            unlocked_achievements = achievement_system.check_achievement(username, 'message_sent', {})
-            if unlocked_achievements:
-                socketio.emit('achievements_unlocked', {
-                    'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_achievements]
-                }, to=request.sid)
-
-        # Emitir el mensaje a todos en la sala
+        nombre = sala.jugadores[sid]['nombre']
+        
+        # Emitir el mensaje a todos en la sala INMEDIATAMENTE
         socketio.emit('nuevo_mensaje', {
             'jugador': nombre,
             'mensaje': mensaje,
             'timestamp': datetime.now().strftime('%H:%M:%S')
         }, room=id_sala)
+        
+        # Iniciar el hilo para el trabajo de DB 
+        if sid in sessions_activas:
+            username = sessions_activas[sid]['username']
+            threading.Thread(
+                target=_procesar_chat_db_async,
+                args=(
+                    current_app._get_current_object(),
+                    sid,
+                    username,
+                    id_sala
+                )
+            ).start()
+
     else:
         emit('error', {'mensaje': 'No se pudo enviar el mensaje (sala no encontrada o no perteneces).'})
 
@@ -1927,6 +1991,7 @@ def handle_private_message(data):
     sender = sessions_activas.get(request.sid, {}).get('username')
     target = data.get('target')
     message = data.get('message')
+    sid = request.sid # Guardar el SID
     print(f"\n--- RECIBIDO EVENTO: private_message --- De: {sender}, Para: {target}")
 
     if not sender or not target or not message:
@@ -1934,23 +1999,12 @@ def handle_private_message(data):
         emit('error', {'mensaje': 'Faltan datos para enviar mensaje privado.'})
         return
 
-    # Llama al sistema social para guardar el mensaje y obtener datos
+    # Guardar el mensaje
     result = social_system.send_private_message(sender, target, message)
     print(f"Resultado de social_system.send_private_message: {result}")
 
-    if result['success']:
-        # Actualizar stats y logros del remitente
-        user_db = User.query.filter_by(username=sender).first()
-        if user_db:
-            user_db.private_messages_sent = getattr(user_db, 'private_messages_sent', 0) + 1 
-            db.session.commit()
-        unlocked = achievement_system.check_achievement(sender, 'private_message_sent')
-        if unlocked:
-            socketio.emit('achievements_unlocked', {
-                'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked]
-            }, to=request.sid)
-
-        # Intentar notificar al destinatario si está conectado
+    if result['success']: 
+        # A. Notificar al destinatario si está conectado
         presence_info = social_system.presence_data.get(target, {})
         target_sid = presence_info.get('extra_data', {}).get('sid')
         print(f"Intentando notificar a {target} (SID: {target_sid})")
@@ -1963,9 +2017,20 @@ def handle_private_message(data):
         else:
             print(f"--- ADVERTENCIA PM: Destinatario {target} no conectado. ---")
 
-        # Enviar confirmación al remitente
-        print(f"Enviando confirmación 'message_sent_confirm' a {sender} (SID: {request.sid})")
+        # B. Enviar confirmación al remitente
+        print(f"Enviando confirmación 'message_sent_confirm' a {sender} (SID: {sid})")
         emit('message_sent_confirm', result['message_data'])
+
+        # Iniciar el hilo para el trabajo de DB 
+        threading.Thread(
+            target=_procesar_pm_db_async,
+            args=(
+                current_app._get_current_object(),
+                sid,
+                sender
+            )
+        ).start()
+        
     else:
         print(f"--- PM ERROR (social_system): {result['message']} ---")
         emit('error', {'mensaje': result['message']})
@@ -2323,8 +2388,13 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
                 if turno_antes_de_desconexion == username_desconectado:
                     print(f"¡Era el turno de {username_desconectado}! Forzando Paso 2 (efectos de casilla)...")
                     try:
-                        # Esto ahora solo avanza el turno si fue un dado
-                        resultado_paso_2 = sala.juego.paso_2_procesar_casilla_y_avanzar(username_desconectado)
+                        jugador_desconectado_obj = sala.juego._encontrar_jugador(username_desconectado)
+                        if jugador_desconectado_obj and getattr(jugador_desconectado_obj, 'dado_lanzado_este_turno', False):
+                            print(f"--- El jugador desconectado SÍ lanzó el dado. Procesando Paso 2...")
+                            resultado_paso_2 = sala.juego.paso_2_procesar_casilla_y_avanzar(username_desconectado)
+                        else:
+                            print(f"--- El jugador desconectado NO lanzó el dado. Saltando Paso 2 y avanzando turno.")
+                            sala.juego._avanzar_turno()
                         
                         # Si el paso 2 causó que el juego termine 
                         if sala.juego.ha_terminado():
@@ -2640,7 +2710,7 @@ def _procesar_estadisticas_fin_juego_async(app, jugadores_items, ganador_nombre,
         print(f"--- THREAD: Iniciando procesamiento de estadísticas para {len(jugadores_items)} jugadores...")
         try:
             for sid, jugador_data in jugadores_items:
-                if sid in sessions_activas:
+                if sid in sessions_activas: 
                     username = sessions_activas[sid]['username']
                     
                     jugador_nombre_loop = jugador_data['nombre']
@@ -2765,7 +2835,7 @@ def _procesar_abandono_db_async(app, username, juego_obj, sala_jugadores_count):
                     'special_tiles_activated': getattr(jugador_juego, 'tipos_casillas_visitadas', set()),
                     'abilities_used': getattr(jugador_juego, 'habilidades_usadas_en_partida', 0),
                     'treasures_this_game': getattr(jugador_juego, 'tesoros_recogidos', 0),
-                    'completed_without_traps': getattr(jugador_juego, 'trampas_evitadas', True),
+                    'completed_without_traps': False,
                     'precision_laser': getattr(jugador_juego, 'dado_perfecto_usado', 0),
                     'messages_this_game': getattr(jugador_juego, 'game_messages_sent_this_match', 0),
                     'only_active_player': False,

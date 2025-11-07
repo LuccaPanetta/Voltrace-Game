@@ -354,7 +354,7 @@ async function sendFriendRequest(targetUsername, buttonElement) {
         const result = await response.json();
         showNotification(result.message, notifContainer, result.success ? "success" : "error");
         if (result.success) {
-            socialCache.pending_sent.push(targetUsername); 
+            invalidateSocialCache();
             const listItem = buttonElement.closest(".social-list-item");
             const actionsDiv = listItem?.querySelector(".social-actions");
             if (actionsDiv) {
@@ -417,7 +417,7 @@ async function rejectFriendRequest(senderUsername, buttonElement) {
         const result = await response.json();
         showNotification(result.message, notifContainer, result.success ? "success" : "error");
         if (result.success) {
-            socialCache.pending_received = socialCache.pending_received.filter(u => u !== senderUsername);
+            invalidateSocialCache();
             listItem?.remove();
         } else {
             const actionsDiv = listItem?.querySelector(".social-actions");
@@ -446,7 +446,7 @@ async function removeFriend(friendUsername, buttonElement) {
         const result = await response.json();
         showNotification(result.message, notifContainer, result.success ? "success" : "error");
         if (result.success) {
-            socialCache.friends = socialCache.friends.filter(f => f.username !== friendUsername);
+            invalidateSocialCache();
             listItem?.remove();
         } else {
             buttonElement.textContent = "🗑️";

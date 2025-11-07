@@ -1187,7 +1187,17 @@ class JuegoOcaWeb:
 
         # Lógica de activación 
         if perk_id == "descuento_habilidad":
-            habilidades_candidatas = [h for h in jugador.habilidades if h.cooldown_base > 1]
+            descuentos_activos = {p for p in jugador.perks_activos if p.startswith("descuento_")}
+            
+            habilidades_candidatas = []
+            for h in jugador.habilidades:
+                if h.cooldown_base > 1:
+                    # Crear el ID del perk de descuento para esta habilidad
+                    perk_id_habilidad = f"descuento_{h.nombre.lower().replace(' ', '_')}"
+                    # Añadir solo si NO está en la lista de descuentos activos
+                    if perk_id_habilidad not in descuentos_activos:
+                        habilidades_candidatas.append(h)
+
             if habilidades_candidatas:
                 habilidad_afectada = random.choice(habilidades_candidatas)
                 # Guardar el perk con la habilidad afectada (ID único)
@@ -1244,7 +1254,7 @@ class JuegoOcaWeb:
     def _hab_transferencia_de_fase(self, jugador, habilidad, objetivo):
         eventos = []
         # Aplicar un efecto temporal que se verificará en _procesar_efectos_posicion y _verificar_colision
-        duracion_turnos = 2
+        duracion_turnos = 1
         jugador.efectos_activos.append({"tipo": "fase_activa", "turnos": duracion_turnos})
         eventos.append("👻 Transferencia de Fase: Serás intangible e inmune a casillas negativas en tu próximo movimiento de dado.")
         return {"exito": True, "eventos": eventos}
@@ -1486,10 +1496,8 @@ class JuegoOcaWeb:
 
         # Si no está protegido, realizar el robo
         else:
-            # Quitar energía al objetivo
-            energia_cambio_obj = obj.procesar_energia(-energia_a_robar)
-            # Dar energía al ladrón (verificar bloqueo del ladrón)
-            energia_cambio_jugador = jugador.procesar_energia(energia_a_robar)
+            jugador._JugadorWeb__puntaje += energia_a_robar
+            energia_cambio_jugador = energia_a_robar
 
             if energia_cambio_jugador > 0:
                  eventos.append(f"🎭 Robas {energia_cambio_jugador} energía a {obj.get_nombre()}.")

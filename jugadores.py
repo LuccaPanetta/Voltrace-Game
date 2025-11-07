@@ -89,14 +89,18 @@ class JugadorWeb:
         energia_anterior = self.__puntaje
         energia_cambiada = 0 # Inicializar cambio
 
-        # Usar verificación directa en efectos_activos
-        esta_bloqueado = any(efecto.get('tipo') == 'bloqueo_energia' for efecto in self.efectos_activos)
+        if cantidad < 0:
+            if any(efecto.get('tipo') == 'escudo' for efecto in self.efectos_activos):
+                print(f"DEBUG procesar_energia: {self.nombre} bloqueó {cantidad}E de daño con Escudo.")
+                
+                self.juego_actual.eventos_turno.append(f"🛡️ {self.nombre} bloqueó {abs(cantidad)} de daño con Escudo.")
+                return 0 # No se aplica daño
 
+        # Comprobar Bloqueo 
+        esta_bloqueado = any(efecto.get('tipo') == 'bloqueo_energia' for efecto in self.efectos_activos)
         if esta_bloqueado and cantidad > 0:
             print(f"DEBUG procesar_energia: {self.nombre} intentó ganar {cantidad}E pero está bloqueado.")
-            # No se aplica la ganancia, el cambio es 0
-            energia_cambiada = 0
-            return int(energia_cambiada) # Devolver 0 porque no hubo cambio
+            return 0 # No se aplica la ganancia
 
         # Calcular energía tentativa si no está bloqueado o si pierde energía
         energia_final_calculada = energia_anterior + cantidad

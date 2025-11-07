@@ -165,15 +165,6 @@ function handleSolicitarRevancha() {
             value: idSalaActual,
             username: _state.currentUser.username 
         });
-        let waitingMsg = document.getElementById('rematch-waiting-msg');
-        if (!waitingMsg && resultadosFinalesDisplay) {
-            waitingMsg = document.createElement('p');
-            waitingMsg.textContent = "Esperando respuesta de otros jugadores...";
-            waitingMsg.style.textAlign = 'center';
-            waitingMsg.style.marginTop = '10px';
-            waitingMsg.id = 'rematch-waiting-msg';
-            resultadosFinalesDisplay.appendChild(waitingMsg);
-        }
     } else {
         const notifContainer = document.getElementById('notificaciones');
         let errorMsg = "Error: No se encontró la sala anterior.";

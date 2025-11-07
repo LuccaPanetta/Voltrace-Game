@@ -406,6 +406,20 @@ export function updateProfileUI(user) {
         }
         if (userXpText) userXpText.textContent = `${xp} / ${xpNextLevel} XP`;
 
+        const btnArsenal = document.getElementById("btn-show-arsenal");
+        if (btnArsenal) {
+            const nivelRequerido = 5; // Nivel 5 para desbloquear
+            if (level < nivelRequerido) {
+                btnArsenal.disabled = true;
+                btnArsenal.title = `Se desbloquea en Nivel ${nivelRequerido}`;
+                btnArsenal.style.opacity = "0.5";
+            } else {
+                btnArsenal.disabled = false;
+                btnArsenal.title = "Ver Maestría de Kits";
+                btnArsenal.style.opacity = "1";
+            }
+        }
+
         // --- Panel de Estadísticas del Lobby ---
         const gamesPlayed = user.games_played || 0;
         const gamesWon = user.games_won || 0;
@@ -433,6 +447,13 @@ export function updateProfileUI(user) {
             userXpBar.max = 500; 
         }
         if (userXpText) userXpText.textContent = `0 / 500 XP`;
+
+        const btnArsenal = document.getElementById("btn-show-arsenal");
+        if (btnArsenal) {
+            btnArsenal.disabled = true;
+            btnArsenal.title = "Inicia sesión para ver tu Arsenal";
+            btnArsenal.style.opacity = "0.5";
+        }
 
         if (statGamesPlayed) statGamesPlayed.textContent = "0";
         if (statGamesWon) statGamesWon.textContent = "0";

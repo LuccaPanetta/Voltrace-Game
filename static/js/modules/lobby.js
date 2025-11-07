@@ -4,6 +4,7 @@
    =================================================================== */
 
 import { showNotification, escapeHTML, playSound } from './utils.js';
+import { loadPerksConfig } from './perks.js';
 
 // Referencias DOM
 let codigoSalaInput, topPlayersContainer, btnCrearSala, btnUnirseSala;
@@ -61,7 +62,6 @@ export function initLobby(socketRef, screensRef, showFuncRef, setLoadingFuncRef,
     rankingContent = document.getElementById("ranking-content");
     
     // --- Cacheo Glosario y Kits ---
-    btnShowGlossary = document.getElementById("btn-show-glossary");
     modalGlossary = document.getElementById("modal-glossary");
     btnCerrarGlossary = document.getElementById("btn-cerrar-glossary");
     glossaryAbilitiesList = document.getElementById("glossary-abilities-list");
@@ -98,12 +98,6 @@ export function initLobby(socketRef, screensRef, showFuncRef, setLoadingFuncRef,
             // Enviar la selección al servidor para que la guarde
             _socket.emit('guardar_kit', { 'kit_id': kitId });
         });
-    });
-
-    // Escuchar la confirmación del servidor sobre el kit actual
-    _socket.on('kit_actual', (data) => {
-        console.log(`Kit actual guardado en servidor: ${data.kit_id}`);
-        actualizarKitSeleccionadoUI(data.kit_id);
     });
 
     // Cachear elementos DOM de Sala de Espera
@@ -345,7 +339,7 @@ function closeGlossaryModal() {
 /**
  * Carga los datos de habilidades y perks desde la API (con caché).
  */
-async function loadGlossaryData() {
+export async function loadGlossaryData() {
     // Usar caché si ya está cargado
     if (glossaryCache.isLoaded) {
         _displayGlossaryAbilities(glossaryCache.abilities);
@@ -377,6 +371,8 @@ async function loadGlossaryData() {
         glossaryCache.abilities = abilitiesData;
         glossaryCache.perks = perksData;
         glossaryCache.isLoaded = true;
+
+        loadPerksConfig(perksData);
 
         _displayGlossaryAbilities(abilitiesData);
         _displayGlossaryPerks(perksData);
