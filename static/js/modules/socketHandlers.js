@@ -254,9 +254,8 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
         }
         actualizarEstadoJuego(data.estado_juego);
         renderEventos(data.resultado?.eventos);
-        if (window.GameAnimations && data.habilidad && data.resultado?.exito && jugadoresEstadoDisplay) {
-            const playerElement = Array.from(jugadoresEstadoDisplay.children).find(el => el.textContent.includes(data.jugador));
-            if (playerElement) window.GameAnimations.animateAbilityUse(data.habilidad.tipo || "magic", playerElement);
+        if (data.resultado?.exito) {
+            checkAndPlayCosmetic(data.habilidad, data.jugador);
         }
     });
     _socket.on("habilidad_usada_parcial", (data) => {
@@ -269,9 +268,8 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
         }
         actualizarEstadoParcial(data.estado_juego_parcial);
         renderEventos(data.resultado?.eventos);
-        if (window.GameAnimations && data.habilidad && data.resultado?.exito && jugadoresEstadoDisplay) {
-            const playerElement = Array.from(jugadoresEstadoDisplay.children).find(el => el.textContent.includes(data.jugador));
-            if (playerElement) window.GameAnimations.animateAbilityUse(data.habilidad.tipo || "magic", playerElement);
+        if (data.resultado?.exito) {
+            checkAndPlayCosmetic(data.habilidad, data.jugador);
         }
     });
      _socket.on("habilidad_usada_privada", (data) => { 
@@ -280,9 +278,8 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
         }
         actualizarEstadoParcial(data.estado_juego_parcial);
         renderEventos(data.resultado?.eventos); 
-        if (window.GameAnimations && data.habilidad && data.resultado?.exito && jugadoresEstadoDisplay) {
-            const playerElement = Array.from(jugadoresEstadoDisplay.children).find(el => el.textContent.includes(data.jugador));
-            if (playerElement) window.GameAnimations.animateAbilityUse("stealth", playerElement);
+        if (data.resultado?.exito) {
+            checkAndPlayCosmetic(data.habilidad, data.jugador);
         }
     });
     _socket.on("estado_juego_actualizado", (data) => { 
@@ -512,6 +509,66 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
                         _state, 
                         setLoading, show, _screens);
     });
+
+    /**
+     * Comprueba si una habilidad tiene un cosmético Nv. 10 y lo reproduce.
+     * Si no, reproduce la animación genérica.
+     * @param {object} habilidadData - El objeto de la habilidad (ej. {nombre: 'Sabotaje', tipo: 'ofensiva'})
+     * @param {string} jugadorNombre - El nombre del jugador que la usa.
+     */
+    function checkAndPlayCosmetic(habilidadData, jugadorNombre) {
+        if (!_gameAnimations || !habilidadData || !habilidadData.nombre || !_state.cosmeticsUnlocked) return;
+
+        const nombreHab = habilidadData.nombre;
+        let kitId = null;
+        let cosmeticPlayed = false;
+
+        if (nombreHab === 'Sabotaje') {
+            kitId = 'tactico';
+            // Comprobar si el jugador tiene este cosmético desbloqueado
+            if (_state.cosmeticsUnlocked.includes(kitId)) {
+                _gameAnimations.playSabotageCosmetic(jugadorNombre);
+                cosmeticPlayed = true;
+            }
+        }
+
+        else if (nombreHab === 'Bomba Energética') {
+            kitId = 'ingeniero';
+            if (_state.cosmeticsUnlocked.includes(kitId)) {
+                _gameAnimations.playPulseBombCosmetic(jugadorNombre);
+                cosmeticPlayed = true;
+            }
+        }
+
+        else if (nombreHab === 'Transferencia de Fase') {
+            kitId = 'espectro';
+            if (_state.cosmeticsUnlocked.includes(kitId)) {
+                _gameAnimations.playPhaseShiftCosmetic(jugadorNombre);
+                cosmeticPlayed = true;
+            }
+        }
+
+        else if (nombreHab === 'Escudo Total') {
+            kitId = 'guardian';
+            if (_state.cosmeticsUnlocked.includes(kitId)) {
+                _gameAnimations.playGuardianShieldCosmetic(jugadorNombre);
+                cosmeticPlayed = true;
+            }
+        }
+
+        else if (nombreHab === 'Doble Turno') {
+            kitId = 'estratega';
+            if (_state.cosmeticsUnlocked.includes(kitId)) {
+                _gameAnimations.playDoubleTurnCosmetic(jugadorNombre);
+                cosmeticPlayed = true;
+            }
+        }
+
+        if (!cosmeticPlayed && jugadoresEstadoDisplay) {
+            const playerElement = Array.from(jugadoresEstadoDisplay.children).find(el => el.textContent.includes(jugadorNombre));
+            if (playerElement) _gameAnimations.animateAbilityUse(habilidadData.tipo || "magic", playerElement);
+        }
+    }
 
     console.log("Socket handlers configurados.");
 } 

@@ -1942,3 +1942,193 @@ progress#user-xp-bar::-moz-progress-bar {
 .game-controls-global .volume-control input[type="range"] {
     height: 4px; /* Hacer la barra un poco más fina */
 }
+
+/* ===================================================================
+   MODULO: FEATURES (Animaciones Cosméticas)
+   =================================================================== */
+
+/* Keyframe para el pulso sónico */
+@keyframes cosmetic-sonic-pulse {
+  0% {
+    transform: scale(0.3);
+    opacity: 1;
+    border-width: 4px;
+  }
+  100% {
+    transform: scale(3);
+    opacity: 0;
+    border-width: 1px;
+  }
+}
+
+/* Estilo del elemento de la animación */
+.cosmetic-animation.sabotage-sonic {
+  /* Usar 'fixed' para posicionarlo correctamente en la pantalla */
+  position: fixed; 
+  width: 60px; /* Tamaño inicial */
+  height: 60px;
+  border-radius: 50%;
+  border: 4px solid var(--primary); /* Color Táctico/Primario */
+  
+  /* Efecto de "glitch" */
+  box-shadow: 0 0 15px var(--primary), 
+              inset 0 0 10px var(--primary),
+              0 0 25px #ff00ff; /* Sombra magenta para un look "sónico" */
+  
+  opacity: 0; /* Comienza invisible */
+  transform-origin: center;
+  
+  /* Aplicar la animación */
+  animation: cosmetic-sonic-pulse 0.7s ease-out forwards;
+  
+  pointer-events: none; /* No bloquear clics */
+  z-index: 1001; /* Encima del tablero, debajo de modales */
+}
+
+/* Keyframe para la Bomba de Pulso (expansión roja) */
+@keyframes cosmetic-pulse-bomb {
+  0% {
+    transform: scale(0.1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2.5); /* Más grande que el sónico */
+    opacity: 0;
+  }
+}
+
+/* Estilo del elemento de la animación */
+.cosmetic-animation.pulse-bomb {
+  position: fixed; 
+  width: 100px; /* Tamaño inicial más grande */
+  height: 100px;
+  border-radius: 50%;
+  
+  /* Un 'border' y 'box-shadow' para efecto de shockwave */
+  border: 2px solid #ef4444; /* Rojo (color de daño) */
+  background-color: rgba(239, 68, 68, 0.3); /* Relleno rojo suave */
+  box-shadow: 0 0 30px #ef4444, inset 0 0 20px #f59e0b; /* Sombra roja/naranja */
+  
+  opacity: 0;
+  transform-origin: center;
+  
+  /* Aplicar la animación (más rápida que la sónica) */
+  animation: cosmetic-pulse-bomb 0.5s ease-out forwards;
+  
+  pointer-events: none;
+  z-index: 1001;
+}
+
+/* Keyframe para Fase Sombría (humo que se desvanece) */
+@keyframes cosmetic-phase-shift {
+  0% {
+    transform: scale(0.5) translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.5) translateY(-30px); /* Sube y se expande */
+    opacity: 0;
+  }
+}
+
+/* Estilo del elemento de la animación */
+.cosmetic-animation.phase-shift {
+  position: fixed; 
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  
+  /* Efecto de humo oscuro/fantasmal */
+  background-color: #a78bfa; /* Morado (color Espectro/Magia) */
+  box-shadow: 0 0 20px 10px #a78bfa, 
+              0 0 40px 20px #4c1d95; /* Sombra morada oscura */
+  
+  opacity: 0;
+  transform-origin: center;
+  
+  /* Aplicar la animación (más larga, 1.2s) */
+  animation: cosmetic-phase-shift 1.2s ease-out forwards;
+  
+  pointer-events: none;
+  z-index: 1001;
+}
+
+/* Keyframe para Escudo Reforzado (fade-in, hold, fade-out) */
+@keyframes cosmetic-guardian-shield-fade {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  20% {
+    opacity: 1;
+    transform: scale(1.1); /* Crece un poco más */
+  }
+  80% {
+    opacity: 1;
+    transform: scale(1); /* Se mantiene estable */
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+/* Estilo del elemento (el hexágono) */
+.cosmetic-animation.guardian-shield {
+  position: fixed; 
+  width: 50px; /* Tamaño del escudo */
+  height: 50px;
+  
+  /* Color y forma */
+  background-color: rgba(6, 182, 212, 0.4); /* Cyan (color Guardián) */
+  border: 2px solid #06b6d4;
+  box-shadow: 0 0 20px #06b6d4;
+  
+  /* Forma de hexágono */
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  
+  opacity: 0;
+  transform-origin: center;
+  
+  /* Aplicar la animación (1.5s de duración) */
+  animation: cosmetic-guardian-shield-fade 1.5s ease-out forwards;
+  
+  pointer-events: none;
+  z-index: 1001;
+}
+
+/* Keyframe para Doble Turno Etéreo (eco que se desvanece) */
+@keyframes cosmetic-ethereal-echo {
+  0% {
+    opacity: 0.6;
+    transform: scale(1) translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.8) translateX(20px); /* Se encoge y se mueve */
+  }
+}
+
+/* Estilo del elemento (el eco) */
+.cosmetic-animation.ethereal-echo {
+  position: fixed; 
+  
+  /* El tamaño será el mismo que la ficha del jugador */
+  width: 18px; 
+  height: 18px;
+  border-radius: 50%;
+  
+  /* Color del Estratega (Dorado/Naranja) */
+  background-color: rgba(245, 158, 11, 0.5); /* Naranja/PM */
+  border: 1px solid #f59e0b;
+  box-shadow: 0 0 15px #f59e0b;
+  
+  opacity: 0;
+  transform-origin: center;
+  
+  /* Aplicar la animación (rápida, 0.6s) */
+  animation: cosmetic-ethereal-echo 0.6s ease-out forwards;
+  
+  pointer-events: none;
+  z-index: 999; /* Detrás de la ficha principal */
+}

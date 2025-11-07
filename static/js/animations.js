@@ -349,6 +349,178 @@ export class AnimationSystem {
     }, 100);
   }
 
+  /**
+   * Reproduce la animación cosmética "Sabotaje Sónico" (Maestría Nv. 10 Táctico).
+   * @param {string} playerName - El nombre del jugador que usa la habilidad.
+   */
+  playSabotageCosmetic(playerName) {
+    if (!this.isEnabled) return;
+
+    // Encontrar la ficha (pieza) del jugador en el tablero
+    const playerPiece = document.querySelector(`.ficha-jugador[data-username="${playerName}"]`);
+    if (!playerPiece) {
+        console.warn(`[AnimSystem] No se encontró la ficha para ${playerName} (Sabotaje Sónico).`);
+        return;
+    }
+
+    // Crear el elemento de la animación
+    const animElement = document.createElement('div');
+    animElement.className = 'cosmetic-animation sabotage-sonic';
+    
+    // Posicionar el elemento (centrado en la ficha)
+    // Usamos getBoundingClientRect() para obtener la posición en la pantalla
+    const pieceRect = playerPiece.getBoundingClientRect();
+    const pieceSize = playerPiece.offsetWidth; // ej: 18px
+    const animSize = 60; // Definido en el CSS
+    
+    animElement.style.left = `${pieceRect.left + (pieceSize / 2) - (animSize / 2)}px`;
+    animElement.style.top = `${pieceRect.top + (pieceSize / 2) - (animSize / 2)}px`;
+
+    document.body.appendChild(animElement); // Añadir al body
+
+    // Limpiar después de que termine la animación (0.7s)
+    setTimeout(() => {
+        animElement.remove();
+    }, 700);
+  }
+
+  /**
+   * Reproduce la animación cosmética "Bomba de Pulso" (Maestría Nv. 10 Ingeniero).
+   * @param {string} playerName - El nombre del jugador que usa la habilidad.
+   */
+  playPulseBombCosmetic(playerName) {
+    if (!this.isEnabled) return;
+
+    const playerPiece = document.querySelector(`.ficha-jugador[data-username="${playerName}"]`);
+    if (!playerPiece) {
+        console.warn(`[AnimSystem] No se encontró la ficha para ${playerName} (Bomba de Pulso).`);
+        return;
+    }
+
+    // Crear el elemento de la animación
+    const animElement = document.createElement('div');
+    animElement.className = 'cosmetic-animation pulse-bomb'; 
+    
+    // Posicionar el elemento (centrado en la ficha)
+    const pieceRect = playerPiece.getBoundingClientRect();
+    const pieceSize = playerPiece.offsetWidth;
+    const animSize = 100; 
+    
+    animElement.style.left = `${pieceRect.left + (pieceSize / 2) - (animSize / 2)}px`;
+    animElement.style.top = `${pieceRect.top + (pieceSize / 2) - (animSize / 2)}px`;
+
+    document.body.appendChild(animElement); // Añadir al body
+
+    // Limpiar después de 0.5s (la duración de la animación)
+    setTimeout(() => {
+        animElement.remove();
+    }, 500);
+  }
+
+  /**
+   * Reproduce la animación cosmética "Fase Sombría" (Maestría Nv. 10 Espectro).
+   * @param {string} playerName - El nombre del jugador que usa la habilidad.
+   */
+  playPhaseShiftCosmetic(playerName) {
+    if (!this.isEnabled) return;
+
+    const playerPiece = document.querySelector(`.ficha-jugador[data-username="${playerName}"]`);
+    if (!playerPiece) {
+        console.warn(`[AnimSystem] No se encontró la ficha para ${playerName} (Fase Sombría).`);
+        return;
+    }
+
+    // Crear el elemento de la animación
+    const animElement = document.createElement('div');
+    animElement.className = 'cosmetic-animation phase-shift'; // <-- Cambio de clase
+    
+    // Posicionar el elemento (centrado en la ficha)
+    const pieceRect = playerPiece.getBoundingClientRect();
+    const pieceSize = playerPiece.offsetWidth;
+    const animSize = 40; // Definido en el CSS
+    
+    animElement.style.left = `${pieceRect.left + (pieceSize / 2) - (animSize / 2)}px`;
+    animElement.style.top = `${pieceRect.top + (pieceSize / 2) - (animSize / 2)}px`;
+
+    document.body.appendChild(animElement); // Añadir al body
+
+    // Limpiar después de 1.2s (la duración de la animación)
+    setTimeout(() => {
+        animElement.remove();
+    }, 1200);
+  }
+
+  /**
+   * Reproduce la animación cosmética "Escudo Reforzado" (Maestría Nv. 10 Guardián).
+   * @param {string} playerName - El nombre del jugador que usa la habilidad.
+   */
+  playGuardianShieldCosmetic(playerName) {
+    if (!this.isEnabled) return;
+
+    const playerPiece = document.querySelector(`.ficha-jugador[data-username="${playerName}"]`);
+    if (!playerPiece) {
+        console.warn(`[AnimSystem] No se encontró la ficha para ${playerName} (Escudo Reforzado).`);
+        return;
+    }
+
+    // Crear el elemento de la animación
+    const animElement = document.createElement('div');
+    animElement.className = 'cosmetic-animation guardian-shield'; 
+    
+    // Posicionar el elemento (centrado en la ficha)
+    const pieceRect = playerPiece.getBoundingClientRect();
+    const pieceSize = playerPiece.offsetWidth;
+    const animSize = 50; // Definido en el CSS
+    
+    animElement.style.left = `${pieceRect.left + (pieceSize / 2) - (animSize / 2)}px`;
+    animElement.style.top = `${pieceRect.top + (pieceSize / 2) - (animSize / 2)}px`;
+
+    document.body.appendChild(animElement); // Añadir al body
+
+    // Limpiar después de 1.5s (la duración de la animación)
+    setTimeout(() => {
+        animElement.remove();
+    }, 1500);
+  }
+
+  /**
+   * Reproduce la animación "Doble Turno Etéreo" (Maestría Nv. 10 Estratega).
+   * @param {string} playerName - El nombre del jugador que usa la habilidad.
+   */
+  playDoubleTurnCosmetic(playerName) {
+    if (!this.isEnabled) return;
+
+    const playerPiece = document.querySelector(`.ficha-jugador[data-username="${playerName}"]`);
+    if (!playerPiece) {
+        console.warn(`[AnimSystem] No se encontró la ficha para ${playerName} (Doble Turno).`);
+        return;
+    }
+
+    // Crear el elemento de la animación
+    const animElement = document.createElement('div');
+    animElement.className = 'cosmetic-animation ethereal-echo';
+    
+    // Posicionar el elemento (exactamente donde está la ficha)
+    const pieceRect = playerPiece.getBoundingClientRect();
+    
+    // Ajustar el tamaño para que coincida con la ficha
+    animElement.style.width = `${playerPiece.offsetWidth}px`;
+    animElement.style.height = `${playerPiece.offsetHeight}px`;
+    
+    animElement.style.left = `${pieceRect.left}px`;
+    animElement.style.top = `${pieceRect.top}px`;
+    
+    // Heredar el color de fondo de la ficha original
+    animElement.style.backgroundColor = playerPiece.style.backgroundColor;
+
+    document.body.appendChild(animElement); // Añadir al body
+
+    // Limpiar después de 0.6s (la duración de la animación)
+    setTimeout(() => {
+        animElement.remove();
+    }, 600);
+  }
+
   // Efecto de entrada para elementos
   fadeInElement(element, delay = 0) {
     if (!this.isEnabled || !element) return;
