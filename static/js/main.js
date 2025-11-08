@@ -107,6 +107,9 @@ import { initArsenal, loadArsenalData } from './modules/arsenal.js';
         playSound('ClickMouse', 0.3);
         const modalFinal = document.getElementById("modal-final");
         if (modalFinal) modalFinal.style.display = "none";
+
+        const modalHabilidades = document.getElementById("modal-habilidades");
+        if (modalHabilidades) modalHabilidades.style.display = "none";
         
         if (state.idSala.value) {
             socket.emit("abandonar_revancha", { id_sala_original: state.idSala.value });

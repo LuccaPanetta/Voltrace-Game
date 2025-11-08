@@ -26,6 +26,8 @@ class JugadorWeb:
         self.__puntaje = 600
         self.__activo = True
         self.juego_actual = None
+        self.es_caza = False
+        self.recompensa_reclamada = False
         
         # 2. SISTEMA DE HABILIDADES Y PM
         self.habilidades = []       
@@ -220,7 +222,9 @@ class JugadorWeb:
             ],
             'efectos_activos': self.efectos_activos,
             'pm': self.pm, 
-            'perks_activos': self.perks_activos
+            'perks_activos': self.perks_activos,
+            'es_caza': self.es_caza,
+            'recompensa_reclamada': self.recompensa_reclamada
         }
     
     def reset_turn_flags(self):

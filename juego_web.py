@@ -782,6 +782,14 @@ class JuegoOcaWeb:
                 self.eventos_turno.append(f"  {j_afectado.get_nombre()}: {energia_perdida} energía")
                 j_afectado.ganar_pm(2, fuente="colision") # Colisión NO activa Acumulador
 
+                if j_afectado == jugador_moviendose:
+                    # El jugador que se mueve fue dañado. Los atacantes son los estáticos.
+                    for j_atacante in jugadores_en_posicion:
+                        self._procesar_recompensa_caza(atacante=j_atacante, objetivo=j_afectado)
+                else:
+                    # El jugador estático fue dañado. El atacante es el que se mueve.
+                    self._procesar_recompensa_caza(atacante=jugador_moviendose, objetivo=j_afectado)
+
                 # Aplicar Drenaje por Colisión 
                 if "drenaje_colision" in j_afectado.perks_activos:
                     energia_robada_total = 0
@@ -837,6 +845,23 @@ class JuegoOcaWeb:
         if nueva_ronda and self.jugadores[self.turno_actual].esta_activo(): 
             self.ronda += 1
             print(f"--- NUEVA RONDA --- Ronda: {self.ronda}")
+
+            for j in self.jugadores:
+                j.es_caza = False
+            
+            # Asignar nueva Caza 
+            if self.ronda >= 5:
+                jugador_lider = None
+                max_pos = -1
+                jugadores_activos_no_meta = [j for j in self.jugadores if j.esta_activo() and j.get_posicion() < self.posicion_meta]
+                
+                if jugadores_activos_no_meta:
+                    # Encontrar al jugador con la posición más alta
+                    jugador_lider = max(jugadores_activos_no_meta, key=lambda x: x.get_posicion())
+                
+                if jugador_lider:
+                    jugador_lider.es_caza = True
+                    self.eventos_turno.append(f"🎯 ¡SE BUSCA! {jugador_lider.get_nombre()} es la Caza de esta ronda. ¡Atácalo por una recompensa!")
             
             # Definir la ronda de "mitad de partida"
             MID_GAME_RONDA = 15 
@@ -1403,6 +1428,7 @@ class JuegoOcaWeb:
                     # Si no está protegido, aplicar daño
                     else:
                         energia_cambio_directo = j.procesar_energia(-dano_bomba)
+                        self._procesar_recompensa_caza(atacante=jugador, objetivo=j)
                         afectados.append(j.get_nombre()) # Añadir a afectados ANTES de verificar eliminación
 
                         jugador_afectado = j
@@ -1498,6 +1524,7 @@ class JuegoOcaWeb:
         else:
             jugador._JugadorWeb__puntaje += energia_a_robar
             energia_cambio_jugador = energia_a_robar
+            self._procesar_recompensa_caza(atacante=jugador, objetivo=obj)
 
             if energia_cambio_jugador > 0:
                  eventos.append(f"🎭 Robas {energia_cambio_jugador} energía a {obj.get_nombre()}.")
@@ -1610,6 +1637,7 @@ class JuegoOcaWeb:
         duracion_dot = 3
         dano_dot = 25
         obj.efectos_activos.append({"tipo": "fuga_energia", "turnos": duracion_dot, "dano": dano_dot})
+        self._procesar_recompensa_caza(atacante=jugador, objetivo=obj)
         eventos.append(f"🩸 {obj.get_nombre()} sufre una Fuga de Energía. Perderá {dano_dot} E durante {duracion_dot} turnos.")
         return {"exito": True, "eventos": eventos}
     
@@ -2180,4 +2208,26 @@ class JuegoOcaWeb:
     
     def _remover_efecto(self, jugador, tipo_efecto):
         jugador.efectos_activos = [e for e in jugador.efectos_activos if e.get("tipo") != tipo_efecto]
+
+    def _procesar_recompensa_caza(self, atacante, objetivo):
+        if not atacante or not objetivo or atacante == objetivo:
+            return # Sin recompensa
+
+        if getattr(objetivo, 'es_caza', False) and not getattr(atacante, 'recompensa_reclamada', False):
+            RECOMPENSA_ENERGIA = 50
+            RECOMPENSA_PM = 2
+            
+            # Dar recompensa al atacante
+            atacante._JugadorWeb__puntaje += RECOMPENSA_ENERGIA
+            cambio_real = RECOMPENSA_ENERGIA
+            atacante.ganar_pm(RECOMPENSA_PM, fuente="cazarrecompensas")
+            
+            # MARCAR AL ATACANTE 
+            atacante.recompensa_reclamada = True 
+
+            # Añadir evento al log
+            self.eventos_turno.append(f"🎯 ¡{atacante.get_nombre()} reclamó la recompensa por {objetivo.get_nombre()}! (+{cambio_real}E, +{RECOMPENSA_PM} PM)")
+            
+            # Desactivar la marca
+            objetivo.es_caza = False
 

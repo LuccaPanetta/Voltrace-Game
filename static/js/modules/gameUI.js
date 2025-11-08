@@ -66,6 +66,12 @@ export function initGameUI(socketRef, stateRef, idSalaRef, estadoJuegoRef, mapaC
         playSound('OpenCloseModal', 0.2);
         if(modalHabElement) modalHabElement.style.display = 'none';
     });
+    modalHabElement?.addEventListener('click', (e) => {
+        if (e.target === modalHabElement) {
+            playSound('OpenCloseModal', 0.2);
+            modalHabElement.style.display = 'none';
+        }
+    });
     listaHabDisplay?.addEventListener("click", handleUsarHabilidadClick);
     btnEnviarMensajeJuego?.addEventListener("click", handleEnviarMensajeJuego);
     mensajeJuegoInput?.addEventListener("keypress", (e) => { if (e.key === 'Enter') handleEnviarMensajeJuego(); });
@@ -238,7 +244,8 @@ function updateJugadoresEstado(nuevosJugadores) {
         
         // Comparar: Si el jugador no existía en DOM o sus datos cambiaron...
         if (!viejoJ || !jugadorDOM || JSON.stringify(j) !== JSON.stringify(viejoJ)) {
-
+            const cazaIcono = j.es_caza ? '<span title="¡Se Busca! (Recompensa al atacarlo)">🎯</span>' : '';
+            
             let efectosHtml = "";
             if (j.efectos_activos?.length > 0) {
                 efectosHtml = '<span class="efectos-icons" style="margin-left: 8px; font-size: 0.9em; vertical-align: middle;">';
@@ -271,7 +278,7 @@ function updateJugadoresEstado(nuevosJugadores) {
               <div style="display: flex; align-items: center; margin-bottom: 2px;">
                 ${colorSwatch}
                 <strong>${escapeHTML(j.nombre)}</strong>
-                ${efectosHtml}
+                ${cazaIcono} ${efectosHtml}
               </div>
               <div style="font-size: 0.9em;">
                 <span style="color: var(--muted);">(Pos: ${j.posicion})</span>
@@ -345,7 +352,6 @@ function updateTablero(nuevoTablero) {
                         ficha.className = "ficha-jugador";
                         ficha.setAttribute("data-username", j.nombre);
                         ficha.textContent = j.avatar_emoji || escapeHTML(j.nombre[0].toUpperCase());
-                        ficha.textContent = escapeHTML(j.nombre[0].toUpperCase());
                         ficha.style.backgroundColor = mapaColores[j.nombre] || "#888";
                         if (_state.currentUser && j.nombre === _state.currentUser.username) {
                             ficha.classList.add("mi-ficha");
