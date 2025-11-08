@@ -1,18 +1,19 @@
 # 🎲 VoltRace - Documentación Completa
 
-![Versión de Python](https://img.shields.io/badge/python-3.8+-blue.svg)
+![Versión de Python](https://img.shields.io/badge/python-3.10-blue.svg)
 ![Framework](https://img.shields.io/badge/Flask-2.x-black.svg)
 ![Real-time](https://img.shields.io/badge/Socket.IO-brightgreen.svg)
-![Database](https://img.shields.io/badge/Database-SQLite-blue.svg)
+![Database](https://img.shields.io/badge/Database-PostgreSQL-blue.svg)
+![Deployment](https://img.shields.io/badge/Deploy-Render-lightgrey.svg)
+![Container](https://img.shields.io/badge/Docker-ready-blue.svg)
 
-**VoltRace** es una implementación web moderna del clásico juego de mesa, diseñada para múltiples jugadores en tiempo real. Cuenta con un sistema completo de usuarios, persistencia en base de datos, logros, perks (mejoras), funciones sociales, animaciones y elementos de juego modernos.
+**VoltRace** es una implementación web moderna del clásico juego de mesa, diseñada para múltiples jugadores en tiempo real. Cuenta con un sistema completo de usuarios (con reseteo de contraseña por email), persistencia en base de datos PostgreSQL, logros, perks (mejoras), un sistema de progresión de "Maestría de Kit" con Títulos y Animaciones cosméticas, funciones sociales y un servidor de producción listo para *deploy* con Docker.
 
 ## 📋 Índice
 1.  [Descripción General](#-descripción-general)
 2.  [Características Principales](#-características-principales)
-3.  [Sistemas Implementados (Clases Principales)](#️-sistemas-implementados-clases-principales)
+3.  [Sistemas Implementados](#️-sistemas-implementados-clases-principales)
 4.  [Tecnologías Utilizadas](#-tecnologías-utilizadas)
-5.  [Instalación y Configuración](#-instalación-y-configuración)
 
 ---
 
@@ -21,13 +22,12 @@
 ### 🎮 Características del Juego
 -   **2-4 jugadores** por partida.
 -   **Tablero de 75 casillas** con casillas especiales y paquetes de energía.
--   **Habilidades únicas** por jugador (asignadas aleatoriamente de un pool).
--   **Sistema de Energía** (puntos de vida) y **Puntos de Mando (PM)** para perks.
--   **Colisiones entre jugadores** con pérdida/robo de energía.
+-   **Sistema de 5 Kits Únicos**: Los jugadores eligen un Kit (Táctico, Ingeniero, etc.) que define sus 4 habilidades únicas para la partida.
+-   **Sistema de Energía** (puntos de vida) y **Puntos de Mejora (PM)** para perks.
+-   **Sistema de Cazarrecompensas (Bounty)**: A partir de la ronda 10, el jugador en 1er lugar es marcado y otorga una recompensa de PM y Energía al primer jugador que le inflija daño.
 -   **Chat en tiempo real** (en sala y en partida).
--   **Sistema de Perks** (mejoras pasivas).
+-   **Sistema de Perks** (mejoras pasivas aleatorias compradas durante la partida).
 -   **Sistema de Logros** con recompensas de XP.
--   **Sistema de Niveles** (1-100).
 -   **Ranking global**.
 -   **Funciones sociales** (amigos, chat privado, presencia, invitaciones).
 
@@ -35,49 +35,35 @@
 ## ⭐ Características Principales
 
 ### 🔐 **Sistema de Usuarios (Flask-Login + SQLAlchemy)**
--   **Registro** con email/username/password (validado).
+-   **Registro** con email/username/password (validado y hasheado).
 -   **Login** persistente basado en sesiones seguras.
--   **Hashing seguro** de contraseñas (vía Werkzeug).
--   **Persistencia** en base de datos SQLite (modelo `User`).
--   **Perfil de usuario** con nivel, XP y estadísticas de juego.
+-   **Recuperación de Contraseña**: Flujo completo de "Olvidé mi contraseña" con envío de token único por email (vía SendGrid).
+-   **Persistencia** en base de datos **PostgreSQL** (gestionada en Neon).
+-   **Perfil de usuario** con nivel, XP, estadísticas, avatar y kit preferido.
 
-### ✨ **Sistema de Perks (Mejoras Pasivas)**
--   Compra de **Packs de Perks** (Básico, Intermedio, Avanzado) usando Puntos de Mando (PM).
--   **Oferta aleatoria** de perks al comprar un pack.
--   **Activación de perks** que modifican habilidades o mecánicas del juego (ej. `Aislamiento`, `Enfriamiento Rápido`, `Último Aliento`).
--   Perks organizados por **tiers** y con **requisitos de habilidad**.
--   Persistencia de perks activos en `JugadorWeb`.
+### 🛡️ **Sistema de Arsenal (Maestría de Kit)**
+-   **Progresión Asincrónica**: Ganar partidas otorga "XP de Maestría" para el kit específico que se utilizó (si el jugador es Nivel 5+).
+-   **Desbloqueo de Títulos**: Alcanzar el Nivel 5 de Maestría con un kit desbloquea un Título cosmético (ej. "Título: 'Táctico'").
+-   **Sistema de Títulos Equipables**: Los jugadores pueden equipar los títulos que han ganado, mostrándolos junto a su nombre en el lobby.
+-   **Animaciones Cosméticas**: Alcanzar el Nivel 10 de Maestría desbloquea una animación de habilidad única para ese kit (ej. "Sabotaje Sónico").
 
-### 🤝 **Sistema Social Completo**
+### 🤝 **Sistema Social Completo (Socket.IO + API REST)**
 -   **Lista de Amigos**: Agregar, aceptar/rechazar solicitudes, eliminar amigos.
--   **Búsqueda de Usuarios**: Encontrar otros jugadores para agregar.
--   **Chat Privado**: Conversaciones 1-a-1 en tiempo real con historial persistente (DB).
--   **Presencia**: Indicadores de estado (Online, Offline, En Lobby, En Partida).
--   **Invitaciones a Sala**: Invitar amigos online a unirse a tu sala actual.
+-   **Chat Privado**: Conversaciones 1-a-1 en tiempo real con historial persistente en la DB (modelo `PrivateMessage`).
+-   **Presencia en Tiempo Real**: Indicadores de estado (Online, Offline, En Lobby, En Partida) actualizados vía *heartbeat* de Socket.IO.
+-   **Invitaciones a Sala**: Invitar amigos online (que estén en el lobby) a unirse a tu sala actual.
 
 ### 🏆 **Sistema de Logros (Base de Datos)**
 -   **Amplia variedad de logros** (>40) cubriendo gameplay, social, persistencia, etc.
--   **Desbloqueo automático** basado en eventos del juego (`check_achievement`).
+-   **Desbloqueo automático** basado en eventos (`check_achievement`) y persistido en la tabla `UserAchievement`.
 -   **Recompensas de XP** por cada logro.
--   **Persistencia** en base de datos (modelos `Achievement`, `UserAchievement`).
--   **Modal de Logros** con visualización de progreso y fecha de desbloqueo.
-
-### 📈 **Sistema de Niveles y XP**
--   **Niveles 1-100** con fórmula de XP progresiva.
--   **Ganancia de XP** por acciones: jugar partida, ganar, usar habilidad, enviar mensaje, desbloquear logro.
--   **Visualización** del nivel y XP en el perfil.
-
-### 🥇 **Ranking Global (Top 50)**
--   **Clasificación** basada en **Nivel** y luego **XP**.
--   **Visualización** en el Lobby (Top 5) y en una pestaña dedicada (Top 50).
--   **Estadísticas mostradas**: Nivel, XP, Partidas Jugadas, Victorias, Win Rate %.
+-   **Modal de Logros** con visualización de progreso y fecha de desbloqueo, con caché en el cliente.
 
 ### 🎬 **Sistema de Animaciones (CSS + JS)**
 -   **Movimiento de fichas** visualizado en el tablero (CSS Transitions).
--   **Efectos visuales** para habilidades, energía, trampas, colisiones (usando clases de `animations.css`).
+-   **Efectos visuales** para habilidades, energía, trampas, colisiones.
 -   **Celebración de victoria** (confetti).
--   **Notificaciones animadas** para logros y eventos.
--   **Transiciones suaves** entre pantallas.
+-   **Animaciones Cosméticas Únicas** (Nv. 10 de Maestría) que reemplazan los efectos genéricos.
 -   **Opción para activar/desactivar** animaciones (persiste en `localStorage`).
 
 ---
@@ -85,114 +71,53 @@
 ## 🛠️ Sistemas Implementados (Clases Principales)
 
 ### 1. **Flask App (`app.py`)**
--   **Rutas HTTP**: `/login`, `/register`, `/profile`, `/leaderboard`, API social.
--   **Handlers SocketIO**: `connect`, `authenticate`, `crear_sala`, `unirse_sala`, `lanzar_dado`, `usar_habilidad`, `comprar_perk`, `seleccionar_perk`, `enviar_mensaje`, `private_message`, `invite_to_room`, `solicitar_revancha`, etc.
+-   **Rutas HTTP**: `/login`, `/register`, `/logout`, `/forgot-password`, `/reset-password`, `/profile`, `/leaderboard`, API social.
+-   **Handlers SocketIO**: `connect`, `authenticate`, `crear_sala`, `unirse_sala`, `lanzar_dado`, `usar_habilidad`, `comprar_perk`, `enviar_mensaje`, `private_message`, `invite_to_room`, `solicitar_revancha`, `arsenal:cargar_maestria`, `arsenal:equip_title`, etc.
 -   **Clase `SalaJuego`**: Gestión de estado de salas individuales (jugadores, instancia de juego).
--   **Gestión de Sesiones**: Asociación de `request.sid` (SocketIO) con `username` (Flask-Login).
+-   **Gestión de Hilos**: Usa `threading` para tareas de base de datos asincrónicas (guardar stats, XP de maestría) para no bloquear el chat ni el juego.
 
 ### 2. **JuegoOcaWeb (`juego_web.py`)**
--   **`__init__`**: Inicializa tablero, jugadores, habilidades, perks.
--   **`ejecutar_turno_dado`**: Lógica central del turno (dado, movimiento, efectos).
--   **`_procesar_efectos_posicion`**: Activa casillas especiales, packs, colisiones.
--   **`usar_habilidad_jugador`**: Valida y despacha a la lógica específica de la habilidad (`_hab_*`).
+-   **`__init__`**: Inicializa tablero, jugadores, y asigna habilidades basadas en el `kit_id` seleccionado.
+-   **Flujo de Turno**: `paso_1_lanzar_y_mover` y `paso_2_procesar_casilla_y_avanzar`.
+-   **`_avanzar_turno`**: Contiene la lógica para asignar la Cazarrecompensas (Bounty) al líder de la partida.
+-   **`_procesar_recompensa_caza`**: Función *helper* para otorgar la recompensa y marcarla como reclamada.
+-   **`_hab_*`**: Métodos para cada habilidad (ej. `_hab_sabotaje`, `_hab_bomba_energetica`).
 -   **`comprar_pack_perk` / `activar_perk_seleccionado`**: Maneja la compra y activación de perks.
--   **`determinar_ganador` / `_calcular_puntaje_final_avanzado`**: Lógica de fin de juego y puntuación.
 
-### 3. **SocialSystem (`social.py`)**
--   **`send_friend_request`, `accept_friend_request`, etc.**: Gestión de amistades (interactúa con `User` model).
--   **`send_private_message`, `get_conversation`**: Chat privado (interactúa con `PrivateMessage` model).
--   **`update_user_presence`, `_get_user_status`**: Manejo de estado online/offline/in_game.
--   **`send_room_invitation`**: Lógica de invitaciones a sala.
+### 3. **Models (`models.py`)**
+-   Define las clases (`User`, `PrivateMessage`, `Achievement`, `UserAchievement`) que mapean a la base de datos **PostgreSQL**.
+-   **`UserKitMaestria`**: Nuevo modelo para rastrear el `xp` y `cosmetic_unlocked` para cada kit de cada usuario.
+-   Incluye métodos helper en `User` para manejar reseteo de tokens y relaciones sociales.
 
-### 4. **AchievementSystem (`achievements.py`)**
--   **`achievements_config`**: Definición estática de todos los logros.
--   **`check_achievement`**: Punto de entrada para verificar si un evento desbloquea logros.
--   **`_check_*_achievements`**: Funciones helper para evaluar condiciones específicas.
--   **`get_user_achievement_progress`**: Calcula y formatea el estado de todos los logros para un usuario (interactúa con `UserAchievement` model).
+### 4. Lógica de Cliente (JavaScript Modular)
+El frontend utiliza **módulos de JavaScript (ES6+)** para organizar la lógica, importados en `main.js`.
 
-### 5. **Models (`models.py`)**
--   Define las clases (`User`, `PrivateMessage`, `Achievement`, `UserAchievement`) que mapean a tablas de la base de datos SQLite.
--   Incluye métodos helper en `User` para manejar relaciones sociales (`add_friend`, `send_friend_request`, etc.).
-
-### 6. Lógica de Cliente (JavaScript Modular)
-El frontend utiliza **módulos de JavaScript (ES6+)** para organizar la lógica, importados en un archivo principal (ej. `main.js`).
-
--   **Módulos Principales**: (Ej. `gameUI.js`, `socketHandlers.js`, `social.js`, `animationController.js`) que manejan la inicialización y la delegación de eventos.
--   **Inicialización**: Conexión SocketIO, caché de elementos DOM, y asignación de *event listeners*.
--   **Listeners SocketIO**: Define cómo reacciona el cliente a eventos del servidor (`juego_iniciado`, `turno_ejecutado`, `nuevo_mensaje`).
--   **Funciones de Renderizado**: (Ej. `renderTablero`, `renderJugadoresEstado`) para actualizar el DOM de forma eficiente.
--   **Manejo de UI**: Funciones para controlar modales, notificaciones (`showNotification`) y estados de carga.
--   **Sistema de Animaciones**: Un módulo dedicado (ej. `animationController.js`) aplica/remueve clases de CSS (definidas en `animations.css` o similar) para crear efectos visuales.
-
-### 7. **AnimationSystem (`animations.js`)**
--   **Clase `AnimationSystem`**: Provee métodos para activar efectos visuales (ej. `shakeBoard`, `celebrateVictory`).
--   **Integración con CSS**: Aplica/remueve clases definidas en `animations.css`.
+-   **Módulos Principales**: `main.js`, `auth.js`, `socketHandlers.js`, `gameUI.js`, `lobby.js`, `social.js`, `achievements.js`, `perks.js`, `arsenal.js`, `animations.js`, `utils.js`.
+-   **Listeners SocketIO (`socketHandlers.js`)**: Define cómo reacciona el cliente a eventos del servidor (`juego_iniciado`, `paso_1_resultado_movimiento`, `arsenal:maestria_data`, etc.).
+-   **`checkAndPlayCosmetic`**: Función clave que revisa el `state.cosmeticsUnlocked` y decide si reproducir una animación normal o la de Maestría Nv. 10.
 
 ---
 
 ## 💻 Tecnologías Utilizadas
 
 ### **Backend**
--   **Python 3.8+**
+-   **Python 3.10**
 -   **Flask** - Microframework web y API REST.
--   **Flask-SocketIO** - Comunicación WebSockets en tiempo real.
+-   **Flask-SocketIO** / **Eventlet** - Comunicación WebSockets en tiempo real y concurrencia.
+-   **Gunicorn** - Servidor WSGI para producción.
 -   **Flask-SQLAlchemy** - ORM para interacción con la base de datos.
--   **SQLAlchemy** - Toolkit SQL y ORM subyacente.
--   **Flask-Login** - Gestión de sesiones de usuario y autenticación.
--   **Werkzeug** - Utilidades WSGI (incluye hashing de contraseñas).
--   **SQLite** - Motor de base de datos (archivo `voltrace.db`).
--   **uuid**, **datetime**, **threading**.
+-   **PostgreSQL** (gestionado en **Neon**) - Base de datos de producción.
+-   **psycopg2-binary** - Adaptador de Python para PostgreSQL.
+-   **Flask-Login** - Gestión de sesiones de usuario.
+-   **Flask-Mail** / **SendGrid** - Para envío de emails de reseteo de contraseña.
 
 ### **Frontend**
--   **HTML5** - Estructura semántica.
--   **CSS3** - Estilos modernos y animaciones.
-    -   Arquitectura Modular (múltiples archivos CSS).
-    -   Custom Properties (variables CSS).
-    -   Layouts con Grid + Flexbox.
-    -   Responsive Design (mobile-first, `clamp()`, media queries).
-    -   Keyframe Animations.
--   **JavaScript (ES6+)** - Lógica del cliente.
-    -   Socket.IO Client.
-    -   Async/await para llamadas API (fetch).
-    -   Manipulación del DOM.
-    -   Manejo de eventos (delegación).
+-   **HTML5**
+-   **CSS3** (Layouts con Grid + Flexbox, Custom Properties, Keyframe Animations).
+-   **JavaScript (ES6+ Módulos)** - Lógica del cliente, Socket.IO client, Async/await (fetch), Manipulación del DOM, Delegación de Eventos.
 
-### **Comunicación**
--   **Socket.IO** (sobre WebSockets) - Para eventos de juego en tiempo real, chat, presencia.
--   **HTTP/HTTPS** - Para API REST (login, register, profile, leaderboard).
-
----
-
-## 🚀 Instalación y Configuración
-
-### **Prerrequisitos**
--   Python 3.8 o superior.
--   `pip` (gestor de paquetes de Python).
--   Un navegador web moderno.
--   (Opcional) Docker y Docker Compose.
-
----
-
-### **Método 1: Entorno Local de Python (Manual)**
-
-```bash
-# 1. Clona o descarga el repositorio del proyecto
-# git clone <url-del-repositorio>
-# cd VoltRace
-
-# 2. (Opcional pero recomendado) Crea y activa un entorno virtual
-# python -m venv venv
-# source venv/bin/activate  # En Linux/macOS
-# .\venv\Scripts\activate   # En Windows
-
-# 3. Instala las dependencias de Python
-pip install -r requirements.txt
-
-# 4. Ejecuta el servidor Flask
-#    La base de datos (voltrace.db) se creará automáticamente la primera vez.
-python app.py
-
-# 5. Abre tu navegador web y ve a:
-#    [http://127.0.0.1:5000](http://127.0.0.1:5000)
-
- 
+### **DevOps & Despliegue**
+-   **Docker** / **docker-compose.yml** - Containerización para un entorno de producción consistente.
+-   **Render** - Plataforma de hosting (PaaS) para el servicio web y la base de datos.
+-   **UptimeRobot** - Monitoreo de *uptime*.
+-   **Neon** - Base de datos PostgreSQL *serverless* en la nube.
