@@ -23,9 +23,6 @@ let _onLoginSuccessCallback = null;
 let _gameAnimations = null; 
 let _state = null;
 
-// La lista de emojis ya no es necesaria aquí, porque está en el HTML
-// const AVATAR_LISTA_APROBADA = [ ... ];
-
 /**
  * Inicializa el módulo de autenticación, cachea elementos DOM y asigna listeners.
  */
@@ -85,7 +82,7 @@ export function initAuth(screensRef, showFuncRef, setLoadingFuncRef, loadingElem
     registerPasswordInput?.addEventListener("keypress", handleEnterKeyPress);
     btnLogout?.addEventListener("click", handleLogout);
 
-    // --- Lógica de Control de Animaciones (Refactorizada) ---
+    // --- Lógica de Control de Animaciones ---
     const setupAnimationToggle = (buttonEl) => {
         if (buttonEl && _gameAnimations) {
             const isEnabledInitial = _gameAnimations.getSettings().enabled;
@@ -305,7 +302,7 @@ async function registerAPI(email, username, password) {
 // --- Actualización de UI del Perfil ---
 
 /**
- * Prepara y abre el modal de selección de avatar (OPTIMIZADO).
+ * Prepara y abre el modal de selección de avatar.
  */
 function openAvatarModal() {
     playSound('OpenCloseModal', 0.3);
@@ -316,7 +313,6 @@ function openAvatarModal() {
 
     const currentAvatar = _state.currentUser.avatar_emoji || '👤';
 
-    // Quitar la clase al botón seleccionado anteriormente (si existe)
     if (currentSelectedAvatarBtn) {
         currentSelectedAvatarBtn.classList.remove('seleccionado');
     }
@@ -377,7 +373,6 @@ async function handleAvatarSelection(event) {
             _state.currentUser.avatar_emoji = emojiAnterior; // Revertir
             updateProfileUI(_state.currentUser); // Actualizar UI a la versión anterior
         }
-        // Si tiene éxito, no hacer nada (ya lo actualizamos)
     } catch (error) {
         // Si falla por conexión, revertir el cambio y notificar
         console.error("Error en fetch /api/set_avatar:", error);

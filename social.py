@@ -261,7 +261,7 @@ class SocialSystem:
             return "offline"
 
     def send_private_message(self, sender: str, recipient: str, message: str) -> Dict:
-        # 1. Obtener los objetos User
+        # Obtener los objetos User
         sender_user = User.query.filter_by(username=sender).first()
         recipient_user = User.query.filter_by(username=recipient).first()
 
@@ -272,7 +272,7 @@ class SocialSystem:
             return {'success': False, 'message': 'No puedes enviarte mensajes a ti mismo.'}
     
         try:
-            # 2. Crear y guardar el objeto PrivateMessage en la DB
+            # Crear y guardar el objeto PrivateMessage en la DB
             new_message = PrivateMessage(
                 sender_id=sender_user.id,
                 recipient_id=recipient_user.id,
@@ -282,16 +282,13 @@ class SocialSystem:
             db.session.add(new_message)
             db.session.commit()
             
-            # 3. Preparar los datos para el cliente (debe usar la hora local si es necesario, pero ISO es seguro)
+            # Preparar los datos para el cliente (debe usar la hora local si es necesario, pero ISO es seguro)
             message_data = {
                 'sender': sender,
                 'recipient': recipient,
                 'message': message,
                 'timestamp': new_message.timestamp.isoformat() # Convertir a string para JSON
             }
-            
-            # 4. Notificar que hay mensajes sin leer si el destinatario no está en el chat
-            self.update_user_presence(recipient, 'has_unread_chat')
 
             return {'success': True, 'message_data': message_data}
 

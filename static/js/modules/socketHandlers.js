@@ -395,12 +395,14 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
             invalidateArsenalCache();
         }
     });
+
     // --- Fin de Juego y Revancha ---
     _socket.on("juego_terminado", (data) => {
         mostrarModalFinJuego(data);
         Object.assign(_estadoJuego, {}); 
         if (_habilidadUsadaTurno) _habilidadUsadaTurno.value = false;
     });
+
     _socket.on('revancha_lista', (data) => {
         console.log("Revancha lista, uniéndose a nueva sala:", data.nueva_id_sala);
         if (modalFinalElement) modalFinalElement.style.display = 'none'; 
@@ -421,6 +423,7 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
         _socket.emit("obtener_estado_sala", { id_sala: data.nueva_id_sala });
         showNotification("¡Revancha lista! Esperando jugadores...", _notificacionesContainer, "success");
     });
+
     _socket.on('revancha_cancelada', (data) => {
         let currentSalaId = null;
         if (_state && _state.idSala) {
@@ -449,7 +452,7 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
     });
     _socket.on("friend_status_update", (data) => {
         const friendName = escapeHTML(data.username || data.friend);
-        let message = `👤 Estado de ${friendName} actualizado.`; // Mensaje por defecto
+        let message = `👤 Estado de ${friendName} actualizado.`; 
 
         // Comprobar el tipo de actualización para mensajes más claros
         if (data.type === "accepted") {
@@ -467,6 +470,7 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
         showNotification(message, _notificacionesContainer, "info");
         invalidateSocialCache(); // Invalida el caché social
     });
+
     _socket.on("new_private_message", (data) => {
         if (!data) return;
         const privateChatIsOpen = modalPrivateChatElement?.style.display === 'flex';
@@ -479,6 +483,7 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
             updateSocialNotificationIndicator(true); 
         }
     });
+
     _socket.on("message_sent_confirm", (data) => { 
         const privateChatIsOpen = modalPrivateChatElement?.style.display === 'flex';
         const isChattingWithRecipient = document.getElementById('chat-with-username')?.textContent === data.recipient;
@@ -490,6 +495,7 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
             privateChatSendBtn.textContent = "Enviar";
         }
     });
+
     _socket.on("invite_sent_confirm", (data) => {
         showNotification(`Invitación enviada a ${escapeHTML(data.to)}.`, _notificacionesContainer, "success");
         if (modalSocialElement?.style.display === 'flex' && socialFriendsListDisplay) {
@@ -500,6 +506,7 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
             }
         }
     });
+
     _socket.on('room_invite', (data) => { 
         if (!_state) {
         console.warn("Invitación ignorada: Objeto de estado (_state) no inicializado.");
@@ -572,7 +579,6 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
 
     console.log("Socket handlers configurados.");
 } 
-// Fin de setupSocketHandlers
 
 function playOptimisticSound(posFinal, estadoJuego) {
     if (!estadoJuego || !estadoJuego.tablero) return;

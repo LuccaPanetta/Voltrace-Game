@@ -18,10 +18,10 @@ let globalEventBanner;
 // Referencias a estado/funciones externas
 let _socket = null;
 let _idSala = null;
-let _estadoJuego = null; // Referencia mutable al estado del juego
-let _mapaColores = null; // Referencia mutable al mapa de colores
-let _habilidadUsadaTurno = { value: false }; // Objeto para pasar por referencia
-let _openPerkModalFunc = null; // Referencia a la función para abrir perks
+let _estadoJuego = null;
+let _mapaColores = null;
+let _habilidadUsadaTurno = { value: false };
+let _openPerkModalFunc = null;
 let _state = null;
 
 /**
@@ -80,7 +80,7 @@ export function initGameUI(socketRef, stateRef, idSalaRef, estadoJuegoRef, mapaC
     guiaToggleBtn?.addEventListener('click', handleToggleGuia);
     globalEventBanner = document.getElementById("global-event-banner");
 
-    // Crear el tablero inicial (vacío)
+    // Crear el tablero inicial
     _crearTableroInicial();
 
     console.log("Módulo GameUI inicializado.");
@@ -202,7 +202,7 @@ function handleToggleGuia() {
 // --- Funciones de Renderizado ---
 
 /**
- * Crea la estructura HTML base del tablero (solo se ejecuta una vez).
+ * Crea la estructura HTML base del tablero.
  */
 function _crearTableroInicial() {
     if (!tableroElement) return;
@@ -442,7 +442,7 @@ export function actualizarEstadoJuego(estado) {
         return; 
     }
 
-    // Guardar el turno anterior (para resetear el flag de habilidad)
+    // Guardar el turno anterior 
     const jugadorTurnoAnterior = _estadoJuego ? _estadoJuego.turno_actual : null;
 
     // RENDERIZAR PRIMERO 
@@ -499,7 +499,7 @@ export function actualizarEstadoJuego(estado) {
 }
 
 /**
- * Actualiza la UI con estado PARCIAL (solo jugadores y log).
+ * Actualiza la UI con estado PARCIAL.
  * No toca el tablero. Es más rápido que actualizarEstadoJuego.
  */
 export function actualizarEstadoParcial(estadoParcial) {
@@ -609,7 +609,7 @@ export function mostrarModalFinJuego(data) {
         resultadosFinalesDisplay.appendChild(div);
     });
 
-    // Restaurar botones (por si se reabre el modal)
+    // Restaurar botones
     btnNuevaPartida.disabled = false;
     btnNuevaPartida.textContent = "🎮 Nueva Partida";
     btnVolverLobby.disabled = false;
@@ -619,11 +619,8 @@ export function mostrarModalFinJuego(data) {
     modalFinalElement.style.display = "flex";
 }
 
-// En gameUI.js (añadir esta nueva función)
-
 /**
  * Actualiza la UI de cooldowns para un jugador específico
- * (llamado por socketHandlers cuando una habilidad optimista se usa)
  */
 export function actualizarCooldownsUI(username, habilidadUsada) {
     if (!habilidadUsada || !_estadoJuego || !_estadoJuego.jugadores) return;
@@ -764,7 +761,6 @@ function _updateGlobalEventBanner(eventName) {
     if (eventName) {
         let texto = `🌎 ¡EVENTO GLOBAL: ${eventName.toUpperCase()}!`;
         
-        // Añadir descripciones cortas
         if (eventName === "Mercado Negro") {
             texto += " (¡Perks a mitad de precio!)";
         } else if (eventName === "Sobrecarga") {

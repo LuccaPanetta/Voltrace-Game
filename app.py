@@ -33,11 +33,11 @@ from flask_mail import Mail, Message
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail as SendGridMail, TrackingSettings, ClickTracking
 import json
-import uuid                    # Para generar IDs únicos de salas
-from datetime import datetime  # Para timestamps
+import uuid
+from datetime import datetime
 from threading import Timer
-import threading              # Para tareas en background
-import time                   # Para delays y timers
+import threading
+import time
 import traceback
 import os
 import math                   
@@ -47,10 +47,10 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # Importaciones de nuestros módulos locales
-from juego_web import JuegoOcaWeb        # Lógica del juego
-from achievements import AchievementSystem  # Sistema de logros
-from social import SocialSystem          # Sistema social
-from models import User, db, UserKitMaestria # Modelos de base de datos
+from juego_web import JuegoOcaWeb
+from achievements import AchievementSystem
+from social import SocialSystem
+from models import User, db, UserKitMaestria
 from habilidades import crear_habilidades, KITS_VOLTRACE
 from perks import PERKS_CONFIG
 
@@ -75,7 +75,7 @@ def send_reset_email(user):
         # Generamos la URL que irá en el email
         reset_url = url_for('reset_token', token=token, _external=True)
         
-        # 1. Obtenemos la API Key y el email remitente de las variables de entorno
+        # Obtenemos la API Key y el email remitente de las variables de entorno
         sendgrid_api_key = os.environ.get('MAIL_PASSWORD') 
         from_email = os.environ.get('MAIL_DEFAULT_SENDER', 'voltrace.bot@gmail.com')
         
@@ -83,14 +83,14 @@ def send_reset_email(user):
             print("!!! ERROR FATAL: SENDGRID_API_KEY (MAIL_PASSWORD) no está configurada.")
             return False
 
-        # 2. Creamos el contenido del email 
+        # Creamos el contenido del email 
         content = f'''Para restablecer tu contraseña, visitá el siguiente enlace:
 {reset_url}
 
 Si no solicitaste este cambio, simplemente ignorá este email.
 '''
 
-        # 3. Creamos el objeto Mail de SendGrid 
+        # Creamos el objeto Mail de SendGrid 
         message = SendGridMail(
             from_email=from_email,
             to_emails=user.email,
@@ -103,11 +103,11 @@ Si no solicitaste este cambio, simplemente ignorá este email.
 
         print(f"--- DEBUG: Intentando enviar email a {user.email} (vía SendGrid API)...")
 
-        # 4. Inicializamos el cliente y enviamos el email por la API WEB
+        # Inicializamos el cliente y enviamos el email por la API WEB
         sg = SendGridAPIClient(sendgrid_api_key)
         response = sg.send(message)
 
-        # 5. Verificamos la respuesta de SendGrid 
+        # Verificamos la respuesta de SendGrid 
         if response.status_code >= 200 and response.status_code < 300:
             print(f"--- DEBUG: Email enviado exitosamente (Status: {response.status_code}) ---")
             return True
@@ -154,7 +154,7 @@ def load_user(user_id):
     # Le dice a flask_login cómo encontrar un usuario por su ID
     return User.query.get(int(user_id))
 
-XP_BASE_PARA_NIVEL = 500 # XP necesaria para Nivel 2
+XP_BASE_PARA_NIVEL = 500 
 
 def calculate_level_from_xp(xp):
     if xp < XP_BASE_PARA_NIVEL:
@@ -197,7 +197,7 @@ def _procesar_creacion_sala_db_async(app, sid, username):
             user = User.query.filter_by(username=username).first()
             if user:
                 user.rooms_created = getattr(user, 'rooms_created', 0) + 1 
-                level_up = update_xp_and_level(user, 5) # 5 XP por crear sala
+                level_up = update_xp_and_level(user, 5) 
                 socketio.emit('profile_stats_updated', {
                     'rooms_created': user.rooms_created,
                     'xp': user.xp,
@@ -229,7 +229,7 @@ def _procesar_habilidad_db_async(app, sid, username, event_data=None):
             if user_db:
                 # Actualizar XP y Nivel
                 user_db.abilities_used = getattr(user_db, 'abilities_used', 0) + 1
-                level_up = update_xp_and_level(user_db, 10) # 10 XP por usar habilidad
+                level_up = update_xp_and_level(user_db, 10)
                 socketio.emit('profile_stats_updated', {
                     'abilities_used': user_db.abilities_used,
                     'xp': user_db.xp,
@@ -258,7 +258,7 @@ def _procesar_chat_db_async(app, sid, username, id_sala):
             user_db = User.query.filter_by(username=username).first()
             if user_db:
                 user_db.game_messages_sent = getattr(user_db, 'game_messages_sent', 0) + 1
-                update_xp_and_level(user_db, 1) # Añade 1 XP
+                update_xp_and_level(user_db, 1)
             
             # Incrementar el contador de la partida actual en JuegoOcaWeb
             sala = salas_activas.get(id_sala)
@@ -335,9 +335,9 @@ with app.app_context():
         traceback.print_exc()
 
 # --- Variables Globales del Servidor ---
-salas_activas = {}              # Diccionario para guardar las salas activas
-revanchas_pendientes = {}       # Para manejar la lógica de revancha
-sessions_activas = {}           # Mapeo de SID de SocketIO a username
+salas_activas = {}
+revanchas_pendientes = {} 
+sessions_activas = {}
 
 # --- Constantes para Revancha ---
 TIEMPO_MAXIMO_REVANCHA = 45 
@@ -347,14 +347,13 @@ MIN_JUGADORES_REVANCHA = 2
 class SalaJuego:
     def __init__(self, id_sala):
         self.id_sala = id_sala
-        # Diccionario de jugadores conectados: {'sid': {'nombre': str, 'sid': str, 'conectado': bool}}
         self.jugadores = {}
-        self.espectadores = {} # (No usado actualmente, pero puede ser útil)
-        self.juego = None # Instancia de JuegoOcaWeb
-        self.estado = 'esperando' # 'esperando' -> 'jugando' -> 'terminado'
+        self.espectadores = {}
+        self.juego = None 
+        self.estado = 'esperando'
         self.creado_en = datetime.now()
-        self.turno_actual = 0 # (No usado directamente aquí, se maneja en JuegoOcaWeb)
-        self.log_eventos = [] # Log para la sala de espera
+        self.turno_actual = 0
+        self.log_eventos = []
         self.turn_timer = None
 
     def agregar_jugador(self, sid, nombre, kit_id='tactico', avatar_emoji='👤'):
@@ -388,7 +387,7 @@ class SalaJuego:
             for datos in self.jugadores.values():
                 jugadores_config.append({
                     'nombre': datos['nombre'],
-                    'kit_id': datos.get('kit_id', 'tactico'), # Pasa el kit guardado
+                    'kit_id': datos.get('kit_id', 'tactico'),
                     'avatar_emoji': datos.get('avatar_emoji', '👤')
                 })
             
@@ -586,7 +585,6 @@ def forgot_password():
             flash('No existe una cuenta asociada a ese email.', 'warning')
             return redirect(url_for('forgot_password')) 
 
-    # Esto ahora solo se ejecuta en el GET 
     return render_template('forgot_password.html')
 
 @app.route('/api/set_avatar', methods=['POST'])
@@ -688,7 +686,7 @@ def leaderboard():
                 "games_won": j.games_won,
             } for j in top_jugadores
         ]
-        print(f"DEBUG /leaderboard: {ranking_data}") # Útil para depurar
+        print(f"DEBUG /leaderboard: {ranking_data}") 
         return jsonify(ranking_data)
     except Exception as e:
         print(f"Error al obtener leaderboard: {e}")
@@ -696,7 +694,7 @@ def leaderboard():
 
 @app.route('/achievements')
 def all_achievements():
-    # Devuelve la configuración de todos los logros (nombre, descripción, icono, etc.)
+    # Devuelve la configuración de todos los logros 
     achievements = achievement_system.get_all_achievements()
     return jsonify(achievements)
 
@@ -709,7 +707,7 @@ def search_users(query, current_user):
 
 @app.route('/social/amigos/<username>')
 def get_friends(username):
-    # Obtiene la lista de amigos, solicitudes pendientes (recibidas/enviadas) y estado online
+    # Obtiene la lista de amigos, solicitudes pendientes y estado online
     data = social_system.get_friends_list(username)
     return jsonify(data)
 
@@ -719,7 +717,7 @@ def send_friend_request(sender_username, target_username):
     result = social_system.send_friend_request(sender_username, target_username)
     print(f"Resultado de social_system.send_friend_request: {result}")
 
-    # Notificar al objetivo si está conectado (vía SocketIO)
+    # Notificar al objetivo si está conectado
     if result['success']:
         print(f"Buscando SID para notificar a: {target_username}")
         presence_info = social_system.presence_data.get(target_username, {})
@@ -760,7 +758,7 @@ def accept_friend_request(username, friend_username):
                     'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_friend]
                 }, to=sid_sender)
 
-        # Notificar al emisor (friend_username) de que su solicitud fue aceptada (vía SocketIO)
+        # Notificar al emisor (friend_username) de que su solicitud fue aceptada
         if sid_sender:
             socketio.emit('friend_status_update', {'friend': username, 'status': 'friend', 'type': 'accepted'}, room=sid_sender)
 
@@ -782,7 +780,7 @@ def remove_friend(username, friend_to_remove):
 def get_conversation(user1, user2):
     # Obtiene el historial de mensajes entre dos usuarios
     messages = social_system.get_conversation(user1, user2)
-    # Marca los mensajes como leídos (asume que user1 es quien está viendo)
+    # Marca los mensajes como leídos
     social_system.mark_messages_as_read(user1, user2)
     return jsonify(messages)
 
@@ -801,7 +799,7 @@ def get_pending_invitations_route(username):
 
 @app.route('/social/invitations/respond/<username>/<invitation_id>/<response>', methods=['POST'])
 def respond_to_invitation_route(username, invitation_id, response):
-    # Permite al usuario aceptar ('accept') o rechazar ('reject') una invitación
+    # Permite al usuario aceptar o rechazar una invitación
     result = social_system.respond_to_invitation(username, invitation_id, response)
     # Aquí podrías notificar al remitente de la invitación sobre la respuesta
     return jsonify(result)
@@ -832,7 +830,6 @@ def get_all_abilities():
 @app.route('/api/get_all_perks')
 def get_all_perks():
     try:
-        # PERKS_CONFIG ya está en un formato de diccionario listo para JSON
         return jsonify(PERKS_CONFIG)
     except Exception as e:
         print(f"!!! ERROR en /api/get_all_perks: {e}")
@@ -850,7 +847,7 @@ def on_connect():
 
 @socketio.on('authenticate')
 def authenticate(data):
-    # Asocia un username (obtenido tras login HTTP) al SID de SocketIO
+    # Asocia un username al SID de SocketIO
     username = data.get('username')
     if username:
         sessions_activas[request.sid] = {'username': username}
@@ -865,8 +862,8 @@ def authenticate(data):
                 friend_sid = social_system.presence_data.get(friend_username, {}).get('extra_data', {}).get('sid')
                 if friend_sid:
                     socketio.emit('friend_status_update', {
-                        'username': username, # Quién cambió
-                        'status': 'online'      # Cuál es su nuevo estado
+                        'username': username,
+                        'status': 'online'
                     }, room=friend_sid)
         except Exception as e:
             print(f"!!! ERROR al notificar conexión a amigos: {e}")
@@ -893,8 +890,8 @@ def on_disconnect():
             friend_sid = social_system.presence_data.get(friend_username, {}).get('extra_data', {}).get('sid')
             if friend_sid:
                 socketio.emit('friend_status_update', {
-                    'username': username_desconectado, # Quién cambió
-                    'status': 'offline'               # Cuál es su nuevo estado
+                    'username': username_desconectado,
+                    'status': 'offline'
                 }, room=friend_sid)
     except Exception as e:
         print(f"!!! ERROR al notificar desconexión a amigos: {e}")
@@ -939,7 +936,7 @@ def crear_sala(data):
     
     # Pasarlo al agregar_jugador
     if salas_activas[id_sala].agregar_jugador(request.sid, username, kit_seleccionado, avatar_guardado): 
-        # Enviar respuesta al cliente INMEDIATAMENTE
+        # Enviar respuesta al cliente
         emit('sala_creada', {
             'id_sala': id_sala,
             'mensaje': f'Sala {id_sala} creada exitosamente'
@@ -1015,7 +1012,7 @@ def unirse_sala(data):
             'mensaje': f'Te uniste a la sala {id_sala}'
         })
 
-        # Notificar a TODOS en la sala (incluido el nuevo) sobre el estado actualizado
+        # Notificar a TODOS en la sala sobre el estado actualizado
         socketio.emit('jugador_unido', {
             'jugador_nombre': username, # Quién se unió
             'jugadores': len(sala.jugadores),
@@ -1047,7 +1044,7 @@ def salir_sala(data):
             'jugadores': len(sala.jugadores),
             'lista_jugadores': [datos['nombre'] for datos in sala.jugadores.values()],
             'puede_iniciar': sala.puede_iniciar(),
-            'mensaje_desconexion': f"🔌 {nombre_jugador} salió de la sala." # Mensaje específico para 'jugador_desconectado'
+            'mensaje_desconexion': f"🔌 {nombre_jugador} salió de la sala."
         }, room=id_sala) # Enviar solo a los que quedan
 
         # Actualizar presencia del jugador que salió a 'online'
@@ -1089,7 +1086,7 @@ def obtener_estado_sala(data):
             'log_eventos': sala.log_eventos[-10:] # Enviar últimos logs
         })
     else:
-        # Si la sala no existe (quizás se eliminó), informar al cliente
+        # Si la sala no existe, informar al cliente
         emit('sala_abandonada', {'success': False, 'message': 'La sala a la que intentas acceder ya no existe.'})
 
 # ===================================================================
@@ -1141,7 +1138,7 @@ def iniciar_juego_manual(data):
     # Handler para el botón "Iniciar Juego" en la sala de espera
     id_sala = data['id_sala']
     print(f"\n--- RECIBIDO EVENTO: iniciar_juego (manual) --- Sala: {id_sala}, SID: {request.sid}")
-    # Verificar si el que lo pide es el creador o si tiene permisos (podrías añadir lógica de permisos)
+    # Verificar si el que lo pide es el creador o si tiene permisos
     if id_sala in salas_activas:
         print(f"Llamando a iniciar_juego_sala para {id_sala}...")
         # Llama a la función interna que realmente inicia el juego
@@ -1266,7 +1263,7 @@ def terminar_movimiento(data):
         
         try:
             eventos_del_paso_2 = resultado.get('eventos', [])
-            eventos_procesados_logros = set() # Para no duplicar (ej. 'inmortal')
+            eventos_procesados_logros = set() # Para no duplicar
 
             for evento_str in eventos_del_paso_2:
                 if not isinstance(evento_str, str):
@@ -1284,7 +1281,6 @@ def terminar_movimiento(data):
                         eventos_procesados_logros.add('inmortal') # Marcar como procesado
 
                 # Comprobar 'Muralla Humana'
-                # El evento es "  Nombre: 🛡️ protegido"
                 elif 'muralla_humana' not in eventos_procesados_logros and evento_str.strip().endswith(": 🛡️ protegido"):
                     partes = evento_str.strip().split(':')
                     if len(partes) >= 2:
@@ -1324,7 +1320,7 @@ def terminar_movimiento(data):
             _cancelar_temporizador_turno(id_sala)
             sala.estado = 'terminado'
 
-            # Obtener las estadísticas finales (esto es rápido, solo calcula)
+            # Obtener las estadísticas finales
             ganador_obj = sala.juego.determinar_ganador()
             ganador_nombre = ganador_obj.get_nombre() if ganador_obj else None
             stats_finales_dict = sala.juego.obtener_estadisticas_finales()
@@ -1336,11 +1332,11 @@ def terminar_movimiento(data):
                 'estadisticas_finales': stats_finales_dict.get('lista_final')
             }, room=id_sala)
             
-            # Preparar los datos para el hilo (copiar datos)
+            # Preparar los datos para el hilo 
             jugadores_items_copia = list(sala.jugadores.items())
             ronda_copia = sala.juego.ronda
             player_count_copia = len(sala.jugadores)
-            juego_obj_copia = sala.juego # El objeto juego ya no se modificará
+            juego_obj_copia = sala.juego 
 
             # Iniciar el hilo para procesar DB (lento) en segundo plano
             print("--- Iniciando hilo para procesar estadísticas de DB en segundo plano...")
@@ -1419,7 +1415,7 @@ def usar_habilidad(data):
     # Ejecutar la lógica de la habilidad en JuegoOcaWeb
     print("--- TURNO VÁLIDO: Llamando a sala.juego.usar_habilidad_jugador ---")
     try:
-        # 1. EJECUTAR LÓGICA DEL JUEGO (Esto es rápido)
+        # EJECUTAR LÓGICA DEL JUEGO
         resultado = sala.juego.usar_habilidad_jugador(nombre_jugador_emitente, indice_habilidad, objetivo)
         
         # Revisar los eventos devueltos por la habilidad, INCLUSO SI FALLÓ
@@ -1429,7 +1425,7 @@ def usar_habilidad(data):
                 if isinstance(evento_str, str) and evento_str.strip().endswith("protegido por Invisibilidad."):
                     partes = evento_str.strip().split(' ')
                     if len(partes) >= 2:
-                        # Extraer el nombre del jugador (el primero)
+                        # Extraer el nombre del jugador
                         nombre_protegido = partes[1] 
                         print(f"--- LOGRO DETECTADO: 'fantasma' para {nombre_protegido} ---")
                         
@@ -1457,13 +1453,13 @@ def usar_habilidad(data):
 
         if resultado['exito']:
             
-            # 2. VERIFICAR SI ES HABILIDAD DE MOVIMIENTO O NO
+            # VERIFICAR SI ES HABILIDAD DE MOVIMIENTO O NO
             es_habilidad_movimiento = (resultado.get('es_movimiento') or 
                                        resultado.get('es_movimiento_doble') or 
                                        resultado.get('es_movimiento_otro') or 
                                        resultado.get('es_movimiento_multiple'))
 
-            # --- CASO A: HABILIDAD DE MOVIMIENTO (Cohete, Caos, etc.) ---
+            # --- CASO A: HABILIDAD DE MOVIMIENTO ---
             if es_habilidad_movimiento:
                 
                 # CASO 1: Movimiento Simple (Cohete, Rebote)
@@ -1512,11 +1508,11 @@ def usar_habilidad(data):
                             'habilidad_usada': resultado.get('habilidad')
                         }, room=id_sala)
 
-            # --- CASO B: HABILIDAD DE NO-MOVIMIENTO (Escudo, Bomba, etc.) ---
+            # --- CASO B: HABILIDAD DE NO-MOVIMIENTO ---
             else:
                 print("--- Habilidad estándar (No-Mov) detectada. Procesando DB en hilo.")
                 
-                # 3. INICIAR HILO PARA DB (Pasando el 'resultado' como event_data)
+                # INICIAR HILO PARA DB 
                 if sid in sessions_activas:
                     threading.Thread(
                         target=_procesar_habilidad_db_async,
@@ -1528,7 +1524,7 @@ def usar_habilidad(data):
                         )
                     ).start()
                 
-                # 4. ENVIAR RESPUESTA DEL JUEGO INMEDIATAMENTE 
+                # ENVIAR RESPUESTA DEL JUEGO INMEDIATAMENTE 
                 colores_map = getattr(sala, 'colores_map', {})
                 celda_actualizada = resultado.get('celda_actualizada')
 
@@ -1616,7 +1612,7 @@ def comprar_perk(data):
                 resultado_oferta = sala.juego.comprar_pack_perk(nombre_jugador, tipo_pack)
                 print(f"Resultado de comprar_pack_perk: {resultado_oferta}")
 
-                # Emitir la oferta (o el error) SOLO al jugador que compró
+                # Emitir la oferta SOLO al jugador que compró
                 print(f"Intentando emitir 'oferta_perk' a SID: {sid}...")
                 emit('oferta_perk', resultado_oferta)
                 print("--- Emisión de 'oferta_perk' completada ---")
@@ -1702,7 +1698,7 @@ def cancelar_oferta_perk(data):
     print(f"\n--- RECIBIDO EVENTO: cancelar_oferta_perk --- SID: {sid}, Sala: {id_sala}")
     
     if not id_sala or id_sala not in salas_activas or sid not in salas_activas[id_sala].jugadores:
-        return # Fallo silencioso, no es crítico
+        return 
 
     sala = salas_activas[id_sala]
     nombre_jugador = sala.jugadores[sid].get('nombre')
@@ -1780,8 +1776,7 @@ def solicitar_precios_perks(data):
         }, to=sid)
         return # Salir de la función, no enviar precios
 
-    # Si no hay oferta, enviar los precios (lógica original)
-    costes = {"basico": 4, "intermedio": 8, "avanzado": 12} # Precios base
+    costes = {"basico": 4, "intermedio": 8, "avanzado": 12} 
 
     try:
         # Comprobar si el evento global está activo
@@ -1835,7 +1830,7 @@ def arsenal_cargar_maestria():
         
         # Usamos KITS_VOLTRACE como la fuente maestra
         for kit_id, kit_config in KITS_VOLTRACE.items():
-            xp_actual = maestrias_map.get(kit_id, 0) # 0 si no está en la DB
+            xp_actual = maestrias_map.get(kit_id, 0) 
             
             lista_completa_maestria.append({
                 "kit_id": kit_id,
@@ -1874,16 +1869,16 @@ def arsenal_equip_title(data):
             emit('error', {'mensaje': 'Usuario no encontrado.'})
             return
             
-        # Extraer el nombre del kit del título (ej: "Táctico")
+        # Extraer el nombre del kit del título 
         kit_name_from_title = None
         if title_name.startswith("Título: '") and title_name.endswith("'"):
-            kit_name_from_title = title_name[9:-1] # Extrae 'Táctico'
+            kit_name_from_title = title_name[9:-1]
         
         if not kit_name_from_title:
              emit('error', {'mensaje': 'Formato de título no reconocido.'})
              return
 
-        # Encontrar el kit_id (ej: 'tactico')
+        # Encontrar el kit_id 
         kit_id_real = None
         for k_id, k_config in KITS_VOLTRACE.items():
             if k_config.get('nombre') == kit_name_from_title:
@@ -1904,8 +1899,8 @@ def arsenal_equip_title(data):
             if maestria_db:
                 xp_acumulada = 0
                 xp_total = maestria_db.xp
-                while current_level < 10: # MAESTRIA_MAX_NIVEL
-                    xp_para_siguiente = current_level * 150 # MAESTRIA_XP_POR_NIVEL_BASE
+                while current_level < 10:
+                    xp_para_siguiente = current_level * 150 
                     if xp_total >= (xp_acumulada + xp_para_siguiente):
                         xp_acumulada += xp_para_siguiente
                         current_level += 1
@@ -1935,7 +1930,7 @@ def arsenal_equip_title(data):
 
 @socketio.on('enviar_mensaje')
 def manejar_mensaje(data):
-    # Maneja mensajes enviados al chat de la sala (lobby o juego)
+    # Maneja mensajes enviados al chat de la sala
     id_sala_data = data.get('id_sala')
     if isinstance(id_sala_data, dict) and 'value' in id_sala_data:
         id_sala = id_sala_data['value']
@@ -2082,9 +2077,8 @@ def handle_presence_heartbeat():
             # Refrescar 'last_seen' llamando a update_user_presence
             presence_data = social_system.presence_data.get(username, {})
             extra_data = presence_data.get('extra_data', {'sid': sid})
-            if extra_data.get('sid') != sid: extra_data['sid'] = sid # Corregir SID si es viejo
+            if extra_data.get('sid') != sid: extra_data['sid'] = sid
             social_system.update_user_presence(username, current_status, extra_data)
-            # print(f"Heartbeat recibido de {username}, 'last_seen' actualizado.") # Descomentar para debug detallado
 
 # ===================================================================
 # --- 6. HANDLERS DE SOCKET.IO (Fin de Juego y Varios) ---
@@ -2105,7 +2099,7 @@ def solicitar_revancha(data):
 
     # Si es la primera solicitud para esta sala, inicializar la estructura
     if id_sala_original not in revanchas_pendientes:
-        sala_original_obj = salas_activas.get(id_sala_original) # Obtener la sala original (puede ya no existir si tardaron mucho)
+        sala_original_obj = salas_activas.get(id_sala_original) # Obtener la sala original
         if not sala_original_obj or not sala_original_obj.jugadores:
                 emit('error', {'mensaje': 'Revancha expirada: La sala original ya no existe o está vacía.'})
                 return
@@ -2114,9 +2108,9 @@ def solicitar_revancha(data):
         participantes_originales = list(sala_original_obj.jugadores.values())
         revanchas_pendientes[id_sala_original] = {
             'solicitudes': set(),
-            'participantes': participantes_originales, # Lista de dicts {'nombre': ..., 'sid': ...}
+            'participantes': participantes_originales, # Lista de dicts
             'timestamp': datetime.now(),
-            'timer': None # El timer se iniciará después
+            'timer': None
         }
 
     # Añadir la solicitud del jugador actual
@@ -2127,13 +2121,12 @@ def solicitar_revancha(data):
     # Notificar a TODOS en la sala sobre el estado actualizado de la revancha
     try:
         lista_solicitudes = list(info_revancha['solicitudes'])
-        # (Nombres de los participantes originales)
         lista_participantes = [p['nombre'] for p in info_revancha['participantes']] 
         
         socketio.emit('revancha_actualizada', {
             'lista_solicitudes': lista_solicitudes,
             'lista_participantes': lista_participantes
-        }, room=id_sala_original) # Emitir a la sala de juego original
+        }, room=id_sala_original)
         print(f"Emitiendo 'revancha_actualizada' a sala {id_sala_original}")
     except Exception as e:
         print(f"!!! ERROR al emitir 'revancha_actualizada': {e}")
@@ -2196,7 +2189,7 @@ def abandonar_revancha(data):
             print(f"--- Revancha (por abandono) ---: Imposible alcanzar el mínimo. Cancelando.")
             # Notificar a los que SÍ se quedaron esperando
             for p_data in info_revancha['participantes']:
-                p_sid_original = p_data.get('sid') # El SID original de la sala anterior
+                p_sid_original = p_data.get('sid')
                 if p_sid_original:
                      # Usamos el SID original porque el jugador está en el modal de fin de juego
                      socketio.emit('revancha_cancelada', {'mensaje': f'{username} abandonó. Revancha cancelada.'}, room=p_sid_original)
@@ -2222,7 +2215,7 @@ def abandonar_revancha(data):
     
 @socketio.on('pedir_top_5')
 def manejar_pedir_top_5():
-    # Handler para obtener el top 5 (parece específico para alguna UI, mantener por si acaso)
+    # Handler para obtener el top 5
     try:
         top_jugadores = User.query.order_by(User.level.desc(), User.xp.desc()).limit(5).all()
         ranking_data = [
@@ -2262,7 +2255,7 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
             if username_desconectado in info_revancha['solicitudes']:
                 info_revancha['solicitudes'].remove(username_desconectado)
             
-            # Recalcular (misma lógica que 'abandonar_revancha')
+            # Recalcular
             if len(info_revancha['solicitudes']) == len(info_revancha['participantes']) and len(info_revancha['solicitudes']) >= MIN_JUGADORES_REVANCHA:
                 print(f"--- Revancha (por desconexión) ---: Todos los restantes ({len(info_revancha['solicitudes'])}) aceptaron. Iniciando.")
                 _crear_nueva_sala_revancha(id_sala)
@@ -2324,8 +2317,8 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
                 args=(
                     current_app._get_current_object(),
                     username_desconectado,
-                    sala.juego, # Pasar el objeto juego
-                    len(sala.jugadores) # Pasar el N° de jugadores (los que quedan)
+                    sala.juego,
+                    len(sala.jugadores)
                 )
             ).start()
 
@@ -2341,11 +2334,10 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
                 ganador_obj = sala.juego.determinar_ganador()
                 ganador_nombre = ganador_obj.get_nombre() if ganador_obj else None
                 
-                # --- PROCESAMIENTO DE STATS PARA JUGADORES RESTANTES ---
-                # Preparar los datos para el hilo (copiar datos)
+                # Preparar los datos para el hilo
                 jugadores_items_copia = list(sala.jugadores.items())
                 ronda_copia = sala.juego.ronda
-                player_count_copia = len(sala.jugadores) + 1 # +1 por el que se fue
+                player_count_copia = len(sala.jugadores) + 1
                 juego_obj_copia = sala.juego # El objeto juego ya no se modificará
 
                 # Iniciar el hilo para procesar DB en segundo plano
@@ -2363,8 +2355,6 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
                 )
                 stats_thread.start()
                 
-                # --- EMITIR FIN DE JUEGO INMEDIATAMENTE ---
-                
                 stats_finales_dict = sala.juego.obtener_estadisticas_finales()
                 
                 socketio.emit('juego_terminado', {
@@ -2373,13 +2363,13 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
                     'mensaje': f"🔌 {username_desconectado} se desconectó. ¡Juego terminado!"
                 }, room=id_sala)
                 
-                # Actualizar presencia de los jugadores restantes (rápido)
+                # Actualizar presencia de los jugadores restantes
                 for sid, jugador_data_loop in jugadores_items_copia:
                      if sid in sessions_activas:
                         username = sessions_activas[sid]['username']
                         social_system.update_user_presence(username, 'online', {'sid': sid})
                 
-                return # Salir 
+                return
 
             # Si el juego continúa
             else:
@@ -2436,7 +2426,6 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
                         if not sala.juego.ha_terminado():
                              sala.juego._avanzar_turno() # Forzar avance si paso_2 falló
                 
-                # Ahora, el estado del juego (incluido el turno) está actualizado.
                 colores_map = getattr(sala, 'colores_map', {})
                 nuevo_turno_actual = sala.juego.obtener_turno_actual() # Obtener el nuevo turno
                 
@@ -2522,7 +2511,6 @@ def iniciar_juego_sala(id_sala):
         print(f"EMITIENDO 'juego_iniciado' a sala {id_sala}")
         socketio.emit('juego_iniciado', estado_juego, room=id_sala)
         
-        # Iniciar el timer para el *primer* jugador
         primer_jugador_turno = estado_juego.get('turno_actual')
         if primer_jugador_turno:
             _iniciar_temporizador_turno(id_sala, primer_jugador_turno)
@@ -2564,7 +2552,7 @@ def _crear_nueva_sala_revancha(id_sala_original):
                 jugadores_rechazados.append({'sid': p_sid_actual, 'nombre': p_username})
                 print(f"WARN (Revancha): Jugador {p_username} solicitó pero su estado es '{estado_actual}'. No será unido.")
 
-    # Verificar mínimo de jugadores (ahora basado en los que SÍ pueden unirse)
+    # Verificar mínimo de jugadores
     if len(jugadores_a_unir) < MIN_JUGADORES_REVANCHA:
             print(f"REVANCHA CANCELADA (Sala {id_sala_original}): Solo {len(jugadores_a_unir)} jugadores estaban disponibles.")
             # Notificar cancelación a los que sí solicitaron Y a los que estaban ocupados
@@ -2632,7 +2620,6 @@ def _expulsar_por_inactividad(id_sala, nombre_jugador_expulsado, turno_ronda_exp
             print(f"Timer expirado: Sala {id_sala} no encontrada o juego no activo. Ignorando.")
             return
 
-        # Safety Check: Asegurarse que el turno no haya avanzado mientras el timer corría
         jugador_actual_juego = sala.juego.obtener_turno_actual()
         ronda_actual_juego = sala.juego.ronda
         if jugador_actual_juego != nombre_jugador_expulsado or ronda_actual_juego != turno_ronda_expulsion:
@@ -2681,7 +2668,7 @@ def _iniciar_temporizador_turno(id_sala, nombre_jugador_turno):
 def limpiar_salas_inactivas():
     # Función periódica para limpiar salas vacías
     while True:
-        time.sleep(30 * 60) # Ejecutar cada 30 minutos
+        time.sleep(30 * 60)
         with app.app_context(): # Necesario para acceder a 'salas_activas' de forma segura
             ahora = datetime.now()
             salas_a_eliminar = []
@@ -2830,7 +2817,7 @@ def _procesar_abandono_db_async(app, username, juego_obj, sala_jugadores_count):
                     'final_energy': jugador_juego.get_puntaje(),
                     'reached_position': jugador_juego.get_posicion(),
                     'total_rounds': juego_obj.ronda,
-                    'player_count': sala_jugadores_count + 1, # Los que quedan + el que se fue
+                    'player_count': sala_jugadores_count + 1,
                     'colisiones': getattr(jugador_juego, 'colisiones_causadas', 0),
                     'special_tiles_activated': getattr(jugador_juego, 'tipos_casillas_visitadas', set()),
                     'abilities_used': getattr(jugador_juego, 'habilidades_usadas_en_partida', 0),
@@ -2868,7 +2855,7 @@ def _procesar_login_diario(user_obj):
 
     try:
         today = datetime.utcnow().date()
-        # Obtener el último login (puede ser None o un objeto date)
+        # Obtener el último login 
         last_login_day = getattr(user_obj, 'last_login_date', None)
 
         if last_login_day != today:
@@ -2889,7 +2876,7 @@ def _procesar_login_diario(user_obj):
             )
 
             if unlocked_list:
-                # Si se desbloqueó, notificar al usuario (si está conectado)
+                # Si se desbloqueó, notificar al usuario
                 sid = social_system.presence_data.get(user_obj.username, {}).get('extra_data', {}).get('sid')
                 if sid:
                     socketio.emit('achievements_unlocked', {
