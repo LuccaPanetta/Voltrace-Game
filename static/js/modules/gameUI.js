@@ -661,7 +661,11 @@ function handleUsarHabilidadClick(e) {
     } else if (nombre === "Dado Perfecto") {
         objetivo = prompt("¿Cuánto quieres avanzar? (1-6)?");
         if (objetivo === null) return; // Si el usuario presiona "Cancelar"
+    } else if (nombre === "Control Total") {
+        objetivo = prompt("¿Qué número (1-6) forzarás a tu objetivo a sacar en su turno?");
+        if (objetivo === null) return; // Si presiona cancelar
     }
+
 
     // Reproducir sonidos
     switch (nombre) {

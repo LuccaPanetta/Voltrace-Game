@@ -207,6 +207,56 @@ class JuegoOcaWeb:
         if hasattr(jugador, 'dado_lanzado_este_turno'):
             jugador.dado_lanzado_este_turno = True
 
+        # Verificar si este jugador está 'controlado'
+        efecto_control = self._verificar_efecto_activo(jugador, "controlado")
+        if efecto_control:
+            nombre_controlador = efecto_control.get("controlador", "Alguien")
+            valor_dado_forzado = efecto_control.get("dado_forzado")
+            
+            if valor_dado_forzado:
+                # El efecto TIENE un dado guardado.
+                jugador.dado_forzado = valor_dado_forzado # Asignar al jugador
+                
+                print(f"--- CONTROL TOTAL: {nombre_controlador} fuerza a {nombre_jugador} a moverse {valor_dado_forzado} ---")
+                self.eventos_turno.append(f"🎮 ¡Control Total! {nombre_controlador} fuerza a {nombre_jugador} a sacar un {valor_dado_forzado}.")
+                
+                # Consumir el efecto
+                self._reducir_efectos_temporales(jugador, tipo_efecto="controlado", reducir_todo=False)
+
+            else:
+                print(f"--- CONTROL TOTAL (ERROR): {nombre_jugador} está controlado, pero no se encontró 'dado_forzado'. {nombre_jugador} pierde el turno. ---")
+                self.eventos_turno.append(f"🎮 ¡Control Total! {nombre_jugador} está paralizado y pierde su turno.")
+                
+                self.eventos_turno.extend(self._procesar_inicio_turno(jugador))
+                self._reducir_efectos_temporales(jugador, tipo_efecto="controlado", reducir_todo=False) 
+                self._avanzar_turno() 
+                return {"exito": True, "eventos": self.eventos_turno, "pausado": True}
+            
+        # Verificar si este jugador está 'controlado'
+        efecto_control = self._verificar_efecto_activo(jugador, "controlado")
+        if efecto_control:
+            # Si está controlado, el 'controlador' debe haber forzado un dado.
+            nombre_controlador = efecto_control.get("controlador")
+            controlador = self._encontrar_jugador(nombre_controlador)
+            
+            # Buscar si el controlador seteó un 'dado_forzado' para este objetivo
+            if controlador and hasattr(controlador, 'dado_forzado') and controlador.dado_forzado:
+                valor_dado_forzado = controlador.dado_forzado
+                controlador.dado_forzado = None # Consumir el dado
+                
+                # Asignar el dado al jugador 'controlado'
+                jugador.dado_forzado = valor_dado_forzado
+                
+                print(f"--- CONTROL TOTAL: {nombre_controlador} fuerza a {nombre_jugador} a moverse {valor_dado_forzado} ---")
+                
+                # Añadir un evento de log especial
+                self.eventos_turno.append(f"🎮 ¡Control Total! {nombre_controlador} fuerza a {nombre_jugador} a sacar un {valor_dado_forzado}.")
+                
+                pass # Continuar con el turno...
+            
+            else:
+                print(f"--- CONTROL TOTAL: {nombre_jugador} está controlado, pero {nombre_controlador} no forzó un dado. El turno se perderá por 'pausa'. ---")
+
         # Procesar Cooldowns y Efectos de Inicio de Turno
         eventos_inicio_turno = self._procesar_inicio_turno(jugador)
         self.eventos_turno = [] # Limpiar eventos
@@ -229,17 +279,25 @@ class JuegoOcaWeb:
         # Lógica del Dado
         dado_final = 0
         es_doble_dado = self._verificar_efecto_activo(jugador, "doble_dado")
-        
-        # Variable para el logro
         consecutive_sixes_count = 0 
         
-        if hasattr(jugador, 'dado_forzado') and jugador.dado_forzado:
+        # ¿Está el jugador 'Controlado'?
+        efecto_control = self._verificar_efecto_activo(jugador, "controlado")
+
+        if efecto_control and hasattr(jugador, 'dado_forzado') and jugador.dado_forzado:
+            # CASO A: Fue forzado por "Control Total".
+            dado_final = jugador.dado_forzado
+            jugador.dado_forzado = None # Consumir el dado
+            jugador.consecutive_sixes = 0
+            
+        elif hasattr(jugador, 'dado_forzado') and jugador.dado_forzado:
+            # CASO B: NO está controlado, PERO usó "Dado Perfecto".
             dado1 = jugador.dado_forzado
             jugador.dado_forzado = None
             dado_final = dado1
+            
             self.eventos_turno.append(f"🎯 {nombre_jugador} usó Dado Perfecto: {dado1}")
 
-            # Si usa "Dado Perfecto", resetea el contador de seises
             jugador.consecutive_sixes = 0
 
             if "dado_cargado" in jugador.perks_activos:
@@ -250,28 +308,26 @@ class JuegoOcaWeb:
                     else:
                         self.eventos_turno.append(f"🚫 (Dado Cargado): Bloqueado (+10 Energía).")
                 elif 4 <= dado1 <= 6:
-                    jugador.ganar_pm(1, fuente="perk_dado_cargado") # Fuente específica
+                    jugador.ganar_pm(1, fuente="perk_dado_cargado")
                     self.eventos_turno.append(f"✨ (Dado Cargado): ¡Ganas +1 PM!")
         else:
-            # Si no hay dado forzado, tirar normally
+            # CASO C: Tirada Normal.
             dado1 = randint(1, 6)
             dado_final = dado1
             
             if dado1 == 6:
                 jugador.consecutive_sixes += 1
                 consecutive_sixes_count = jugador.consecutive_sixes
-                if consecutive_sixes_count >= 2: # Notificar a partir del segundo
+                if consecutive_sixes_count >= 2:
                      self.eventos_turno.append(f"🔥 ¡Racha! {nombre_jugador} sacó {consecutive_sixes_count} seises seguidos.")
             else:
-                jugador.consecutive_sixes = 0 # Resetear contador
+                jugador.consecutive_sixes = 0 
 
-            # El chequeo de Doble Turno ahora va DENTRO de este 'else'
             if es_doble_dado:
                 dado2 = randint(1, 6)
                 dado_final = dado1 + dado2 
                 self.eventos_turno.append(f"🔄 ¡Doble Turno! {nombre_jugador} sacó {dado1} + {dado2} = {dado_final}")
             else:
-
                 if consecutive_sixes_count < 2:
                     self.eventos_turno.append(f"{nombre_jugador} sacó {dado_final}")
         
@@ -1355,7 +1411,7 @@ class JuegoOcaWeb:
                 jugador.efectos_activos.append({"tipo": "pausa", "turnos": turnos_pausa_total})
                 eventos.append(f"⚔️ ¡{jugador.get_nombre()} se auto-saboteó y perderá {rondas_pausa} turno(s)!")
                 
-            return {"exito": True, "eventos": eventos, "reflejo_exitoso": True}
+            return {"exito": True, "eventos": eventos, "reflejo_exitoso": True, "jugador_reflejo": obj.get_nombre()}
 
         # Verificar Escudo 
         if self._verificar_efecto_activo(obj, "escudo"):
@@ -1377,6 +1433,7 @@ class JuegoOcaWeb:
         dano_bomba = 75 # Daño base
         afectados, protegidos = [], []
         reflejo_ocurrido = False
+        jugadores_reflejo = []
 
         for j in self.jugadores:
             # Iterar sobre cada jugador 'j' que NO es el lanzador
@@ -1388,6 +1445,8 @@ class JuegoOcaWeb:
                     if self._verificar_efecto_activo(j, "barrera"):
                         eventos.append(f"🔮 {j.get_nombre()} refleja el daño de la Bomba.")
                         self._remover_efecto(j, "barrera") # Barrera se consume
+                        reflejo_ocurrido = True 
+                        jugadores_reflejo.append(j.get_nombre())
                         
                         if self._verificar_efecto_activo(jugador, "escudo"):
                             self._reducir_efectos_temporales(jugador, tipo_efecto="escudo", reducir_todo=False)
@@ -1453,7 +1512,7 @@ class JuegoOcaWeb:
         if protegidos:
              eventos.append(f"🛡️/👻 Protegidos/Esquivaron Bomba: {', '.join(protegidos)}")
 
-        return {"exito": True, "eventos": eventos, "afectados_count": len(afectados), "reflejo_exitoso": reflejo_ocurrido}
+        return {"exito": True, "eventos": eventos, "afectados_count": len(afectados), "reflejo_exitoso": reflejo_ocurrido, "jugadores_reflejo": jugadores_reflejo}
     
     def _hab_robo(self, jugador, habilidad, objetivo):
         eventos = []
@@ -1501,7 +1560,7 @@ class JuegoOcaWeb:
                 elif getattr(jugador_afectado, '_ultimo_aliento_usado', False) and not getattr(jugador_afectado, '_ultimo_aliento_notificado', False):
                     self.eventos_turno.append(f"❤️‍🩹 ¡Último Aliento salvó a {jugador_afectado.get_nombre()}! Sobrevive con 50 E y Escudo (3 Turnos).")
                     jugador_afectado._ultimo_aliento_notificado = True
-            return {"exito": True, "eventos": eventos, "reflejo_exitoso": True} # Robo REFLEJADO # Robo fallido por reflejo
+            return {"exito": True, "eventos": eventos, "reflejo_exitoso": True, "jugador_reflejo": obj.get_nombre()} # Robo REFLEJADO 
 
         # Comprobar Escudo del objetivo
         elif self._verificar_efecto_activo(obj, "escudo"):
@@ -1614,7 +1673,7 @@ class JuegoOcaWeb:
                 jugador.efectos_activos.append({"tipo": "fuga_energia", "turnos": duracion_dot, "dano": dano_dot})
                 eventos.append(f"🩸 ¡{jugador.get_nombre()} se auto-infligió Fuga de Energía!")
                 
-            return {"exito": True, "eventos": eventos, "reflejo_exitoso": True}
+            return {"exito": True, "eventos": eventos, "reflejo_exitoso": True, "jugador_reflejo": obj.get_nombre()}
 
         # Verificar Escudo
         if self._verificar_efecto_activo(obj, "escudo"):
@@ -1939,6 +1998,203 @@ class JuegoOcaWeb:
             "caos_cerca_meta": caos_cerca_meta 
         }
 
+    def _hab_hilos_espectrales(self, jugador, habilidad, objetivo):
+        eventos = []
+        if not objetivo:
+            return {"exito": False, "eventos": ["Debes elegir un objetivo."]}
+        
+        obj = self._encontrar_jugador(objetivo)
+        if not obj or not obj.esta_activo():
+            return {"exito": False, "eventos": [f"Objetivo '{objetivo}' no válido."]}
+        
+        if obj == jugador:
+            return {"exito": False, "eventos": ["No puedes vincularte a ti mismo."]}
+
+        # Chequeo de Rango
+        RANGO_MAX = 6 
+        pos_j = jugador.get_posicion()
+        pos_o = obj.get_posicion()
+        if abs(pos_j - pos_o) > RANGO_MAX:
+            return {"exito": False, "eventos": [f"El objetivo está fuera de rango (Máx: {RANGO_MAX} casillas)."]}
+
+        # Chequeo de Protecciones (Invisibilidad, Escudo)
+        if not self._puede_ser_afectado(obj, habilidad):
+            return {"exito": False, "eventos": self.eventos_turno}
+
+        # Chequeo de Barrera (Disipa, no refleja)
+        if self._verificar_efecto_activo(obj, "barrera"):
+             self._remover_efecto(obj, "barrera") # Barrera se consume
+             eventos.append(f"🔮 {obj.get_nombre()} disipó los Hilos Espectrales con Barrera.")
+             return {"exito": False, "eventos": eventos}
+
+        # Chequeo de Escudo (Bloquea)
+        if self._verificar_efecto_activo(obj, "escudo"):
+             self._reducir_efectos_temporales(obj, tipo_efecto="escudo", reducir_todo=False)
+             eventos.append(f"🛡️ {obj.get_nombre()} bloqueó los Hilos Espectrales con Escudo.")
+             return {"exito": False, "eventos": eventos}
+
+        # Aplicar el Vínculo
+        self._remover_efecto(jugador, "vinculo") 
+        
+        DURACION_VINCULO = 4
+        jugador.efectos_activos.append({
+            "tipo": "vinculo", 
+            "objetivo": obj.get_nombre(), 
+            "turnos": DURACION_VINCULO
+        })
+        
+        eventos.append(f"🔗 {jugador.get_nombre()} se ha vinculado a {obj.get_nombre()} por {DURACION_VINCULO} turnos.")
+        return {"exito": True, "eventos": eventos}
+    
+    def _hab_tiron_de_cadenas(self, jugador, habilidad, objetivo):
+        eventos = []
+        
+        # Encontrar el vínculo activo del Titiritero
+        efecto_vinculo = self._verificar_efecto_activo(jugador, "vinculo")
+        if not efecto_vinculo:
+            return {"exito": False, "eventos": ["No tienes a nadie vinculado."]}
+        
+        nombre_objetivo = efecto_vinculo.get("objetivo")
+        obj = self._encontrar_jugador(nombre_objetivo)
+        
+        if not obj or not obj.esta_activo():
+            return {"exito": False, "eventos": [f"Tu objetivo vinculado ({nombre_objetivo}) no está disponible."]}
+
+        # Chequeo de Protecciones (Invisibilidad, etc.)
+        if not self._puede_ser_afectado(obj, habilidad):
+            # _puede_ser_afectado ya añade el evento de log
+            return {"exito": False, "eventos": self.eventos_turno}
+
+        # Chequeo de Barrera (Disipa, no refleja)
+        if self._verificar_efecto_activo(obj, "barrera"):
+             self._remover_efecto(obj, "barrera")
+             eventos.append(f"🔮 {obj.get_nombre()} usó Barrera para cortar el Tirón.")
+             return {"exito": False, "eventos": eventos}
+
+        # Chequeo de Escudo (Bloquea)
+        if self._verificar_efecto_activo(obj, "escudo"):
+             self._reducir_efectos_temporales(obj, tipo_efecto="escudo", reducir_todo=False)
+             eventos.append(f"🛡️ {obj.get_nombre()} bloqueó el Tirón con Escudo.")
+             return {"exito": False, "eventos": eventos}
+
+        # Calcular movimiento
+        DISTANCIA_TIRON = 3
+        
+        # Chequear perk de Desvío Cinético del OBJETIVO
+        if "desvio_cinetico" in obj.perks_activos:
+            reduccion = DISTANCIA_TIRON // 2 # Se reduce a 1
+            DISTANCIA_TIRON -= reduccion
+            eventos.append(f"🏃‍♂️ {obj.get_nombre()} desvía parte del Tirón (Movimiento reducido a {DISTANCIA_TIRON}).")
+
+        pos_j = jugador.get_posicion()
+        pos_o = obj.get_posicion()
+        pos_inicial_obj = pos_o # Guardar para la animación
+        
+        nueva_pos_obj = pos_o
+        
+        if pos_o > pos_j:
+            # Objetivo está delante, tirar hacia atrás
+            nueva_pos_obj = max(1, pos_o - DISTANCIA_TIRON)
+        elif pos_o < pos_j:
+            # Objetivo está detrás, tirar hacia adelante
+            nueva_pos_obj = min(self.posicion_meta, pos_o + DISTANCIA_TIRON)
+        
+        if nueva_pos_obj == pos_inicial_obj:
+            eventos.append(f"⛓️ {obj.get_nombre()} ya está pegado a ti.")
+            return {"exito": False, "eventos": eventos}
+
+        # Mover al objetivo
+        obj.teletransportar_a(nueva_pos_obj)
+        eventos.append(f"⛓️ ¡{jugador.get_nombre()} tira de {obj.get_nombre()}! Va de {pos_inicial_obj} a {nueva_pos_obj}.")
+        
+        # Devolver datos de movimiento
+        return {
+            "exito": True, 
+            "eventos": eventos,
+            "es_movimiento_otro": True, # Indica que otro jugador se movió
+            "resultado_movimiento": {
+                "jugador_movido": obj.get_nombre(),
+                "dado": DISTANCIA_TIRON, 
+                "pos_inicial": pos_inicial_obj,
+                "pos_final": nueva_pos_obj,
+                "meta_alcanzada": False 
+            }
+        }
+    
+    def _hab_traspaso_de_dolor(self, jugador, habilidad, objetivo):
+        eventos = []
+        
+        # Encontrar el vínculo activo
+        efecto_vinculo = self._verificar_efecto_activo(jugador, "vinculo")
+        if not efecto_vinculo:
+            return {"exito": False, "eventos": ["No tienes a nadie vinculado."]}
+        
+        nombre_objetivo = efecto_vinculo.get("objetivo")
+        obj = self._encontrar_jugador(nombre_objetivo)
+        
+        if not obj or not obj.esta_activo():
+            return {"exito": False, "eventos": [f"Tu objetivo vinculado ({nombre_objetivo}) no está disponible."]}
+
+        # Aplicar el efecto de Traspaso al Titiritero
+        DURACION_TRASPASO = 2 
+        
+        # Quitar cualquier Traspaso anterior para refrescar la duración
+        self._remover_efecto(jugador, "traspaso_dolor") 
+        
+        jugador.efectos_activos.append({
+            "tipo": "traspaso_dolor", 
+            "objetivo": obj.get_nombre(), 
+            "turnos": DURACION_TRASPASO
+        })
+        
+        eventos.append(f"💔 ¡Traspaso de Dolor activado! El 50% del próximo daño que recibas será redirigido a {obj.get_nombre()}.")
+
+        return {"exito": True, "eventos": eventos}
+    
+    def _hab_control_total(self, jugador, habilidad, objetivo):
+        eventos = []
+        
+        try:
+            valor_dado = int(objetivo)
+            if not (1 <= valor_dado <= 6): raise ValueError
+        except (ValueError, TypeError):
+            eventos.append("Valor inválido para Control Total. Debes elegir un número del 1 al 6.")
+            return {"exito": False, "eventos": eventos}
+
+        efecto_vinculo = self._verificar_efecto_activo(jugador, "vinculo")
+        if not efecto_vinculo:
+            return {"exito": False, "eventos": ["No tienes a nadie vinculado."]}
+        
+        nombre_objetivo_vinculado = efecto_vinculo.get("objetivo")
+        obj_vinculado = self._encontrar_jugador(nombre_objetivo_vinculado)
+        
+        if not obj_vinculado or not obj_vinculado.esta_activo():
+            return {"exito": False, "eventos": [f"Tu objetivo vinculado ({nombre_objetivo_vinculado}) no está disponible."]}
+
+        if not self._puede_ser_afectado(obj_vinculado, habilidad):
+            return {"exito": False, "eventos": self.eventos_turno}
+        if self._verificar_efecto_activo(obj_vinculado, "barrera"):
+             self._remover_efecto(obj_vinculado, "barrera")
+             eventos.append(f"🔮 {obj_vinculado.get_nombre()} usó Barrera para disipar el Control Total.")
+             return {"exito": False, "eventos": eventos}
+        if self._verificar_efecto_activo(obj_vinculado, "escudo"):
+             self._reducir_efectos_temporales(obj_vinculado, tipo_efecto="escudo", reducir_todo=False)
+             eventos.append(f"🛡️ {obj_vinculado.get_nombre()} bloqueó el Control Total con Escudo.")
+             return {"exito": False, "eventos": eventos}
+        
+        DURACION_CONTROL = 2 # Dura hasta el inicio de su próximo turno
+        self._remover_efecto(obj_vinculado, "controlado") 
+        
+        obj_vinculado.efectos_activos.append({
+            "tipo": "controlado", 
+            "controlador": jugador.get_nombre(), 
+            "dado_forzado": valor_dado, 
+            "turnos": DURACION_CONTROL
+        })
+        
+        eventos.append(f"🎮 ¡Control Total aplicado! {obj_vinculado.get_nombre()} será forzado a moverse {valor_dado} casillas en su turno.")
+        return {"exito": True, "eventos": eventos}
+    
     # ===================================================================
     # --- 6. LÓGICA DE FIN DE JUEGO Y ESTADO ---
     # ===================================================================

@@ -1415,7 +1415,6 @@ def usar_habilidad(data):
     # Ejecutar la lógica de la habilidad en JuegoOcaWeb
     print("--- TURNO VÁLIDO: Llamando a sala.juego.usar_habilidad_jugador ---")
     try:
-        # EJECUTAR LÓGICA DEL JUEGO
         resultado = sala.juego.usar_habilidad_jugador(nombre_jugador_emitente, indice_habilidad, objetivo)
         
         # Revisar los eventos devueltos por la habilidad, INCLUSO SI FALLÓ
@@ -1452,6 +1451,52 @@ def usar_habilidad(data):
             traceback.print_exc()
 
         if resultado['exito']:
+            
+            # Este hilo siempre se ejecuta para el jugador que usó la habilidad
+            if sid in sessions_activas:
+                threading.Thread(
+                    target=_procesar_habilidad_db_async,
+                    args=(
+                        current_app._get_current_object(),
+                        sid,
+                        nombre_jugador_emitente,
+                        resultado
+                    )
+                ).start()
+
+            # Chequeo para reflejo simple (1v1)
+            jugador_que_reflejo = resultado.get('jugador_reflejo')
+            if jugador_que_reflejo:
+                # Buscar el SID actual del defensor que reflejó
+                sid_defensor = social_system.presence_data.get(jugador_que_reflejo, {}).get('extra_data', {}).get('sid')
+                if sid_defensor and sid_defensor in sessions_activas:
+                    print(f"--- REFLEJO DETECTADO: Iniciando hilo de logros para DEFENSOR: {jugador_que_reflejo} ---")
+                    threading.Thread(
+                        target=_procesar_habilidad_db_async,
+                        args=(
+                            current_app._get_current_object(),
+                            sid_defensor,
+                            jugador_que_reflejo,
+                            resultado
+                        )
+                    ).start()
+            
+            # Chequeo para reflejo múltiple (Bomba Energética)
+            jugadores_que_reflejaron = resultado.get('jugadores_reflejo', [])
+            if jugadores_que_reflejaron:
+                for nombre_defensor in jugadores_que_reflejaron:
+                    sid_defensor = social_system.presence_data.get(nombre_defensor, {}).get('extra_data', {}).get('sid')
+                    if sid_defensor and sid_defensor in sessions_activas:
+                        print(f"--- REFLEJO (BOMBA) DETECTADO: Iniciando hilo de logros para DEFENSOR: {nombre_defensor} ---")
+                        threading.Thread(
+                            target=_procesar_habilidad_db_async,
+                            args=(
+                                current_app._get_current_object(),
+                                sid_defensor,
+                                nombre_defensor,
+                                resultado # Pasar el mismo event_data
+                            )
+                        ).start()
             
             # VERIFICAR SI ES HABILIDAD DE MOVIMIENTO O NO
             es_habilidad_movimiento = (resultado.get('es_movimiento') or 
@@ -1511,18 +1556,6 @@ def usar_habilidad(data):
             # --- CASO B: HABILIDAD DE NO-MOVIMIENTO ---
             else:
                 print("--- Habilidad estándar (No-Mov) detectada. Procesando DB en hilo.")
-                
-                # INICIAR HILO PARA DB 
-                if sid in sessions_activas:
-                    threading.Thread(
-                        target=_procesar_habilidad_db_async,
-                        args=(
-                            current_app._get_current_object(),
-                            sid,
-                            nombre_jugador_emitente,
-                            resultado # Pasamos el diccionario de resultado completo
-                        )
-                    ).start()
                 
                 # ENVIAR RESPUESTA DEL JUEGO INMEDIATAMENTE 
                 colores_map = getattr(sala, 'colores_map', {})

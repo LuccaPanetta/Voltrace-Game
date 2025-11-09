@@ -19,7 +19,7 @@ from perks import PERKS_CONFIG
 
 class JugadorWeb:
     def __init__(self, nombre):
-        # 1. ATRIBUTOS BÁSICOS Y DE IDENTIFICACIÓN
+        # ATRIBUTOS BÁSICOS Y DE IDENTIFICACIÓN
         self.nombre = nombre
         self.avatar_emoji = '👤'
         self.__posicion = 1 
@@ -29,7 +29,7 @@ class JugadorWeb:
         self.es_caza = False
         self.recompensa_reclamada = False
         
-        # 2. SISTEMA DE HABILIDADES Y PM
+        # SISTEMA DE HABILIDADES Y PM
         self.habilidades = []       
         self.habilidades_cooldown = {} 
         self.efectos_activos = [] 
@@ -41,22 +41,22 @@ class JugadorWeb:
         self.dado_perfecto_usado = 0 
         self.game_messages_sent_this_match = 0 
         
-        # 3. RASTREADORES DE PARTIDA (Puntuación Final)
+        # RASTREADORES DE PARTIDA (Puntuación Final)
         self.colisiones_causadas = 0
         self.tipos_casillas_visitadas = set()
         self.energy_packs_collected = 0
         
-        # 4. FLAGS DE ESTADO ESPECIAL
+        # FLAGS DE ESTADO ESPECIAL
         self.dado_forzado = None               
         self.habilidad_usada_este_turno = False 
         self.dado_lanzado_este_turno = False
         self.oferta_perk_activa = None          
         
-        # 5. FLAGS DEL PERK "ÚLTIMO ALIENTO" 
+        # FLAGS DEL PERK "ÚLTIMO ALIENTO" 
         self._ultimo_aliento_usado = False
         self._ultimo_aliento_notificado = False
 
-        #6. RASTREADORES DE LOGROS
+        #RASTREADORES DE LOGROS
         self.consecutive_sixes = 0
         
         print(f"JugadorWeb '{nombre}' inicializado.")
@@ -91,60 +91,85 @@ class JugadorWeb:
         energia_anterior = self.__puntaje
         energia_cambiada = 0 # Inicializar cambio
 
+        # --- BLOQUE DE PROTECCIÓN (ESCUDO) ---
         if cantidad < 0:
             if any(efecto.get('tipo') == 'escudo' for efecto in self.efectos_activos):
                 print(f"DEBUG procesar_energia: {self.nombre} bloqueó {cantidad}E de daño con Escudo.")
                 
-                self.juego_actual.eventos_turno.append(f"🛡️ {self.nombre} bloqueó {abs(cantidad)} de daño con Escudo.")
+                # Asegurarse de que juego_actual y eventos_turno existan antes de añadir el evento
+                if self.juego_actual and hasattr(self.juego_actual, 'eventos_turno'):
+                    self.juego_actual.eventos_turno.append(f"🛡️ {self.nombre} bloqueó {abs(cantidad)} de daño con Escudo.")
                 return 0 # No se aplica daño
 
-        # Comprobar Bloqueo 
+        if cantidad < 0: # Solo se activa al RECIBIR daño 
+            efecto_traspaso = next((efecto for efecto in self.efectos_activos if efecto.get('tipo') == 'traspaso_dolor'), None)
+            
+            if efecto_traspaso:
+                print(f"DEBUG: {self.nombre} tiene Traspaso de Dolor activo.")
+                nombre_objetivo = efecto_traspaso.get("objetivo")
+                objetivo = self.juego_actual._encontrar_jugador(nombre_objetivo) if self.juego_actual else None
+                
+                if objetivo and objetivo.esta_activo() and objetivo != self:
+                    # Calcular daño a transferir (50% del daño recibido)
+                    dano_transferido = int(cantidad * 0.5) # cantidad ya es negativa
+                    
+                    if self.juego_actual and hasattr(self.juego_actual, 'eventos_turno'):
+                        self.juego_actual.eventos_turno.append(f"💔 ¡Traspaso de Dolor! {self.nombre} redirige {abs(dano_transferido)}E de daño a {objetivo.get_nombre()}.")
+                    
+                    # Aplicar el daño al objetivo.
+                    objetivo.procesar_energia(dano_transferido)
+                    
+                    # Verificar si el objetivo fue eliminado por el traspaso
+                    if not objetivo.esta_activo():
+                        mensaje_elim = f"💀 ¡{objetivo.get_nombre()} ha sido eliminado por Traspaso de Dolor!"
+                        if self.juego_actual and mensaje_elim not in self.juego_actual.eventos_turno:
+                            self.juego_actual.eventos_turno.append(mensaje_elim)
+                    # Verificar si el objetivo usó Último Aliento
+                    elif getattr(objetivo, '_ultimo_aliento_usado', False) and not getattr(objetivo, '_ultimo_aliento_notificado', False):
+                        if self.juego_actual:
+                            self.juego_actual.eventos_turno.append(f"❤️‍🩹 ¡Último Aliento salvó a {objetivo.get_nombre()}! (Daño de Traspaso)")
+                        objetivo._ultimo_aliento_notificado = True
+                
+                # El efecto Traspaso de Dolor se consume después de un uso
+                self.efectos_activos = [e for e in self.efectos_activos if e.get('tipo') != 'traspaso_dolor']
+
         esta_bloqueado = any(efecto.get('tipo') == 'bloqueo_energia' for efecto in self.efectos_activos)
         if esta_bloqueado and cantidad > 0:
             print(f"DEBUG procesar_energia: {self.nombre} intentó ganar {cantidad}E pero está bloqueado.")
             return 0 # No se aplica la ganancia
 
-        # Calcular energía tentativa si no está bloqueado o si pierde energía
         energia_final_calculada = energia_anterior + cantidad
 
-        # Se activa SI la energía va a ser 0 o menos, Y el perk está activo, Y no se ha usado ya
         if energia_final_calculada <= 0 and \
-        "ultimo_aliento" in self.perks_activos and \
-        not getattr(self, '_ultimo_aliento_usado', False):
+           "ultimo_aliento" in self.perks_activos and \
+           not getattr(self, '_ultimo_aliento_usado', False):
 
-            print(f"DEBUG: {self.nombre} activó Último Aliento.") # Log útil
-            # Marcar como usado
+            print(f"DEBUG: {self.nombre} activó Último Aliento.")
             self._ultimo_aliento_usado = True
-
-            # Sobrevive con 50 de energía
             self.__puntaje = 50
-            energia_cambiada = self.__puntaje - energia_anterior # Calcula el cambio real 
+            energia_cambiada = self.__puntaje - energia_anterior 
 
-            # Comprobar si el perk "Escudo Duradero" debe extender el escudo de "Último Aliento"
-            rondas_escudo = 3 # Rondas base de Último Aliento
-            
+            rondas_escudo = 3 
             if "escudo_duradero" in self.perks_activos:
-                rondas_escudo += 1 # El perk añade 1 ronda
+                rondas_escudo += 1
                 print(f"DEBUG: Último Aliento activado CON Escudo Duradero (Total {rondas_escudo} rondas).")
             
-            turnos_escudo = 3 # Fallback por si acaso
+            turnos_escudo = 3 
             if self.juego_actual and self.juego_actual.jugadores:
-                # Calcular turnos totales basados en las rondas 
                 turnos_escudo = len(self.juego_actual.jugadores) * rondas_escudo
             
             print(f"DEBUG: Último Aliento aplicando Escudo por {turnos_escudo} turnos ({rondas_escudo} rondas).")
             self.efectos_activos.append({"tipo": "escudo", "turnos": turnos_escudo})
 
-            return int(energia_cambiada) # Devolver el cambio real
+            return int(energia_cambiada) 
 
-        self.__puntaje = max(0, energia_final_calculada) # Aplicar cambio y asegurar que no sea < 0
-        energia_cambiada = self.__puntaje - energia_anterior # Calcular cambio real
+        self.__puntaje = max(0, energia_final_calculada) 
+        energia_cambiada = self.__puntaje - energia_anterior 
 
         if self.__puntaje <= 0 and self.__activo:
-            print(f"DEBUG: {self.nombre} eliminado (Energía: {self.__puntaje}).") # Log útil
+            print(f"DEBUG: {self.nombre} eliminado (Energía: {self.__puntaje}).")
             self.__activo = False
 
-        # Devolver siempre un entero representando el cambio neto de energía
         return int(energia_cambiada)
     
     def retroceder_a(self, posicion):

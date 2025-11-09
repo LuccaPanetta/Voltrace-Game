@@ -389,6 +389,10 @@ function _displayGlossaryAbilities(data) {
         habilidades.forEach(hab => {
             const item = document.createElement("div");
             item.className = "glossary-item";
+            const costo_energia = hab.energia_coste || 0;
+            const costoText = costo_energia > 0
+                ? `<span class="glossary-item-tag" style="background-color: var(--warning); color: #111;">Costo: ${costo_energia} E</span>`
+                : "";
             item.innerHTML = `
                 <div class="glossary-item-header">
                     <h4><span class="simbolo">${hab.simbolo}</span>${escapeHTML(hab.nombre)}</h4>
