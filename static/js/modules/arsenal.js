@@ -44,6 +44,10 @@ const MAESTRIA_RECOMPENSAS = {
     "estratega": [
         { level: 5, nombre: "Título: 'Estratega'" },
         { level: 10, nombre: "Animación: 'Doble Turno Etéreo'" }
+    ],
+    "marionetista": [
+        { level: 5, nombre: "Título: 'El Titiritero'" },
+        { level: 10, nombre: "Animación: 'Hilos de Control'" }
     ]
 };
 
