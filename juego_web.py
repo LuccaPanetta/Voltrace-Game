@@ -2050,7 +2050,7 @@ class JuegoOcaWeb:
         eventos = []
         
         # Encontrar el vínculo activo del Titiritero
-        efecto_vinculo = self._verificar_efecto_activo(jugador, "vinculo")
+        efecto_vinculo = self._obtener_efecto_activo(jugador, "vinculo")
         if not efecto_vinculo:
             return {"exito": False, "eventos": ["No tienes a nadie vinculado."]}
         
@@ -2125,7 +2125,7 @@ class JuegoOcaWeb:
         eventos = []
         
         # Encontrar el vínculo activo
-        efecto_vinculo = self._verificar_efecto_activo(jugador, "vinculo")
+        efecto_vinculo = self._obtener_efecto_activo(jugador, "vinculo")
         if not efecto_vinculo:
             return {"exito": False, "eventos": ["No tienes a nadie vinculado."]}
         
@@ -2161,7 +2161,7 @@ class JuegoOcaWeb:
             eventos.append("Valor inválido para Control Total. Debes elegir un número del 1 al 6.")
             return {"exito": False, "eventos": eventos}
 
-        efecto_vinculo = self._verificar_efecto_activo(jugador, "vinculo")
+        efecto_vinculo = self._obtener_efecto_activo(jugador, "vinculo")
         if not efecto_vinculo:
             return {"exito": False, "eventos": ["No tienes a nadie vinculado."]}
         
@@ -2386,6 +2386,12 @@ class JuegoOcaWeb:
     
     def _verificar_efecto_activo(self, jugador, tipo_efecto):
         return any(efecto["tipo"] == tipo_efecto for efecto in jugador.efectos_activos)
+    
+    def _obtener_efecto_activo(self, jugador, tipo_efecto):
+        for efecto in jugador.efectos_activos:
+            if efecto.get("tipo") == tipo_efecto:
+                return efecto
+        return None
     
     def _reducir_efectos_temporales(self, jugador, tipo_efecto=None, reducir_todo=True):
         nuevos_efectos = []
