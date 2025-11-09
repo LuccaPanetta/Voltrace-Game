@@ -655,7 +655,7 @@ function handleUsarHabilidadClick(e) {
 
     let objetivo = null;
     
-    if (["Sabotaje", "Intercambio Forzado", "Retroceso", "Bloqueo Energético", "Fuga de Energía"].includes(nombre)) {
+    if (["Sabotaje", "Intercambio Forzado", "Retroceso", "Bloqueo Energético", "Fuga de Energía", "Hilos Espectrales"].includes(nombre)) {
         objetivo = prompt(`¿A quién quieres usar ${nombre}? Ingresa el nombre exacto:`);
         if (objetivo === null) return; // Si el usuario presiona "Cancelar"
     } else if (nombre === "Dado Perfecto") {

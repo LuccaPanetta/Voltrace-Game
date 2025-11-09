@@ -407,9 +407,9 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
             updated = true;
         }
         if (updated) {
-            // Volver a renderizar la UI del perfil con los nuevos datos
             updateProfileUI(_state.currentUser);
-            invalidateArsenalCache();
+            invalidateArsenalCache(); 
+            loadArsenalData();
         }
     });
 

@@ -2214,17 +2214,12 @@ class JuegoOcaWeb:
             return None # No hay jugadores, no hay ganador
         max_casillas = 0
         for j in self.jugadores:
+            j._puntaje_base_final = self._calcular_puntaje_final_avanzado(j)
+
             if j.esta_activo():
-                # Calcular y guardar el puntaje base
-                j._puntaje_base_final = self._calcular_puntaje_final_avanzado(j)
-                
-                # Contar tipos de casillas visitadas
                 count = len(getattr(j, 'tipos_casillas_visitadas', set()))
                 if count > max_casillas:
                     max_casillas = count
-            else:
-                # Jugadores inactivos tienen puntaje base 0
-                j._puntaje_base_final = 0
 
         BONUS_CASILLA = 100
         ganador_final = None
@@ -2245,9 +2240,10 @@ class JuegoOcaWeb:
             j._puntaje_final_con_bonus = puntaje_final
             
             # Comprobar si este jugador es el nuevo ganador 
-            if puntaje_final >= max_score: # Usar >= para manejar empates simples
-                max_score = puntaje_final
-                ganador_final = j
+            if j.esta_activo(): 
+                if puntaje_final >= max_score: 
+                    max_score = puntaje_final
+                    ganador_final = j
                 
         # Asegurarse de marcar el juego como terminado si aún no lo estaba
         self.fin_juego = True 

@@ -85,7 +85,13 @@ export function initSocial(socketRef, stateRef) {
     privateChatInput?.addEventListener("keypress", (e) => { if (e.key === 'Enter') handleSendPrivateMessage(); });
 
     // Listeners para invalidar el caché
-    _socket?.on("friend_status_update", (data) => invalidateSocialCache());
+    _socket?.on("friend_status_update", (data) => {
+    if (data.type === "accepted" || data.type === "removed") {
+        invalidateSocialCache(); 
+    } else {
+        updateFriendStatusInCache(data);
+    }
+});
     _socket?.on("new_friend_request", (data) => invalidateSocialCache());
 }
 

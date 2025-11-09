@@ -54,7 +54,7 @@ def crear_habilidades():
             Habilidad("Caos", "control", "Todos los jugadores se mueven aleatoriamente", "🎪", 6, 50), 
             Habilidad("Bloqueo Energético", "control", "Impide que un oponente gane energía por 2 rondas", "🚫", 5, 55),
             Habilidad("Sobrecarga Inestable", "control", "Apuesta tu energía. Próximo turno: 33% pierdes 25E, 33% ganas 75E, 33% ganas 150E.", "🎲", 4, 50),
-            Habilidad("Hilos Espectrales", "control", "Aplica 'Vínculo' a un jugador (3 turnos) en rango 6.", "🔗", 0, 30),
+            Habilidad("Hilos Espectrales", "control", "Aplica 'Vínculo' a un jugador (4 turnos) en un rango de 6 casillas.", "🔗", 0, 30),
             Habilidad("Tirón de Cadenas", "control", "Tira del jugador Vinculado 3 casillas hacia ti.", "⛓️", 2, 40),
             Habilidad("Control Total", "control", "Eliges el dado (1-6) y movimiento del jugador Vinculado en su próximo turno.", "🎮", 7, 120),
         ],

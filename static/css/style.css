@@ -956,7 +956,7 @@ button:active::after {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: clamp(14px, 2vw, 20px);
+    font-size: clamp(12px, 1.8vw, 18px);
     font-weight: bold;
     color: #FFFFFF;
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);

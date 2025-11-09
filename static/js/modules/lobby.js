@@ -113,7 +113,10 @@ function handleCrearSala() {
         return showNotification("Debes iniciar sesión para crear una sala.", document.getElementById('notificaciones'), "warning");
     }
     _setLoadingFunc(true);
-    _socket.emit("crear_sala", {});
+    _socket.emit("crear_sala", { 
+        kit_id: _state.currentUser.kit_id || 'tactico', 
+        avatar_emoji: _state.currentUser.avatar_emoji || '👤' 
+    });
 }
 
 function handleUnirseSala() {
@@ -126,7 +129,11 @@ function handleUnirseSala() {
         return showNotification("Ingresa el código de sala", document.getElementById('notificaciones'), "warning");
     }
     _setLoadingFunc(true);
-    _socket.emit("unirse_sala", { id_sala: codigo });
+        _socket.emit("unirse_sala", { 
+        id_sala: codigo,
+        kit_id: _state.currentUser.kit_id || 'tactico',
+        avatar_emoji: _state.currentUser.avatar_emoji || '👤'
+    });
 }
 
 function handleLobbyTabClick(event) {
