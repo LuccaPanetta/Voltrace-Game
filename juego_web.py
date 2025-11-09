@@ -2096,7 +2096,8 @@ class JuegoOcaWeb:
             tablero[pos]["jugadores"].append({
                 "nombre": jugador.get_nombre(),
                 "energia": jugador.get_puntaje(),
-                "activo": jugador.esta_activo()
+                "activo": jugador.esta_activo(),
+                "avatar_emoji": jugador.avatar_emoji
             })
         
         # Agregar casillas especiales

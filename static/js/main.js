@@ -84,9 +84,7 @@ import { initArsenal, loadArsenalData } from './modules/arsenal.js';
             
             // Iniciar la precarga de datos sociales y de logros en segundo plano
             console.log("Iniciando precarga de datos sociales y de logros...");
-            loadSocialData();
             loadAchievementsData();
-            loadArsenalData();
             loadGlossaryData();
             document.getElementById("btn-crear-sala").disabled = false;
             document.getElementById("btn-unirse-sala").disabled = false;

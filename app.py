@@ -2546,7 +2546,7 @@ def _crear_nueva_sala_revancha(id_sala_original):
             estado_actual = social_system._get_user_status(p_username)
             
             # Solo unir si tiene SID y está 'online' (no en otra sala o juego)
-            if p_sid_actual and estado_actual == 'online':
+            if p_sid_actual and estado_actual not in ['in_game', 'in_lobby']:
                 jugadores_a_unir.append({'sid': p_sid_actual, 'nombre': p_username, 'data_original': p_data})
             else:
                 jugadores_rechazados.append({'sid': p_sid_actual, 'nombre': p_username})

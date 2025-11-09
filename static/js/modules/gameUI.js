@@ -665,7 +665,7 @@ function handleUsarHabilidadClick(e) {
         // Táctico
         case "Sabotaje": playSound('Sabotaje', 0.3); break;
         case "Barrera": playSound('Barrera', 0.3); break;
-        case "Rebote Controlado": playSound('ReboteControlado', 0.3); break;
+        case "Rebote Controlado": playSound('ReboteControlado', 0.4); break;
         case "Dado Perfecto": playSound('DadoPerfecto', 0.3); break;
         
         // Ingeniero
@@ -690,7 +690,7 @@ function handleUsarHabilidadClick(e) {
         case "Robo": playSound('Robo', 0.3); break;
         case "Curación": playSound('Curación', 0.3); break;
         case "Doble Turno": playSound('DobleTurno', 0.3); break;
-        case "Sobrecarga Inestable": playSound('Sobrecarga Inestable', 0.3); break;
+        case "Sobrecarga Inestable": playSound('Sobrecarga Inestable', 0.2); break;
         
         default: playSound('ClickMouse', 0.3);
     }
