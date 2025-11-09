@@ -95,7 +95,7 @@ KITS_VOLTRACE = {
         "descripcion": "Alto riesgo, alta recompensa. Sin escape, pero gran control y tempo.",
         "habilidades": ["Robo", "Curación", "Doble Turno", "Sobrecarga Inestable"]
     },
-    "Titiritero": {
+    "marionetista": {
         "nombre": "El Titiritero",
         "descripcion": "Control a distancia. Manipula la posición y las acciones de los oponentes usando Vínculos.",
         "habilidades": ["Hilos Espectrales", "Tirón de Cadenas", "Traspaso de Dolor", "Control Total"]

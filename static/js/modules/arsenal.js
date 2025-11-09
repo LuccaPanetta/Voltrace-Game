@@ -255,17 +255,11 @@ function handleEquipTitleClick(event) {
 
     const titleName = target.dataset.titleName;
     if (!titleName) return;
-    
+
     playSound('ClickMouse', 0.4);
 
-    // Deshabilitar todos los botones mientras se procesa
-    document.querySelectorAll('.btn-equip-title').forEach(btn => {
-        btn.disabled = true;
-        if (btn === target) {
-            btn.textContent = 'Equipando...';
-        }
-    });
+    target.disabled = true;
+    target.textContent = 'Equipando...';
 
-    // Enviar al servidor
     _socket.emit('arsenal:equip_title', { title: titleName });
 }

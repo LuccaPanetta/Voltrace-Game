@@ -7,7 +7,7 @@ import { updateProfileUI, fetchAndUpdateUserProfile } from './auth.js';
 import { updateWaitingRoomUI, appendLobbyChatMessage, loadTopPlayers } from './lobby.js';
 import { actualizarEstadoJuego, renderEventos, agregarAlLog, appendGameChatMessage, mostrarModalFinJuego, actualizarCooldownsUI, actualizarEstadoParcial, actualizarEstadoRevancha } from './gameUI.js';
 import { displayPerkOffer, handlePerkActivated, updatePerkPrices } from './perks.js';
-import { appendPrivateMessage, updateSocialNotificationIndicator, invalidateSocialCache } from './social.js';
+import { appendPrivateMessage, updateSocialNotificationIndicator, invalidateSocialCache, updateFriendStatusInCache } from './social.js';
 import { invalidateAchievementsCache } from './achievements.js'; 
 import { handleMaestriaData, invalidateArsenalCache, loadArsenalData } from './arsenal.js';
 
@@ -183,7 +183,7 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
             }
             _intermediatePosition[jugadorNombre] = res.pos_final;
             if (_gameAnimations && _gameAnimations.isEnabled) {
-                _gameAnimations.animatePlayerMove( res.pos_inicial, res.pos_final, jugadorNombre, () => { playOptimisticSound(res.pos_final, _estadoJuego); } );
+                _gameAnimations.animatePlayerMove( res.pos_inicial, res.pos_final, jugadorNombre, null );
             } else {
                 playOptimisticSound(res.pos_final, _estadoJuego);
             }
@@ -199,7 +199,24 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
         try {
             const estado_nuevo = data.estado_juego;
             const eventos_paso_2 = data.eventos || [];
-            if (estado_nuevo && _state.currentUser) {
+            let sonidoCasilla = null;
+            eventos_paso_2.forEach(evento => {
+                if (typeof evento !== 'string') return;
+                const lowerEvent = evento.toLowerCase();
+                if (lowerEvent.includes("trampa") || lowerEvent.includes("💀")) {
+                    sonidoCasilla = 'LandOnTrap';
+                } else if (lowerEvent.includes("tesoro") || lowerEvent.includes("💰") || lowerEvent.includes("💚 +")) {
+                    sonidoCasilla = 'LandOnTreasure';
+                } else if (lowerEvent.includes("colisión") || lowerEvent.includes("💥")) {
+                    playSound('Collision', 0.2);
+                } else if (lowerEvent.includes("portal") || lowerEvent.includes("intercambio") || lowerEvent.includes("agujero negro") || lowerEvent.includes("🌀")) {
+                    sonidoCasilla = 'Teleport';
+                }
+            });
+            if (sonidoCasilla) {
+                playSound(sonidoCasilla, 0.2);
+            }
+                if (estado_nuevo && _state.currentUser) {
                 const nuevoTurnoDe = estado_nuevo.turno_actual;
                 const miNombre = _state.currentUser.username;
                 
@@ -468,7 +485,11 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
         }
 
         showNotification(message, _notificacionesContainer, "info");
-        invalidateSocialCache(); // Invalida el caché social
+        if (data.type === "accepted" || data.type === "removed") { 
+            invalidateSocialCache(); 
+        } else {
+            updateFriendStatusInCache(data);
+        }
     });
 
     _socket.on("new_private_message", (data) => {

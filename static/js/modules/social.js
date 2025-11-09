@@ -552,3 +552,27 @@ export function updateSocialNotificationIndicator(hasNotification) {
      btnSocialGlobal?.classList.toggle("has-notification", hasNotification);
      btnSocialWaiting?.classList.toggle("has-notification", hasNotification);
 }
+
+/**
+ * Actualiza el estado de un amigo en el caché sin recargar toda la lista.
+ */
+export function updateFriendStatusInCache(friendData) {
+    if (!socialCache.isLoaded || !socialCache.friends || !friendData || !friendData.username) {
+        return;
+    }
+
+    console.log(`Actualizando caché de estado para: ${friendData.username}`);
+    const friendIndex = socialCache.friends.findIndex(f => f.username === friendData.username);
+    
+    if (friendIndex > -1) {
+        // Amigo encontrado, actualizar su estado
+        socialCache.friends[friendIndex].status = friendData.status;
+        console.log(`Caché actualizado: ${friendData.username} ahora está ${friendData.status}`);
+
+        // Si el modal está abierto, re-renderizar la lista de amigos
+        if (modalSocialElement?.style.display === "flex" && socialTabFriends?.classList.contains("active")) {
+            console.log("Modal social abierto, re-renderizando lista de amigos desde caché actualizado.");
+            renderFriendsList(socialCache.friends);
+        }
+    }
+}
