@@ -1077,6 +1077,8 @@ button:active::after {
   border-radius: 30px; /* Más redondeado */
   border: 1px solid #374151;
   box-shadow: 0 1px 3px rgba(0,0,0,0.2); /* Sombra sutil */
+  flex-wrap: wrap;
+  justify-content: center;
 }
 .user-profile span {
   font-size: 14px;

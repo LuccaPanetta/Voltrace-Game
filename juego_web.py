@@ -944,6 +944,10 @@ class JuegoOcaWeb:
         if cooldown_actual > 0:
             return {"exito": False, "mensaje": f"Habilidad '{habilidad.nombre}' en cooldown por {cooldown_actual} turnos."}
 
+        costo_energia = getattr(habilidad, 'energia_coste', 0)
+        if jugador.get_puntaje() < costo_energia:
+            return {"exito": False, "mensaje": f"No tienes suficiente energía. (Costo: {costo_energia} E, Tienes: {jugador.get_puntaje()} E)"}
+
         # REGLA: Prevenir Habilidad + Habilidad
         if getattr(jugador, 'habilidad_usada_este_turno', False):
             return {"exito": False, "mensaje": "Ya usaste una habilidad en este turno."}
@@ -980,6 +984,8 @@ class JuegoOcaWeb:
 
         # 3. Lógica de Cierre 
         if exito:
+            if costo_energia > 0:
+               jugador.procesar_energia(-costo_energia)
             jugador.habilidades_usadas_en_partida += 1
             jugador.habilidad_usada_este_turno = True
 
@@ -1309,14 +1315,8 @@ class JuegoOcaWeb:
     
     def _hab_sobrecarga_inestable(self, jugador, habilidad, objetivo):
         eventos = []
-        costo_inicial = 50
-        
-        if jugador.get_puntaje() < costo_inicial:
-            eventos.append(f"No tienes suficiente energía ({costo_inicial} E) para Sobrecarga.")
-            return {"exito": False, "eventos": eventos}
-            
-        jugador.procesar_energia(-costo_inicial)
-        eventos.append(f"🎲 Sobrecarga Inestable: Pagaste {costo_inicial} E. El resultado se aplicará en tu próximo turno.")
+        costo_real = getattr(habilidad, 'energia_coste', 50) # Lee el costo real
+        eventos.append(f"🎲 Sobrecarga Inestable: Pagaste {costo_real} E. El resultado se aplicará en tu próximo turno.")
         
         duracion_turnos = 1
         jugador.efectos_activos.append({"tipo": "sobrecarga_pendiente", "turnos": duracion_turnos})

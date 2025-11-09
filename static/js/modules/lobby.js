@@ -62,6 +62,7 @@ export function initLobby(socketRef, screensRef, showFuncRef, setLoadingFuncRef,
     rankingContent = document.getElementById("ranking-content");
     
     // --- Cacheo Glosario y Kits ---
+    btnShowGlossary = document.getElementById("btn-show-glossary");
     modalGlossary = document.getElementById("modal-glossary");
     btnCerrarGlossary = document.getElementById("btn-cerrar-glossary");
     glossaryAbilitiesList = document.getElementById("glossary-abilities-list");
