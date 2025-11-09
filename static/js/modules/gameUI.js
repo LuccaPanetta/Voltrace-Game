@@ -121,7 +121,10 @@ function handleMostrarHabilidades() {
             const cooldownText = cooldownRestante > 0
                 ? `<small style="color: var(--warning); font-weight: bold;"> (CD: ${cooldownRestante}t)</small>`
                 : "";
-            
+            const costo_energia = h.energia_coste || 0;
+            const costoText = costo_energia > 0
+                ? `<small style="color: #f59e0b; font-weight: bold;"> (Costo: ${costo_energia} E)</small>`
+                : "";
             const isDisabled = cooldownRestante > 0 || _habilidadUsadaTurno.value;
             let titleText = "";
             if (isDisabled) {
@@ -132,7 +135,7 @@ function handleMostrarHabilidades() {
 
             item.innerHTML = `
               <div>
-                ${originalIndex + 1}. ${h.simbolo} <strong>${escapeHTML(h.nombre)}</strong>${cooldownText}
+                ${originalIndex + 1}. ${h.simbolo} <strong>${escapeHTML(h.nombre)}</strong>${cooldownText}${costoText}
                 <br>
                 <small>${escapeHTML(h.descripcion)}</small>
               </div>
