@@ -390,10 +390,7 @@ class SalaJuego:
                     'kit_id': datos.get('kit_id', 'tactico'),
                     'avatar_emoji': datos.get('avatar_emoji', '👤')
                 })
-            
-            # Pasar la lista de configs al constructor del juego
-            self.juego = JuegoOcaWeb(jugadores_config)
-            
+            self.juego = JuegoOcaWeb(jugadores_config, achievement_system)
             self.estado = 'jugando'
             self.log_eventos.append("¡El juego ha comenzado!")
             return True
@@ -1615,6 +1612,8 @@ def comprar_perk(data):
     sid = request.sid
     print(f"\n--- RECIBIDO EVENTO: comprar_perk --- SID: {sid}, Sala: {id_sala}, Pack: {tipo_pack}")
 
+    _cancelar_temporizador_turno(id_sala)
+
     if not id_sala or not tipo_pack:
         emit('error', {'mensaje': 'Datos incompletos para comprar perk.'})
         return
@@ -1665,6 +1664,8 @@ def seleccionar_perk(data):
     sid = request.sid
     print(f"\n--- RECIBIDO EVENTO: seleccionar_perk --- SID: {sid}, Sala: {id_sala}, Perk ID: {perk_id}")
 
+    _cancelar_temporizador_turno(id_sala)
+
     if not id_sala or not perk_id or coste_pack is None:
         emit('error', {'mensaje': 'Datos incompletos para seleccionar perk.'})
         return
@@ -1703,6 +1704,7 @@ def seleccionar_perk(data):
                             'estado_juego': estado_juego,
                             'eventos_recientes': sala.juego.eventos_turno[-5:] 
                         }, room=id_sala)
+                _iniciar_temporizador_turno(id_sala, nombre_jugador)
 
             except Exception as e:
                 print(f"!!! ERROR dentro de activar_perk_seleccionado o al emitir: {e}")
@@ -1756,6 +1758,7 @@ def cancelar_oferta_perk(data):
                     'resultado': {'eventos': [resultado.get('mensaje')]}, 
                     'estado_juego_parcial': estado_juego_parcial 
                 }, room=id_sala)
+            _iniciar_temporizador_turno(id_sala, nombre_jugador)
 
         except Exception as e:
             print(f"!!! ERROR en 'cancelar_oferta_perk': {e}")
@@ -2400,55 +2403,14 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
                 print(f"El juego continúa. Verificando si el turno debe avanzar...")
 
                 if turno_antes_de_desconexion == username_desconectado:
-                    print(f"¡Era el turno de {username_desconectado}! Forzando Paso 2 (efectos de casilla)...")
+                    print(f"¡Era el turno de {username_desconectado}! Forzando avance de turno limpio.")
+                    
+                    _cancelar_temporizador_turno(id_sala)
+                
                     try:
-                        jugador_desconectado_obj = sala.juego._encontrar_jugador(username_desconectado)
-                        if jugador_desconectado_obj and getattr(jugador_desconectado_obj, 'dado_lanzado_este_turno', False):
-                            print(f"--- El jugador desconectado SÍ lanzó el dado. Procesando Paso 2...")
-                            resultado_paso_2 = sala.juego.paso_2_procesar_casilla_y_avanzar(username_desconectado)
-                        else:
-                            print(f"--- El jugador desconectado NO lanzó el dado. Saltando Paso 2 y avanzando turno.")
-                            sala.juego._avanzar_turno()
-                        
-                        # Si el paso 2 causó que el juego termine 
-                        if sala.juego.ha_terminado():
-                            print(f"--- JUEGO TERMINADO (En Paso 2 por Desconexión) --- Sala: {id_sala}")
-                            _cancelar_temporizador_turno(id_sala)
-                            sala.estado = 'terminado'
-
-                            ganador_obj = sala.juego.determinar_ganador()
-                            ganador_nombre = ganador_obj.get_nombre() if ganador_obj else None
-                            jugadores_items_copia = list(sala.jugadores.items())
-                            ronda_copia = sala.juego.ronda
-                            player_count_copia = len(sala.jugadores) + 1 
-                            juego_obj_copia = sala.juego 
-
-                            print("--- Iniciando hilo para procesar estadísticas (Paso 2 por Desconexión)...")
-                            stats_thread = threading.Thread(
-                                target=_procesar_estadisticas_fin_juego_async,
-                                args=(
-                                    current_app._get_current_object(), 
-                                    jugadores_items_copia,
-                                    ganador_nombre,
-                                    ronda_copia,
-                                    player_count_copia,
-                                    juego_obj_copia
-                                )
-                            )
-                            stats_thread.start()
-                            stats_finales_dict = sala.juego.obtener_estadisticas_finales()
-                            socketio.emit('juego_terminado', {
-                                'ganador': stats_finales_dict.get('ganador'),
-                                'estadisticas_finales': stats_finales_dict.get('lista_final'),
-                                'mensaje': f"🔌 {username_desconectado} se desconectó y fue eliminado."
-                            }, room=id_sala)
-                            return # Salir
-                            
+                        sala.juego._avanzar_turno()
                     except Exception as e:
-                        print(f"!!! ERROR al forzar Paso 2 en desconexión: {e}")
-                        traceback.print_exc()
-                        if not sala.juego.ha_terminado():
-                             sala.juego._avanzar_turno() # Forzar avance si paso_2 falló
+                         print(f"!!! ERROR al forzar _avanzar_turno en desconexión: {e}")
                 
                 colores_map = getattr(sala, 'colores_map', {})
                 nuevo_turno_actual = sala.juego.obtener_turno_actual() # Obtener el nuevo turno
@@ -2509,8 +2471,7 @@ def iniciar_juego_sala(id_sala):
     print(f"MAPA DE COLORES CREADO PARA SALA {id_sala}: {colores_map}")
     sala.colores_map = colores_map # Guardar mapa en la sala
 
-    # Llamar a sala.iniciar_juego() para crear la instancia de JuegoOcaWeb
-    if sala.iniciar_juego(): # Cambia estado a 'jugando' y crea sala.juego
+    if sala.iniciar_juego(achievement_system): # Cambia estado a 'jugando' y crea sala.juego
         print(f"sala.iniciar_juego() tuvo ÉXITO. Estado ahora: {sala.estado}")
 
         # Preparar el estado inicial del juego para enviar a los clientes

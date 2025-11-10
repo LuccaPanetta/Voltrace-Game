@@ -30,7 +30,7 @@ class SocialSystem:
         self.presence_data = {}
 
     def send_friend_request(self, sender_username: str, target_username: str) -> Dict:
-        # 1. Obtener los objetos User
+        # Obtener los objetos User
         sender = User.query.filter_by(username=sender_username).first()
         target = User.query.filter_by(username=target_username).first()
 
@@ -47,11 +47,10 @@ class SocialSystem:
             return {'success': False, 'message': f'Ya enviaste una solicitud a {target_username}.'}
 
         if target.has_sent_request_to(sender):
-            # Si el target ya envió una solicitud, el remitente debería aceptarla en su lugar.
             return {'success': False, 'message': f'{target_username} ya te envió una solicitud. Revísala en la pestaña "Solicitudes".'}
 
         try:
-            # 2. Intentar crear la solicitud en la DB
+            # Intentar crear la solicitud en la DB
             if sender.send_friend_request(target):
                 db.session.commit()
                 return {'success': True, 'message': f'Solicitud enviada a {target_username}.'}
@@ -65,7 +64,7 @@ class SocialSystem:
             return {'success': False, 'message': 'Error del servidor al procesar la solicitud.'}
 
     def accept_friend_request(self, username: str, friend_username: str) -> Dict:
-        # 1. Obtener los objetos User
+        # Obtener los objetos User
         user = User.query.filter_by(username=username).first()        # El receptor 
         sender = User.query.filter_by(username=friend_username).first() # El emisor 
 
@@ -76,11 +75,11 @@ class SocialSystem:
             return {'success': False, 'message': 'No hay una solicitud pendiente de este usuario.'}
         
         try:
-            # 2. Lógica para aceptar: borra la solicitud y crea la amistad
+            # Lógica para aceptar: borra la solicitud y crea la amistad
             if user.accept_friend_request(sender):
                 db.session.commit()
                 
-                # Notificación interna (opcional, pero útil)
+                # Notificación interna
                 self.update_user_presence(friend_username, 'online', {'new_friend': username})
                 
                 return {'success': True, 'message': f'Ahora eres amigo de {friend_username}.'}
@@ -93,24 +92,24 @@ class SocialSystem:
             return {'success': False, 'message': 'Error interno del servidor (DB).'}
 
     def reject_friend_request(self, username: str, friend_username: str) -> Dict:
-        # 1. Obtener los objetos User
+        # Obtener los objetos User
         user = User.query.filter_by(username=username).first()        # El receptor 
         sender = User.query.filter_by(username=friend_username).first() # El emisor 
 
         if not user or not sender:
             return {'success': False, 'message': 'Usuarios no encontrados.'}
 
-        # 2. Verificar que la solicitud existe (el receptor debe tenerla recibida)
+        # Verificar que la solicitud existe (el receptor debe tenerla recibida)
         if not user.has_received_request_from(sender):
             return {'success': False, 'message': 'No hay una solicitud pendiente de este usuario.'}
         
         try:
-            # 3. Lógica para rechazar (definida en models.py)
+            # Lógica para rechazar
             if user.reject_friend_request(sender):
                 db.session.commit()
                 return {'success': True, 'message': f'Solicitud de {friend_username} rechazada.'}
             else:
-                # Esto puede pasar si la solicitud ya no existe (raro si la verificación anterior pasó)
+                # Esto puede pasar si la solicitud ya no existe
                 return {'success': False, 'message': 'Error de lógica al rechazar.'}
 
         except Exception as e:
@@ -119,7 +118,7 @@ class SocialSystem:
             return {'success': False, 'message': 'Error interno del servidor (DB).'}
 
     def remove_friend(self, username, friend_to_remove):
-        # 1. Obtener los objetos User
+        # Obtener los objetos User
         user = User.query.filter_by(username=username).first()
         friend = User.query.filter_by(username=friend_to_remove).first()
 
@@ -130,11 +129,10 @@ class SocialSystem:
             return {'success': False, 'message': f'{friend_to_remove} no es tu amigo.'}
 
         try:
-            # 2. Lógica para remover la amistad (definida en models.py)
+            # Lógica para remover la amistad (definida en models.py)
             if user.remove_friend(friend):
                 db.session.commit()
                 
-                # 3. Notificación (opcional)
                 self.update_user_presence(friend_to_remove, 'online', {'friend_removed': username})
                 
                 return {'success': True, 'message': f'{friend_to_remove} fue eliminado de tus amigos.'}
@@ -151,7 +149,7 @@ class SocialSystem:
         if not user_searching:
             return {'error': 'Usuario de búsqueda no válido'}
 
-        # 1. Buscar en la Base de Datos: Filtra por username que contiene la query
+        # Buscar en la Base de Datos: Filtra por username que contiene la query
         results = User.query.filter(
             User.username.ilike(f'%{query}%'),
             User.username != current_user      
@@ -159,7 +157,7 @@ class SocialSystem:
 
         output = []
         
-        # 2. Procesar los resultados y determinar la relación
+        # Procesar los resultados y determinar la relación
         for target_user in results:
             relation = 'none' # Asume que no hay relación
 
@@ -179,18 +177,18 @@ class SocialSystem:
         return output
 
     def get_friends_list(self, username: str) -> Dict:
-        # Obtener el usuario principal (no el 'current_user' de Flask, sino el de la ruta)
+        # Obtener el usuario principal 
         main_user = User.query.filter_by(username=username).first()
         if not main_user:
             return {'error': 'Usuario no encontrado'}
 
-        # 1. Preparar la lista de amigos
+        # Preparar la lista de amigos
         friends_list = []
         
-        # Accede a la relación friends (definida en models.py)
+        # Accede a la relación friends
         for friend_user in main_user.friends:
             
-            # Obtener el estado de presencia (online/offline/in_game)
+            # Obtener el estado de presencia 
             status = self._get_user_status(friend_user.username)
             
             friends_list.append({
@@ -199,12 +197,12 @@ class SocialSystem:
                 'status': status
             })
 
-        # 2. Obtener solicitudes pendientes que el USUARIO RECIBIÓ
+        # Obtener solicitudes pendientes que el USUARIO RECIBIÓ
         pending_received = [
             sender_user.username for sender_user in main_user.received_requests
         ]
         
-        # 3. Obtener solicitudes pendientes que el USUARIO ENVIÓ
+        # Obtener solicitudes pendientes que el USUARIO ENVIÓ
         pending_sent = [
             receiver_user.username for receiver_user in main_user.sent_requests
         ]
@@ -298,20 +296,20 @@ class SocialSystem:
             return {'success': False, 'message': 'Error interno del servidor (DB).'}
 
     def get_conversation(self, user1_username, user2_username):
-        # 1. Obtener los IDs de los usuarios
+        # Obtener los IDs de los usuarios
         user1 = User.query.filter_by(username=user1_username).first()
         user2 = User.query.filter_by(username=user2_username).first()
 
         if not user1 or not user2:
-            return [] # O {'error': 'Usuario no encontrado'}
+            return [] 
 
-        # 2. Consultar la tabla PrivateMessage
+        # Consultar la tabla PrivateMessage
         messages = PrivateMessage.query.filter(
             ((PrivateMessage.sender_id == user1.id) & (PrivateMessage.recipient_id == user2.id)) |
             ((PrivateMessage.sender_id == user2.id) & (PrivateMessage.recipient_id == user1.id))
         ).order_by(PrivateMessage.timestamp.asc()).limit(50).all() # Orden ascendente para mostrar más viejos primero
 
-        # 3. Formatear los mensajes para el cliente
+        # Formatear los mensajes para el cliente
         conversation_data = [
             {
                 'sender': msg.sender.username,
@@ -324,7 +322,7 @@ class SocialSystem:
         return conversation_data
 
     def mark_messages_as_read(self, username: str, other_user: str) -> bool:
-        # 1. Obtener los IDs de los usuarios
+        # Obtener los IDs de los usuarios
         user = User.query.filter_by(username=username).first()
         sender = User.query.filter_by(username=other_user).first()
 
@@ -378,12 +376,12 @@ class SocialSystem:
         return unread_counts
 
     def get_recent_conversations(self, username: str, limit: int = 10) -> List[Dict]:
-        # 1. Obtener el usuario actual de la DB
+        # Obtener el usuario actual de la DB
         user = User.query.filter_by(username=username).first()
         if not user:
             return []
 
-        # 2. Consulta avanzada para obtener las conversaciones recientes
+        # Consulta avanzada para obtener las conversaciones recientes
         subq = db.session.query(
             # Determina el ID del 'otro' usuario en la conversación
             case(
@@ -407,10 +405,10 @@ class SocialSystem:
         # Ejecutar la consulta
         recent_users_with_timestamp = recent_users_q.all()
 
-        # 3. Formatear la salida para el cliente
+        # Formatear la salida para el cliente
         conversations = []
         for other_user_obj, last_timestamp in recent_users_with_timestamp:
-            # Obtener el último mensaje (puedes hacer otra consulta o asumirlo del timestamp)
+            # Obtener el último mensaje
             
             # Obtener estado de presencia del otro usuario
             other_user_status = self._get_user_status(other_user_obj.username)
@@ -428,7 +426,7 @@ class SocialSystem:
 
     def send_room_invitation(self, sender_username: str, recipient_username: str, 
                          room_id: str, room_name: str = None) -> Dict:
-        # 1. Obtener los objetos User de la DB
+        # Obtener los objetos User de la DB
         sender_user = User.query.filter_by(username=sender_username).first()
         recipient_user = User.query.filter_by(username=recipient_username).first()
 
@@ -521,7 +519,6 @@ class SocialSystem:
             }
 
     def _clean_old_invitations(self, username: str):
-        """Limpiar invitaciones más antiguas de 10 minutos"""
         if ("invitations" not in self.presence_data or 
             username not in self.presence_data["invitations"]):
             return

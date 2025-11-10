@@ -21,13 +21,11 @@ from random import randint, choice, sample
 import random
 import os
 import traceback
+import threading
 from habilidades import Habilidad, crear_habilidades, KITS_VOLTRACE
 from perks import PERKS_CONFIG, obtener_perks_por_tier
 from jugadores import JugadorWeb
 from random import randint, choice, sample
-import random
-import os
-import traceback
 from perks import PERKS_CONFIG, obtener_perks_por_tier
 from jugadores import JugadorWeb
 
@@ -36,13 +34,10 @@ class JuegoOcaWeb:
     # ===================================================================
     # --- 1. CONFIGURACIÓN E INICIALIZACIÓN ---
     # ===================================================================
-    
-    # El constructor ahora acepta una lista de diccionarios de configuración
-    def __init__(self, jugadores_config):
+    def __init__(self, jugadores_config, achievement_system=None):
         self.jugadores = []
         for config in jugadores_config:
             jugador = JugadorWeb(config['nombre'])
-            # Guardamos el kit_id en la instancia del jugador para usarlo después
             jugador.kit_seleccionado = config.get('kit_id', 'tactico')
             jugador.avatar_emoji = config.get('avatar_emoji', '👤')
             jugador.juego_actual = self
@@ -50,7 +45,7 @@ class JuegoOcaWeb:
             
         self.posicion_meta = 75
         self.energia_packs = []
-        self.perks_ofrecidos = {config['nombre']: set() for config in jugadores_config} # Para evitar ofrecer el mismo perk varias veces
+        self.perks_ofrecidos = {config['nombre']: set() for config in jugadores_config}
         self.casillas_especiales = {}
         self.habilidades_disponibles = crear_habilidades()
         self.ronda = 1
@@ -60,6 +55,7 @@ class JuegoOcaWeb:
         self.evento_global_activo = None 
         self.evento_global_duracion = 0
         self.ultimo_en_mid_game = None
+        self.achievement_system = achievement_system
         
         # Log para mostrar la configuración
         print(f"--- JuegoOcaWeb __init__ --- Jugadores Config: {jugadores_config}")
@@ -67,7 +63,7 @@ class JuegoOcaWeb:
 
         self._crear_casillas_especiales()
         self._cargar_energia_desde_archivo()
-        self._asignar_habilidades_jugadores() # Esta función ahora usará el kit
+        self._asignar_habilidades_jugadores()
 
     def _crear_casillas_especiales(self):
         from random import sample, choice # Asegurarse de que están importados
@@ -421,14 +417,13 @@ class JuegoOcaWeb:
             else:
                 eventos.append(f"🩸 {jugador.get_nombre()} pierde {abs(cambio_energia_real)} E por Fuga de Energía.")
                 
-            # Comprobar si el jugador fue eliminado por esto
-            if not jugador.esta_activo():
+            if getattr(jugador, '_ultimo_aliento_usado', False) and not getattr(jugador, '_ultimo_aliento_notificado', False):
+                self.eventos_turno.append(f"❤️‍🩹 ¡Último Aliento salvó a {jugador.get_nombre()}! Sobrevive con 50 E y Escudo (3 Turnos).")
+                jugador._ultimo_aliento_notificado = True # Marcar como notificado
+            elif not jugador.esta_activo():
                 mensaje_elim = f"💀 ¡{jugador.get_nombre()} ha sido eliminado por Fuga de Energía!"
                 if mensaje_elim not in self.eventos_turno:
                     self.eventos_turno.append(mensaje_elim)
-            elif getattr(jugador, '_ultimo_aliento_usado', False) and not getattr(jugador, '_ultimo_aliento_notificado', False):
-                self.eventos_turno.append(f"❤️‍🩹 ¡Último Aliento salvó a {jugador.get_nombre()}! Sobrevive con 50 E y Escudo (3 Turnos).")
-                jugador._ultimo_aliento_notificado = True
 
         print(f"DEBUG Verificando efectos para {jugador.get_nombre()}: {jugador.efectos_activos}") 
         if self._verificar_efecto_activo(jugador, "sobrecarga_pendiente"):
@@ -830,7 +825,18 @@ class JuegoOcaWeb:
                    ("sombra_fugaz" in j_afectado.perks_activos and self._verificar_efecto_activo(j_afectado, "invisible")): # Añadir chequeo Sombra Fugaz
                     self.eventos_turno.append(f"  {j_afectado.get_nombre()}: 🛡️ protegido")
                     j_afectado.ganar_pm(2, fuente="colision") # Colisión NO activa Acumulador
-                    continue 
+                    if self.achievement_system and self._verificar_efecto_activo(j_afectado, "escudo"):
+                        try:
+                            threading.Thread(
+                                target=self.achievement_system.check_achievement,
+                                args=(
+                                    j_afectado.get_nombre(), 
+                                    'game_event', 
+                                    {'event_name': 'muralla_humana'}
+                                )
+                            ).start()
+                        except Exception as e:
+                            print(f"!!! ERROR al verificar logro 'muralla_humana' en hilo: {e}")
 
                 elif "amortiguacion" in j_afectado.perks_activos:
                     energia_perdida = int(energia_perdida * 0.67) # Pierde 67% aprox
@@ -1165,7 +1171,75 @@ class JuegoOcaWeb:
 
         coste_pack = costes[tipo_pack]
 
-        # Cobrar PM primero
+        # Verificar PM ANTES de calcular la oferta
+        if pm_actuales < coste_pack:
+            return {"exito": False, "mensaje": f"No tienes suficientes PM ({jugador.get_pm()}/{coste_pack})", "oferta": [], "pm_restantes": jugador.get_pm()}
+
+        # Calcular la oferta ANTES de cobrar
+        perks_disponibles_tier = {}
+        habilidades_jugador = {h.nombre for h in jugador.habilidades}
+
+        for tier in ["basico", "medio", "alto"]:
+            perks_tier = obtener_perks_por_tier(tier) # Usa la función importada de perks.py
+            perks_disponibles_tier[tier] = []
+            for perk_id in perks_tier:
+                # Omitir si ya lo tiene activo
+                if perk_id in jugador.perks_activos: continue
+                
+                if perk_id == "descuento_habilidad":
+                    # Contar cuántas habilidades ELEGIBLES tiene
+                    habilidades_elegibles = [h for h in jugador.habilidades if h.cooldown_base > 1]
+                    # Contar cuántos descuentos ESPECÍFICOS ya tiene
+                    descuentos_activos = [p for p in jugador.perks_activos if p.startswith("descuento_")]
+                    
+                    # Si ya tiene tantos descuentos como habilidades, no ofrecerlo
+                    if len(descuentos_activos) >= len(habilidades_elegibles):
+                        continue
+
+                perk_config = PERKS_CONFIG.get(perk_id)
+                if not perk_config: continue
+
+                # Leer el requisito directamente de la configuración del perk
+                req_hab = perk_config.get("requires_habilidad")
+                if req_hab and req_hab not in habilidades_jugador:
+                    continue # Saltar este perk si no tiene la habilidad requerida
+
+                perks_disponibles_tier[tier].append(perk_id)
+
+        # Seleccionar perks aleatorios según la composición del pack
+        oferta_final_ids = []
+        composicion_pack = composicion[tipo_pack]
+        total_a_ofrecer = sum(composicion_pack.values())
+
+        for tier, cantidad in composicion_pack.items():
+            candidatos = perks_disponibles_tier.get(tier, [])
+            # Evitar seleccionar el mismo ID dos veces si hay pocos candidatos
+            candidatos_validos = [pid for pid in candidatos if pid not in oferta_final_ids]
+            cantidad_real = min(cantidad, len(candidatos_validos))
+            if cantidad_real > 0:
+                elegidos = random.sample(candidatos_validos, cantidad_real)
+                oferta_final_ids.extend(elegidos)
+
+        # Rellenar si faltan perks
+        tiers_alternativos = ["basico", "medio", "alto"]
+        random.shuffle(tiers_alternativos)
+        while len(oferta_final_ids) < total_a_ofrecer:
+            relleno_encontrado = False
+            for tier_alt in tiers_alternativos:
+                # Candidatos alternativos que no estén ya en la oferta
+                candidatos_alt = [pid for pid in perks_disponibles_tier.get(tier_alt, []) if pid not in oferta_final_ids]
+                if candidatos_alt:
+                    oferta_final_ids.append(random.choice(candidatos_alt))
+                    relleno_encontrado = True
+                    break # Salir del loop de tiers alternativos al encontrar uno
+            if not relleno_encontrado: break # Salir del while si no quedan candidatos en ningún tier
+
+        # Comprobar si la oferta está vacía
+        if len(oferta_final_ids) == 0:
+            # No cobrar PM y devolver error
+            return {"exito": False, "mensaje": "¡Ya posees todos los perks disponibles de este pack!", "oferta": [], "pm_restantes": jugador.get_pm()}
+
+        # Cobrar los PM
         if not jugador.gastar_pm(coste_pack):
             return {"exito": False, "mensaje": f"No tienes suficientes PM ({jugador.get_pm()}/{coste_pack})", "oferta": [], "pm_restantes": jugador.get_pm()}
 
@@ -1369,6 +1443,7 @@ class JuegoOcaWeb:
              self._reducir_efectos_temporales(jugador_objetivo, tipo_efecto="escudo", reducir_todo=False)
              eventos.append(f"🛡️ {jugador_objetivo.get_nombre()} bloqueó el Bloqueo Energético.")
              return {"exito": False, "eventos": eventos}
+        
         elif self._verificar_efecto_activo(jugador_objetivo, "barrera"):
              self._remover_efecto(jugador_objetivo, "barrera") # Barrera se consume pero no refleja
              eventos.append(f"🔮 {jugador_objetivo.get_nombre()} disipó el Bloqueo Energético con Barrera.")
@@ -1404,7 +1479,11 @@ class JuegoOcaWeb:
             # _puede_ser_afectado ya añade el evento
             return {"exito": False, "eventos": self.eventos_turno}
 
-        # Verificar Barrera (Refleja)
+        if self._verificar_efecto_activo(obj, "escudo"):
+            self._reducir_efectos_temporales(obj, tipo_efecto="escudo", reducir_todo=False)
+            eventos.append(f"🛡️ {obj.get_nombre()} bloqueó el Sabotaje con su escudo.")
+            return {"exito": False, "eventos": eventos}
+        
         if self._verificar_efecto_activo(obj, "barrera"):
             eventos.append(f"🔮 {obj.get_nombre()} refleja el Sabotaje.")
             self._remover_efecto(obj, "barrera") # Barrera se consume
@@ -1425,7 +1504,7 @@ class JuegoOcaWeb:
                 eventos.append(f"⚔️ ¡{jugador.get_nombre()} se auto-saboteó y perderá {rondas_pausa} turno(s)!")
                 
             return {"exito": True, "eventos": eventos, "reflejo_exitoso": True, "jugador_reflejo": obj.get_nombre()}
-
+        
         # Verificar Escudo 
         if self._verificar_efecto_activo(obj, "escudo"):
             self._reducir_efectos_temporales(obj, tipo_efecto="escudo", reducir_todo=False)
@@ -1550,6 +1629,11 @@ class JuegoOcaWeb:
              eventos.append(f"{obj.get_nombre()} no tiene energía para robar.")
              return {"exito": False, "eventos": eventos}
 
+        if self._verificar_efecto_activo(obj, "escudo"):
+            eventos.append(f"🛡️ {obj.get_nombre()} bloqueó el Robo (Escudo consumido).")
+            self._reducir_efectos_temporales(obj, tipo_efecto="escudo", reducir_todo=False)
+            return {"exito": False, "eventos": eventos} # Robo fallido por escudo
+
         # Comprobar Barrera del objetivo
         if self._verificar_efecto_activo(obj, "barrera"):
             eventos.append(f"🔮 {obj.get_nombre()} refleja el Robo.")
@@ -1573,7 +1657,7 @@ class JuegoOcaWeb:
                 elif getattr(jugador_afectado, '_ultimo_aliento_usado', False) and not getattr(jugador_afectado, '_ultimo_aliento_notificado', False):
                     self.eventos_turno.append(f"❤️‍🩹 ¡Último Aliento salvó a {jugador_afectado.get_nombre()}! Sobrevive con 50 E y Escudo (3 Turnos).")
                     jugador_afectado._ultimo_aliento_notificado = True
-            return {"exito": True, "eventos": eventos, "reflejo_exitoso": True, "jugador_reflejo": obj.get_nombre()} # Robo REFLEJADO 
+            return {"exito": True, "eventos": eventos, "reflejo_exitoso": True, "jugador_reflejo": obj.get_nombre()} # Robo REFLEJADO
 
         # Comprobar Escudo del objetivo
         elif self._verificar_efecto_activo(obj, "escudo"):
@@ -1666,6 +1750,11 @@ class JuegoOcaWeb:
         # Verificar si el objetivo puede ser afectado (Invisibilidad, etc.)
         if not self._puede_ser_afectado(obj, habilidad):
             return {"exito": False, "eventos": self.eventos_turno}
+
+        if self._verificar_efecto_activo(obj, "escudo"):
+            self._reducir_efectos_temporales(obj, tipo_efecto="escudo", reducir_todo=False)
+            eventos.append(f"🛡️ {obj.get_nombre()} bloqueó la Fuga de Energía con su escudo.")
+            return {"exito": False, "eventos": eventos}
 
         # Verificar Barrera
         if self._verificar_efecto_activo(obj, "barrera"):
@@ -2034,18 +2123,18 @@ class JuegoOcaWeb:
         if not self._puede_ser_afectado(obj, habilidad):
             return {"exito": False, "eventos": self.eventos_turno}
 
-        # Chequeo de Barrera (Disipa, no refleja)
-        if self._verificar_efecto_activo(obj, "barrera"):
-             self._remover_efecto(obj, "barrera") # Barrera se consume
-             eventos.append(f"🔮 {obj.get_nombre()} disipó los Hilos Espectrales con Barrera.")
-             return {"exito": False, "eventos": eventos}
-
         # Chequeo de Escudo (Bloquea)
         if self._verificar_efecto_activo(obj, "escudo"):
              self._reducir_efectos_temporales(obj, tipo_efecto="escudo", reducir_todo=False)
              eventos.append(f"🛡️ {obj.get_nombre()} bloqueó los Hilos Espectrales con Escudo.")
              return {"exito": False, "eventos": eventos}
 
+        # Chequeo de Barrera (Disipa, no refleja)
+        if self._verificar_efecto_activo(obj, "barrera"):
+             self._remover_efecto(obj, "barrera") # Barrera se consume
+             eventos.append(f"🔮 {obj.get_nombre()} disipó los Hilos Espectrales con Barrera.")
+             return {"exito": False, "eventos": eventos}
+        
         # Aplicar el Vínculo
         self._remover_efecto(jugador, "vinculo") 
         
@@ -2078,16 +2167,16 @@ class JuegoOcaWeb:
             # _puede_ser_afectado ya añade el evento de log
             return {"exito": False, "eventos": self.eventos_turno}
 
-        # Chequeo de Barrera (Disipa, no refleja)
-        if self._verificar_efecto_activo(obj, "barrera"):
-             self._remover_efecto(obj, "barrera")
-             eventos.append(f"🔮 {obj.get_nombre()} usó Barrera para cortar el Tirón.")
-             return {"exito": False, "eventos": eventos}
-
         # Chequeo de Escudo (Bloquea)
         if self._verificar_efecto_activo(obj, "escudo"):
              self._reducir_efectos_temporales(obj, tipo_efecto="escudo", reducir_todo=False)
              eventos.append(f"🛡️ {obj.get_nombre()} bloqueó el Tirón con Escudo.")
+             return {"exito": False, "eventos": eventos}
+        
+        # Chequeo de Barrera (Disipa, no refleja)
+        if self._verificar_efecto_activo(obj, "barrera"):
+             self._remover_efecto(obj, "barrera")
+             eventos.append(f"🔮 {obj.get_nombre()} usó Barrera para cortar el Tirón.")
              return {"exito": False, "eventos": eventos}
 
         # Calcular movimiento
@@ -2188,14 +2277,17 @@ class JuegoOcaWeb:
         # Chequear protecciones del OBJETIVO VINCULADO
         if not self._puede_ser_afectado(obj_vinculado, habilidad):
             return {"exito": False, "eventos": self.eventos_turno}
-        if self._verificar_efecto_activo(obj_vinculado, "barrera"):
-             self._remover_efecto(obj_vinculado, "barrera")
-             eventos.append(f"🔮 {obj_vinculado.get_nombre()} usó Barrera para disipar el Control Total.")
-             return {"exito": False, "eventos": eventos}
+        
         if self._verificar_efecto_activo(obj_vinculado, "escudo"):
              self._reducir_efectos_temporales(obj_vinculado, tipo_efecto="escudo", reducir_todo=False)
              eventos.append(f"🛡️ {obj_vinculado.get_nombre()} bloqueó el Control Total con Escudo.")
              return {"exito": False, "eventos": eventos}
+        
+        if self._verificar_efecto_activo(obj_vinculado, "barrera"):
+             self._remover_efecto(obj_vinculado, "barrera")
+             eventos.append(f"🔮 {obj_vinculado.get_nombre()} usó Barrera para disipar el Control Total.")
+             return {"exito": False, "eventos": eventos}
+
         
         DURACION_EFECTO = 2 
         
