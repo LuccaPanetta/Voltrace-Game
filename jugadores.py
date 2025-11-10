@@ -242,7 +242,8 @@ class JugadorWeb:
                     'tipo': h.tipo,
                     'descripcion': h.descripcion,
                     'simbolo': h.simbolo,
-                    'cooldown': self.habilidades_cooldown.get(h.nombre, 0)
+                    'cooldown': self.habilidades_cooldown.get(h.nombre, 0),
+                    'energia_coste': h.energia_coste
                 } for h in self.habilidades
             ],
             'efectos_activos': self.efectos_activos,

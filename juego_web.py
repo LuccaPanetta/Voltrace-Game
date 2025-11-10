@@ -208,7 +208,7 @@ class JuegoOcaWeb:
             jugador.dado_lanzado_este_turno = True
 
         # Verificar si este jugador está 'controlado'
-        efecto_control = self._verificar_efecto_activo(jugador, "controlado")
+        efecto_control = self._obtener_efecto_activo(jugador, "controlado")
         if efecto_control:
             nombre_controlador = efecto_control.get("controlador", "Alguien")
             valor_dado_forzado = efecto_control.get("dado_forzado")
@@ -2214,8 +2214,10 @@ class JuegoOcaWeb:
             return None # No hay jugadores, no hay ganador
         max_casillas = 0
         for j in self.jugadores:
+            # Calcula el puntaje base para TODOS
             j._puntaje_base_final = self._calcular_puntaje_final_avanzado(j)
 
+            # El bonus de explorador solo cuenta para jugadores activos
             if j.esta_activo():
                 count = len(getattr(j, 'tipos_casillas_visitadas', set()))
                 if count > max_casillas:
@@ -2229,8 +2231,7 @@ class JuegoOcaWeb:
             # Obtener el puntaje base calculado en el loop anterior
             puntaje_final = getattr(j, '_puntaje_base_final', 0)
             
-            # Aplicar el bonus si este jugador es uno de los máximos exploradores
-            if max_casillas > 0 and len(getattr(j, 'tipos_casillas_visitadas', set())) == max_casillas:
+            if j.esta_activo() and max_casillas > 0 and len(getattr(j, 'tipos_casillas_visitadas', set())) == max_casillas:
                 puntaje_final += BONUS_CASILLA
                 # Solo añadir el evento si el juego no ha terminado aún 
                 if not self.fin_juego: 
@@ -2239,7 +2240,7 @@ class JuegoOcaWeb:
             # Guardar el puntaje final CON bonus en el jugador
             j._puntaje_final_con_bonus = puntaje_final
             
-            # Comprobar si este jugador es el nuevo ganador 
+            # Comprobar si este jugador (activo) es el nuevo ganador 
             if j.esta_activo(): 
                 if puntaje_final >= max_score: 
                     max_score = puntaje_final
@@ -2248,6 +2249,7 @@ class JuegoOcaWeb:
         # Asegurarse de marcar el juego como terminado si aún no lo estaba
         self.fin_juego = True 
         
+        # Si por alguna razón ningún jugador activo califica
         return ganador_final
 
     def _calcular_puntaje_final_avanzado(self, jugador):

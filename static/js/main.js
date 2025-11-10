@@ -86,6 +86,7 @@ import { initArsenal, loadArsenalData } from './modules/arsenal.js';
             console.log("Iniciando precarga de datos sociales y de logros...");
             loadSocialData();
             loadAchievementsData();
+            loadArsenalData();
             loadGlossaryData();
             document.getElementById("btn-crear-sala").disabled = false;
             document.getElementById("btn-unirse-sala").disabled = false;
@@ -182,11 +183,9 @@ import { initArsenal, loadArsenalData } from './modules/arsenal.js';
             const kitId = e.currentTarget.dataset.kit;
             if (kitId && kitId !== state.kitSeleccionado.value) {
                 playSound('ClickMouse', 0.3);
-                // Guardar en servidor
                 socket.emit('guardar_kit', { kit_id: kitId });
-                // Actualizar estado local 
                 state.kitSeleccionado.value = kitId;
-                // Actualizar UI
+                state.currentUser.kit_id = kitId;
                 actualizarKitUI(kitId);
             }
         });
