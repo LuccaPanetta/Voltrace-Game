@@ -381,15 +381,6 @@ class JuegoOcaWeb:
         # Aplicar la reducción de cooldowns
         jugador.reducir_cooldowns(turnos=reduccion_cooldown)
 
-        # Lógica de Recarga Constante
-        if "recarga_constante" in jugador.perks_activos:
-            energia_ganada = jugador.procesar_energia(10)
-            if energia_ganada > 0 and jugador.get_puntaje() > 0:
-                eventos.append(f"🔋 Recarga Constante: +{energia_ganada} Energía aplicada.")
-            elif energia_ganada == 0:
-                eventos.append(f"🚫 Recarga Constante bloqueada.")
-
-        # Revisar si el jugador está sufriendo Fuga de Energía
         efecto_fuga = next((efecto for efecto in jugador.efectos_activos if efecto.get('tipo') == 'fuga_energia'), None)
         if efecto_fuga:
             dano = efecto_fuga.get('dano', 25)
@@ -410,6 +401,18 @@ class JuegoOcaWeb:
                 mensaje_elim = f"💀 ¡{jugador.get_nombre()} ha sido eliminado por Fuga de Energía!"
                 if mensaje_elim not in self.eventos_turno:
                     self.eventos_turno.append(mensaje_elim)
+        
+        # Lógica de Recarga Constante
+        if "recarga_constante" in jugador.perks_activos:
+            # Solo dar energía si el jugador sigue activo DESPUÉS del daño
+            if jugador.esta_activo():
+                energia_ganada = jugador.procesar_energia(10)
+                if energia_ganada > 0:
+                    eventos.append(f"🔋 Recarga Constante: +{energia_ganada} Energía aplicada.")
+                elif energia_ganada == 0:
+                    eventos.append(f"🚫 Recarga Constante bloqueada.")
+            else:
+                 eventos.append(f"🔋 Recarga Constante no se aplica (jugador inactivo).")
 
         print(f"DEBUG Verificando efectos para {jugador.get_nombre()}: {jugador.efectos_activos}") 
         if self._verificar_efecto_activo(jugador, "sobrecarga_pendiente"):
