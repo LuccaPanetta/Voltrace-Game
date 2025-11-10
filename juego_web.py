@@ -231,31 +231,6 @@ class JuegoOcaWeb:
                 self._reducir_efectos_temporales(jugador, tipo_efecto="controlado", reducir_todo=False) 
                 self._avanzar_turno() 
                 return {"exito": True, "eventos": self.eventos_turno, "pausado": True}
-            
-        # Verificar si este jugador está 'controlado'
-        efecto_control = self._verificar_efecto_activo(jugador, "controlado")
-        if efecto_control:
-            # Si está controlado, el 'controlador' debe haber forzado un dado.
-            nombre_controlador = efecto_control.get("controlador")
-            controlador = self._encontrar_jugador(nombre_controlador)
-            
-            # Buscar si el controlador seteó un 'dado_forzado' para este objetivo
-            if controlador and hasattr(controlador, 'dado_forzado') and controlador.dado_forzado:
-                valor_dado_forzado = controlador.dado_forzado
-                controlador.dado_forzado = None # Consumir el dado
-                
-                # Asignar el dado al jugador 'controlado'
-                jugador.dado_forzado = valor_dado_forzado
-                
-                print(f"--- CONTROL TOTAL: {nombre_controlador} fuerza a {nombre_jugador} a moverse {valor_dado_forzado} ---")
-                
-                # Añadir un evento de log especial
-                self.eventos_turno.append(f"🎮 ¡Control Total! {nombre_controlador} fuerza a {nombre_jugador} a sacar un {valor_dado_forzado}.")
-                
-                pass # Continuar con el turno...
-            
-            else:
-                print(f"--- CONTROL TOTAL: {nombre_jugador} está controlado, pero {nombre_controlador} no forzó un dado. El turno se perderá por 'pausa'. ---")
 
         # Procesar Cooldowns y Efectos de Inicio de Turno
         eventos_inicio_turno = self._procesar_inicio_turno(jugador)
@@ -282,7 +257,7 @@ class JuegoOcaWeb:
         consecutive_sixes_count = 0 
         
         # ¿Está el jugador 'Controlado'?
-        efecto_control = self._verificar_efecto_activo(jugador, "controlado")
+        efecto_control = self._obtener_efecto_activo(jugador, "controlado")
 
         if efecto_control and hasattr(jugador, 'dado_forzado') and jugador.dado_forzado:
             # CASO A: Fue forzado por "Control Total".
@@ -474,6 +449,40 @@ class JuegoOcaWeb:
             print(f"DEBUG Efecto 'sobrecarga_pendiente' removido para {jugador.get_nombre()}.") 
         else:
             print(f"DEBUG Efecto 'sobrecarga_pendiente' NO detectado para {jugador.get_nombre()}.") 
+
+        efecto_movimiento = self._obtener_efecto_activo(jugador, "movimiento_forzado")
+        if efecto_movimiento:
+            valor_dado = efecto_movimiento.get("dado_forzado", 1) # Usar 1 si falla
+            controlador = efecto_movimiento.get("controlador", "El Titiritero")
+            eventos.append(f"🎮 ¡Control Total! {controlador} te fuerza a moverte {valor_dado} casillas.")
+
+            # Marcar dado/habilidad como "usados" para que no pueda actuar
+            if hasattr(jugador, 'dado_lanzado_este_turno'):
+                jugador.dado_lanzado_este_turno = True
+            if hasattr(jugador, 'habilidad_usada_este_turno'):
+                jugador.habilidad_usada_este_turno = True
+
+            # Procesar el movimiento (como un "dado perfecto" forzado)
+            pos_inicial = jugador.get_posicion()
+            jugador.avanzar(valor_dado)
+            pos_final = jugador.get_posicion()
+            eventos.append(f"{jugador.get_nombre()} se mueve a la posición {pos_final}")
+            
+            # Procesar la casilla de destino
+            if pos_final < self.posicion_meta:
+                posicion_procesada = -1 
+                posicion_actual = pos_final
+                # Bucle para manejar casillas en cadena (ej. portal a trampa)
+                while posicion_actual < self.posicion_meta and posicion_actual != posicion_procesada:
+                    posicion_procesada = posicion_actual 
+                    self._procesar_efectos_posicion(jugador, posicion_procesada) 
+                    self._verificar_colision(jugador, posicion_procesada)
+                    posicion_actual = jugador.get_posicion()
+                    if posicion_actual == posicion_procesada:
+                        break # Salir si la posición no cambió
+            
+            # Consumir el efecto de movimiento
+            self._remover_efecto(jugador, "movimiento_forzado")
 
         return eventos
 
@@ -2161,6 +2170,7 @@ class JuegoOcaWeb:
             eventos.append("Valor inválido para Control Total. Debes elegir un número del 1 al 6.")
             return {"exito": False, "eventos": eventos}
 
+        # Encontrar el Vínculo
         efecto_vinculo = self._obtener_efecto_activo(jugador, "vinculo")
         if not efecto_vinculo:
             return {"exito": False, "eventos": ["No tienes a nadie vinculado."]}
@@ -2171,6 +2181,7 @@ class JuegoOcaWeb:
         if not obj_vinculado or not obj_vinculado.esta_activo():
             return {"exito": False, "eventos": [f"Tu objetivo vinculado ({nombre_objetivo_vinculado}) no está disponible."]}
 
+        # Chequear protecciones del OBJETIVO VINCULADO
         if not self._puede_ser_afectado(obj_vinculado, habilidad):
             return {"exito": False, "eventos": self.eventos_turno}
         if self._verificar_efecto_activo(obj_vinculado, "barrera"):
@@ -2182,17 +2193,22 @@ class JuegoOcaWeb:
              eventos.append(f"🛡️ {obj_vinculado.get_nombre()} bloqueó el Control Total con Escudo.")
              return {"exito": False, "eventos": eventos}
         
-        DURACION_CONTROL = 2 # Dura hasta el inicio de su próximo turno
-        self._remover_efecto(obj_vinculado, "controlado") 
+        DURACION_EFECTO = 2 
         
+        # Aplicar el movimiento forzado
+        self._remover_efecto(obj_vinculado, "movimiento_forzado") # Limpiar anterior
         obj_vinculado.efectos_activos.append({
-            "tipo": "controlado", 
+            "tipo": "movimiento_forzado", 
             "controlador": jugador.get_nombre(), 
             "dado_forzado": valor_dado, 
-            "turnos": DURACION_CONTROL
+            "turnos": DURACION_EFECTO
         })
         
-        eventos.append(f"🎮 ¡Control Total aplicado! {obj_vinculado.get_nombre()} será forzado a moverse {valor_dado} casillas en su turno.")
+        # Aplicar la pausa
+        self._remover_efecto(obj_vinculado, "pausa") 
+        obj_vinculado.efectos_activos.append({"tipo": "pausa", "turnos": DURACION_EFECTO})
+        
+        eventos.append(f"🎮 ¡Control Total aplicado! {obj_vinculado.get_nombre()} será forzado a moverse {valor_dado} casillas y perderá su turno.")
         return {"exito": True, "eventos": eventos}
     
     # ===================================================================
@@ -2214,14 +2230,16 @@ class JuegoOcaWeb:
             return None # No hay jugadores, no hay ganador
         max_casillas = 0
         for j in self.jugadores:
-            # Calcula el puntaje base para TODOS
-            j._puntaje_base_final = self._calcular_puntaje_final_avanzado(j)
-
-            # El bonus de explorador solo cuenta para jugadores activos
             if j.esta_activo():
+                # Calcula el puntaje base solo si está activo
+                j._puntaje_base_final = self._calcular_puntaje_final_avanzado(j)
+                
+                # El bonus de explorador solo cuenta para jugadores activos
                 count = len(getattr(j, 'tipos_casillas_visitadas', set()))
                 if count > max_casillas:
                     max_casillas = count
+            else:
+                j._puntaje_base_final = 0
 
         BONUS_CASILLA = 100
         ganador_final = None
