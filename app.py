@@ -125,6 +125,7 @@ Si no solicitaste este cambio, simplemente ignorá este email.
         return False
     
 # --- Configuración de la Base de Datos (SQLAlchemy) ---
+db_lock = threading.Lock()
 basedir = os.path.abspath(os.path.dirname(__file__))
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL:
@@ -192,108 +193,112 @@ def update_xp_and_level(user, xp_to_add):
 
 def _procesar_creacion_sala_db_async(app, sid, username):
     with app.app_context():
-        try:
-            print(f"--- THREAD: Procesando XP/Logros de creación de sala para: {username}")
-            user = User.query.filter_by(username=username).first()
-            if user:
-                user.rooms_created = getattr(user, 'rooms_created', 0) + 1 
-                level_up = update_xp_and_level(user, 5) 
-                socketio.emit('profile_stats_updated', {
-                    'rooms_created': user.rooms_created,
-                    'xp': user.xp,
-                    'level': user.level,
-                    'xp_next_level': get_xp_for_next_level(user.level)
-                }, to=sid)
-                if level_up:
-                    socketio.emit('level_up', {'new_level': user.level, 'xp': user.xp}, to=sid)
+        with db_lock:
+            try:
+                print(f"--- THREAD: Procesando XP/Logros de creación de sala para: {username}")
+                user = User.query.filter_by(username=username).first()
+                if user:
+                    user.rooms_created = getattr(user, 'rooms_created', 0) + 1 
+                    level_up = update_xp_and_level(user, 5) 
+                    socketio.emit('profile_stats_updated', {
+                        'rooms_created': user.rooms_created,
+                        'xp': user.xp,
+                        'level': user.level,
+                        'xp_next_level': get_xp_for_next_level(user.level)
+                    }, to=sid)
+                    if level_up:
+                        socketio.emit('level_up', {'new_level': user.level, 'xp': user.xp}, to=sid)
+                    
+                    # Verificar logros
+                    unlocked_list = achievement_system.check_achievement(username, 'room_created')
+                    if unlocked_list:
+                        socketio.emit('achievements_unlocked', {
+                            'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_list]
+                        }, to=sid)
+                print(f"--- THREAD: Fin de procesamiento de creación de sala para: {username}")
+            except Exception as e:
+                print(f"!!! ERROR FATAL en _procesar_creacion_sala_db_async: {e}")
+                traceback.print_exc()
+
+def _procesar_habilidad_db_async(app, sid, username, event_data=None):
+    with app.app_context():
+        with db_lock:
+            try:
+                if event_data is None:
+                    event_data = {} # Asegurar que sea un dict
+                    
+                print(f"--- THREAD: Procesando XP/Logros de habilidad para: {username}. Event data: {event_data}")
+                user_db = User.query.filter_by(username=username).first()
+                if user_db:
+                    # Actualizar XP y Nivel
+                    user_db.abilities_used = getattr(user_db, 'abilities_used', 0) + 1
+                    level_up = update_xp_and_level(user_db, 10)
+                    socketio.emit('profile_stats_updated', {
+                        'abilities_used': user_db.abilities_used,
+                        'xp': user_db.xp,
+                        'level': user_db.level,
+                        'xp_next_level': get_xp_for_next_level(user_db.level)
+                    }, to=sid)
+                    if level_up:
+                        socketio.emit('level_up', {'new_level': user_db.level, 'xp': user_db.xp}, to=sid)
                 
-                # Verificar logros
-                unlocked_list = achievement_system.check_achievement(username, 'room_created')
+                # Pasar el event_data completo a check_achievement
+                unlocked_list = achievement_system.check_achievement(username, 'ability_used', event_data)
+
                 if unlocked_list:
                     socketio.emit('achievements_unlocked', {
                         'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_list]
                     }, to=sid)
-            print(f"--- THREAD: Fin de procesamiento de creación de sala para: {username}")
-        except Exception as e:
-            print(f"!!! ERROR FATAL en _procesar_creacion_sala_db_async: {e}")
-            traceback.print_exc()
-
-def _procesar_habilidad_db_async(app, sid, username, event_data=None):
-    with app.app_context():
-        try:
-            if event_data is None:
-                event_data = {} # Asegurar que sea un dict
                 
-            print(f"--- THREAD: Procesando XP/Logros de habilidad para: {username}. Event data: {event_data}")
-            user_db = User.query.filter_by(username=username).first()
-            if user_db:
-                # Actualizar XP y Nivel
-                user_db.abilities_used = getattr(user_db, 'abilities_used', 0) + 1
-                level_up = update_xp_and_level(user_db, 10)
-                socketio.emit('profile_stats_updated', {
-                    'abilities_used': user_db.abilities_used,
-                    'xp': user_db.xp,
-                    'level': user_db.level,
-                    'xp_next_level': get_xp_for_next_level(user_db.level)
-                }, to=sid)
-                if level_up:
-                    socketio.emit('level_up', {'new_level': user_db.level, 'xp': user_db.xp}, to=sid)
-            
-            # Pasar el event_data completo a check_achievement
-            unlocked_list = achievement_system.check_achievement(username, 'ability_used', event_data)
+                print(f"--- THREAD: Fin de procesamiento para: {username}")
+            except Exception as e:
+                print(f"!!! ERROR FATAL en _procesar_habilidad_db_async: {e}")
+                traceback.print_exc()
 
-            if unlocked_list:
-                socketio.emit('achievements_unlocked', {
-                    'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_list]
-                }, to=sid)
-            
-            print(f"--- THREAD: Fin de procesamiento para: {username}")
-        except Exception as e:
-            print(f"!!! ERROR FATAL en _procesar_habilidad_db_async: {e}")
-            traceback.print_exc()
 def _procesar_chat_db_async(app, sid, username, id_sala):
     with app.app_context():
-        try:
-            
-            user_db = User.query.filter_by(username=username).first()
-            if user_db:
-                user_db.game_messages_sent = getattr(user_db, 'game_messages_sent', 0) + 1
-                update_xp_and_level(user_db, 1)
-            
-            # Incrementar el contador de la partida actual en JuegoOcaWeb
-            sala = salas_activas.get(id_sala)
-            if sala and sala.juego:
-                jugador_juego = sala.juego._encontrar_jugador(username)
-                if jugador_juego:
-                    jugador_juego.game_messages_sent_this_match = getattr(jugador_juego, 'game_messages_sent_this_match', 0) + 1
-            
-        except Exception as e:
-            print(f"!!! ERROR en _procesar_chat_db_async: {e}")
-            traceback.print_exc()
+        with db_lock:
+            try:
+                user_db = User.query.filter_by(username=username).first()
+                if user_db:
+                    user_db.game_messages_sent = getattr(user_db, 'game_messages_sent', 0) + 1
+                    update_xp_and_level(user_db, 1)
+                
+                # Incrementar el contador de la partida actual en JuegoOcaWeb
+                sala = salas_activas.get(id_sala)
+                if sala and sala.juego:
+                    jugador_juego = sala.juego._encontrar_jugador(username)
+                    if jugador_juego:
+                        jugador_juego.game_messages_sent_this_match = getattr(jugador_juego, 'game_messages_sent_this_match', 0) + 1
+                
+            except Exception as e:
+                print(f"!!! ERROR en _procesar_chat_db_async: {e}")
+                traceback.print_exc()
 
 def _procesar_pm_db_async(app, sid, sender_username):
     with app.app_context():
-        try:
-            user_db = User.query.filter_by(username=sender_username).first()
-            if user_db:
-                user_db.private_messages_sent = getattr(user_db, 'private_messages_sent', 0) + 1 
-                db.session.commit()
-            
-            unlocked = achievement_system.check_achievement(sender_username, 'private_message_sent')
-            if unlocked:
-                socketio.emit('achievements_unlocked', {
-                    'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked]
-                }, to=sid)
-            
-        except Exception as e:
-            print(f"!!! ERROR en _procesar_pm_db_async: {e}")
-            traceback.print_exc()
+        with db_lock:
+            try:
+                user_db = User.query.filter_by(username=sender_username).first()
+                if user_db:
+                    user_db.private_messages_sent = getattr(user_db, 'private_messages_sent', 0) + 1 
+                    db.session.commit()
+                
+                unlocked = achievement_system.check_achievement(sender_username, 'private_message_sent')
+                if unlocked:
+                    socketio.emit('achievements_unlocked', {
+                        'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked]
+                    }, to=sid)
+                
+            except Exception as e:
+                print(f"!!! ERROR en _procesar_pm_db_async: {e}")
+                traceback.print_exc()
 
 # --- Configurar SocketIO ---
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # --- Inicialización de Sistemas ---
-achievement_system = AchievementSystem()
+achievement_system = AchievementSystem(db_lock)
 social_system = SocialSystem()
 
 # --- Creación de Tablas de DB (si no existen) ---
@@ -2679,149 +2684,151 @@ def limpiar_salas_inactivas():
 
 def _procesar_estadisticas_fin_juego_async(app, jugadores_items, ganador_nombre, ronda, player_count_db, juego_obj):
     with app.app_context():
-        print(f"--- THREAD: Iniciando procesamiento de estadísticas para {len(jugadores_items)} jugadores...")
-        try:
-            for sid, jugador_data in jugadores_items:
-                if sid in sessions_activas: 
-                    username = sessions_activas[sid]['username']
-                    
-                    jugador_nombre_loop = jugador_data['nombre']
-                    jugador_juego = juego_obj._encontrar_jugador(jugador_nombre_loop)
-                    if not jugador_juego:
-                        print(f"ADVERTENCIA: No se encontró a {jugador_nombre_loop} en el objeto juego. Omitiendo stats.")
-                        continue
+        with db_lock:
+            print(f"--- THREAD: Iniciando procesamiento de estadísticas para {len(jugadores_items)} jugadores...")
+            try:
+                for sid, jugador_data in jugadores_items:
+                    if sid in sessions_activas: 
+                        username = sessions_activas[sid]['username']
+                        
+                        jugador_nombre_loop = jugador_data['nombre']
+                        jugador_juego = juego_obj._encontrar_jugador(jugador_nombre_loop)
+                        if not jugador_juego:
+                            print(f"ADVERTENCIA: No se encontró a {jugador_nombre_loop} en el objeto juego. Omitiendo stats.")
+                            continue
 
-                    if jugador_juego:
-                        is_winner = jugador_nombre_loop == ganador_nombre
-                        user_db = User.query.filter_by(username=username).first()
-                        if user_db:
-                            user_db.games_played += 1
-                            xp_ganada = 50 
-                            
-                            current_consecutive_wins = 0 
-                            if is_winner: 
-                                user_db.games_won += 1
-                                xp_ganada += 25 
-                                user_db.consecutive_wins = getattr(user_db, 'consecutive_wins', 0) + 1
-                                current_consecutive_wins = user_db.consecutive_wins
-                            else:
-                                user_db.consecutive_wins = 0
-                                current_consecutive_wins = 0
+                        if jugador_juego:
+                            is_winner = jugador_nombre_loop == ganador_nombre
+                            user_db = User.query.filter_by(username=username).first()
+                            if user_db:
+                                user_db.games_played += 1
+                                xp_ganada = 50 
+                                
+                                current_consecutive_wins = 0 
+                                if is_winner: 
+                                    user_db.games_won += 1
+                                    xp_ganada += 25 
+                                    user_db.consecutive_wins = getattr(user_db, 'consecutive_wins', 0) + 1
+                                    current_consecutive_wins = user_db.consecutive_wins
+                                else:
+                                    user_db.consecutive_wins = 0
+                                    current_consecutive_wins = 0
 
-                            if user_db.level >= 5:
-                                try:
-                                    kit_usado = jugador_data.get('kit_id', 'tactico')
-                                    xp_maestria_ganada = 100 if is_winner else 50 
-                                    
-                                    maestria = UserKitMaestria.query.filter_by(
-                                        user_id=user_db.id,
-                                        kit_id=kit_usado
-                                    ).first()
-                                    
-                                    if not maestria:
-                                        maestria = UserKitMaestria(
+                                if user_db.level >= 5:
+                                    try:
+                                        kit_usado = jugador_data.get('kit_id', 'tactico')
+                                        xp_maestria_ganada = 100 if is_winner else 50 
+                                        
+                                        maestria = UserKitMaestria.query.filter_by(
                                             user_id=user_db.id,
-                                            kit_id=kit_usado,
-                                            xp=0,
-                                            level=1
-                                        )
-                                    
-                                    maestria.xp += xp_maestria_ganada
-                                    
-                                    MAESTRIA_XP_NV10 = 6750 
-                                    
-                                    if maestria.xp >= MAESTRIA_XP_NV10 and maestria.cosmetic_unlocked == False:
-                                        maestria.cosmetic_unlocked = True
-                                        print(f"--- COSMÉTICO DESBLOQUEADO: {kit_usado} para {user_db.username}")
-                                        socketio.emit('cosmetic_unlocked', {'kit_id': kit_usado}, to=sid)
+                                            kit_id=kit_usado
+                                        ).first()
+                                        
+                                        if not maestria:
+                                            maestria = UserKitMaestria(
+                                                user_id=user_db.id,
+                                                kit_id=kit_usado,
+                                                xp=0,
+                                                level=1
+                                            )
+                                        
+                                        maestria.xp += xp_maestria_ganada
+                                        
+                                        MAESTRIA_XP_NV10 = 6750 
+                                        
+                                        if maestria.xp >= MAESTRIA_XP_NV10 and maestria.cosmetic_unlocked == False:
+                                            maestria.cosmetic_unlocked = True
+                                            print(f"--- COSMÉTICO DESBLOQUEADO: {kit_usado} para {user_db.username}")
+                                            socketio.emit('cosmetic_unlocked', {'kit_id': kit_usado}, to=sid)
 
-                                    db.session.add(maestria)
-                                    print(f"--- MAESTRÍA: {xp_maestria_ganada} XP añadidos a {user_db.username} para kit {kit_usado}. Total: {maestria.xp}")
+                                        db.session.add(maestria)
+                                        print(f"--- MAESTRÍA: {xp_maestria_ganada} XP añadidos a {user_db.username} para kit {kit_usado}. Total: {maestria.xp}")
 
-                                except Exception as e:
-                                    db.session.rollback() 
-                                    print(f"!!! ERROR al procesar Maestría de Kit: {e}")
+                                    except Exception as e:
+                                        db.session.rollback() 
+                                        print(f"!!! ERROR al procesar Maestría de Kit: {e}")
 
-                            level_up = update_xp_and_level(user_db, xp_ganada) 
-                            
-                            socketio.emit('profile_stats_updated', {
-                                'games_played': user_db.games_played,
-                                'games_won': user_db.games_won,
-                                'consecutive_wins': user_db.consecutive_wins,
-                                'xp': user_db.xp,
-                                'level': user_db.level,
-                                'equipped_title': getattr(user_db, 'equipped_title', None),
-                                'xp_next_level': get_xp_for_next_level(user_db.level)
-                            }, to=sid)
-                            
-                            event_data = {
-                                'won': is_winner,
-                                'final_energy': jugador_juego.get_puntaje(),
-                                'reached_position': jugador_juego.get_posicion(),
-                                'total_rounds': ronda,
-                                'player_count': player_count_db, 
-                                'colisiones': getattr(jugador_juego, 'colisiones_causadas', 0),
-                                'special_tiles_activated': getattr(jugador_juego, 'tipos_casillas_visitadas', set()),
-                                'abilities_used': getattr(jugador_juego, 'habilidades_usadas_en_partida', 0),
-                                'treasures_this_game': getattr(jugador_juego, 'tesoros_recogidos', 0),
-                                'completed_without_traps': getattr(jugador_juego, 'trampas_evitadas', True),
-                                'precision_laser': getattr(jugador_juego, 'dado_perfecto_usado', 0),
-                                'messages_this_game': getattr(jugador_juego, 'game_messages_sent_this_match', 0),
-                                'only_active_player': len([j for j in juego_obj.jugadores if j.esta_activo()]) == 1,
-                                'never_eliminated': jugador_juego.esta_activo(),
-                                'energy_packs_collected': getattr(jugador_juego, 'energy_packs_collected', 0),
-                                'consecutive_wins': current_consecutive_wins,
-                                'ultimo_en_mid_game': getattr(juego_obj, 'ultimo_en_mid_game', None)
-                            }
-
-                            unlocked_achievements = achievement_system.check_achievement(username, 'game_finished', event_data) 
-                            if unlocked_achievements:
-                                socketio.emit('achievements_unlocked', {
-                                    'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_achievements]
+                                level_up = update_xp_and_level(user_db, xp_ganada) 
+                                
+                                socketio.emit('profile_stats_updated', {
+                                    'games_played': user_db.games_played,
+                                    'games_won': user_db.games_won,
+                                    'consecutive_wins': user_db.consecutive_wins,
+                                    'xp': user_db.xp,
+                                    'level': user_db.level,
+                                    'equipped_title': getattr(user_db, 'equipped_title', None),
+                                    'xp_next_level': get_xp_for_next_level(user_db.level)
                                 }, to=sid)
-                        social_system.update_user_presence(username, 'online', {'sid': sid})
-            print("--- THREAD: Procesamiento de estadísticas COMPLETO.")
-        except Exception as e:
-            print(f"!!! ERROR FATAL en hilo _procesar_estadisticas_fin_juego: {e}")
-            traceback.print_exc()
+                                
+                                event_data = {
+                                    'won': is_winner,
+                                    'final_energy': jugador_juego.get_puntaje(),
+                                    'reached_position': jugador_juego.get_posicion(),
+                                    'total_rounds': ronda,
+                                    'player_count': player_count_db, 
+                                    'colisiones': getattr(jugador_juego, 'colisiones_causadas', 0),
+                                    'special_tiles_activated': getattr(jugador_juego, 'tipos_casillas_visitadas', set()),
+                                    'abilities_used': getattr(jugador_juego, 'habilidades_usadas_en_partida', 0),
+                                    'treasures_this_game': getattr(jugador_juego, 'tesoros_recogidos', 0),
+                                    'completed_without_traps': getattr(jugador_juego, 'trampas_evitadas', True),
+                                    'precision_laser': getattr(jugador_juego, 'dado_perfecto_usado', 0),
+                                    'messages_this_game': getattr(jugador_juego, 'game_messages_sent_this_match', 0),
+                                    'only_active_player': len([j for j in juego_obj.jugadores if j.esta_activo()]) == 1,
+                                    'never_eliminated': jugador_juego.esta_activo(),
+                                    'energy_packs_collected': getattr(jugador_juego, 'energy_packs_collected', 0),
+                                    'consecutive_wins': current_consecutive_wins,
+                                    'ultimo_en_mid_game': getattr(juego_obj, 'ultimo_en_mid_game', None)
+                                }
+
+                                unlocked_achievements = achievement_system.check_achievement(username, 'game_finished', event_data) 
+                                if unlocked_achievements:
+                                    socketio.emit('achievements_unlocked', {
+                                        'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_achievements]
+                                    }, to=sid)
+                            social_system.update_user_presence(username, 'online', {'sid': sid})
+                print("--- THREAD: Procesamiento de estadísticas COMPLETO.")
+            except Exception as e:
+                print(f"!!! ERROR FATAL en hilo _procesar_estadisticas_fin_juego: {e}")
+                traceback.print_exc()
 
 def _procesar_abandono_db_async(app, username, juego_obj, sala_jugadores_count):
     with app.app_context():
-        try:
-            print(f"--- THREAD: Actualizando estadísticas de abandono para {username}...")
-            user_db = User.query.filter_by(username=username).first()
-            jugador_juego = juego_obj._encontrar_jugador(username) 
+        with db_lock:
+            try:
+                print(f"--- THREAD: Actualizando estadísticas de abandono para {username}...")
+                user_db = User.query.filter_by(username=username).first()
+                jugador_juego = juego_obj._encontrar_jugador(username) 
 
-            if user_db and jugador_juego:
-                user_db.games_played += 1
-                update_xp_and_level(user_db, 25) # Dar una pequeña cantidad de XP por participar
-                
-                # Re-crear el event_data que estaba en _finalizar_desconexion
-                event_data = {
-                    'won': False, 
-                    'final_energy': jugador_juego.get_puntaje(),
-                    'reached_position': jugador_juego.get_posicion(),
-                    'total_rounds': juego_obj.ronda,
-                    'player_count': sala_jugadores_count + 1,
-                    'colisiones': getattr(jugador_juego, 'colisiones_causadas', 0),
-                    'special_tiles_activated': getattr(jugador_juego, 'tipos_casillas_visitadas', set()),
-                    'abilities_used': getattr(jugador_juego, 'habilidades_usadas_en_partida', 0),
-                    'treasures_this_game': getattr(jugador_juego, 'tesoros_recogidos', 0),
-                    'completed_without_traps': False,
-                    'precision_laser': getattr(jugador_juego, 'dado_perfecto_usado', 0),
-                    'messages_this_game': getattr(jugador_juego, 'game_messages_sent_this_match', 0),
-                    'only_active_player': False,
-                    'never_eliminated': False, 
-                    'energy_packs_collected': getattr(jugador_juego, 'energy_packs_collected', 0)
-                }
-                achievement_system.check_achievement(username, 'game_finished', event_data)
-                print(f"--- THREAD: Estadísticas de abandono para {username} actualizadas.")
-            else:
-                print(f"--- THREAD (WARN): No se encontró {username} en DB o juego para stats de abandono.")
-        except Exception as e:
-            db.session.rollback()
-            print(f"!!! ERROR en _procesar_abandono_db_async: {e}")
-            traceback.print_exc()
+                if user_db and jugador_juego:
+                    user_db.games_played += 1
+                    update_xp_and_level(user_db, 25) # Dar una pequeña cantidad de XP por participar
+                    
+                    # Re-crear el event_data que estaba en _finalizar_desconexion
+                    event_data = {
+                        'won': False, 
+                        'final_energy': jugador_juego.get_puntaje(),
+                        'reached_position': jugador_juego.get_posicion(),
+                        'total_rounds': juego_obj.ronda,
+                        'player_count': sala_jugadores_count + 1,
+                        'colisiones': getattr(jugador_juego, 'colisiones_causadas', 0),
+                        'special_tiles_activated': getattr(jugador_juego, 'tipos_casillas_visitadas', set()),
+                        'abilities_used': getattr(jugador_juego, 'habilidades_usadas_en_partida', 0),
+                        'treasures_this_game': getattr(jugador_juego, 'tesoros_recogidos', 0),
+                        'completed_without_traps': False,
+                        'precision_laser': getattr(jugador_juego, 'dado_perfecto_usado', 0),
+                        'messages_this_game': getattr(jugador_juego, 'game_messages_sent_this_match', 0),
+                        'only_active_player': False,
+                        'never_eliminated': False, 
+                        'energy_packs_collected': getattr(jugador_juego, 'energy_packs_collected', 0)
+                    }
+                    achievement_system.check_achievement(username, 'game_finished', event_data)
+                    print(f"--- THREAD: Estadísticas de abandono para {username} actualizadas.")
+                else:
+                    print(f"--- THREAD (WARN): No se encontró {username} en DB o juego para stats de abandono.")
+            except Exception as e:
+                db.session.rollback()
+                print(f"!!! ERROR en _procesar_abandono_db_async: {e}")
+                traceback.print_exc()
 
 def get_friends_list_server_safe(username):
     user = User.query.filter_by(username=username).first()

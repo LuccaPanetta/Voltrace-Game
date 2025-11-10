@@ -203,31 +203,6 @@ class JuegoOcaWeb:
         if hasattr(jugador, 'dado_lanzado_este_turno'):
             jugador.dado_lanzado_este_turno = True
 
-        # Verificar si este jugador está 'controlado'
-        efecto_control = self._obtener_efecto_activo(jugador, "controlado")
-        if efecto_control:
-            nombre_controlador = efecto_control.get("controlador", "Alguien")
-            valor_dado_forzado = efecto_control.get("dado_forzado")
-            
-            if valor_dado_forzado:
-                # El efecto TIENE un dado guardado.
-                jugador.dado_forzado = valor_dado_forzado # Asignar al jugador
-                
-                print(f"--- CONTROL TOTAL: {nombre_controlador} fuerza a {nombre_jugador} a moverse {valor_dado_forzado} ---")
-                self.eventos_turno.append(f"🎮 ¡Control Total! {nombre_controlador} fuerza a {nombre_jugador} a sacar un {valor_dado_forzado}.")
-                
-                # Consumir el efecto
-                self._reducir_efectos_temporales(jugador, tipo_efecto="controlado", reducir_todo=False)
-
-            else:
-                print(f"--- CONTROL TOTAL (ERROR): {nombre_jugador} está controlado, pero no se encontró 'dado_forzado'. {nombre_jugador} pierde el turno. ---")
-                self.eventos_turno.append(f"🎮 ¡Control Total! {nombre_jugador} está paralizado y pierde su turno.")
-                
-                self.eventos_turno.extend(self._procesar_inicio_turno(jugador))
-                self._reducir_efectos_temporales(jugador, tipo_efecto="controlado", reducir_todo=False) 
-                self._avanzar_turno() 
-                return {"exito": True, "eventos": self.eventos_turno, "pausado": True}
-
         # Procesar Cooldowns y Efectos de Inicio de Turno
         eventos_inicio_turno = self._procesar_inicio_turno(jugador)
         self.eventos_turno = [] # Limpiar eventos
@@ -246,29 +221,33 @@ class JuegoOcaWeb:
             self._reducir_efectos_temporales(jugador) # Consume el turno de pausa
             self._avanzar_turno() # Avanza el turno INMEDIATAMENTE
             return {"exito": True, "eventos": self.eventos_turno, "pausado": True}
-
-        # Lógica del Dado
+        
         dado_final = 0
         es_doble_dado = self._verificar_efecto_activo(jugador, "doble_dado")
         consecutive_sixes_count = 0 
         
-        # ¿Está el jugador 'Controlado'?
-        efecto_control = self._obtener_efecto_activo(jugador, "controlado")
-
-        if efecto_control and hasattr(jugador, 'dado_forzado') and jugador.dado_forzado:
-            # CASO A: Fue forzado por "Control Total".
-            dado_final = jugador.dado_forzado
-            jugador.dado_forzado = None # Consumir el dado
-            jugador.consecutive_sixes = 0
+        # CASO A: ¿Está el jugador 'Controlado' por "Control Total"?
+        efecto_control = self._obtener_efecto_activo(jugador, "movimiento_forzado")
+        
+        if efecto_control:
+            valor_dado_forzado = efecto_control.get("dado_forzado", 1) # Usar 1 si falla
+            controlador = efecto_control.get("controlador", "El Titiritero")
             
+            dado_final = valor_dado_forzado
+            jugador.consecutive_sixes = 0 # No cuenta como racha
+            
+            self.eventos_turno.append(f"🎮 ¡Control Total! {controlador} te fuerza a moverte {dado_final} casillas.")
+            
+            # Consumir el efecto
+            self._remover_efecto(jugador, "movimiento_forzado")
+
+        # CASO B: ¿Usó "Dado Perfecto"?
         elif hasattr(jugador, 'dado_forzado') and jugador.dado_forzado:
-            # CASO B: NO está controlado, PERO usó "Dado Perfecto".
             dado1 = jugador.dado_forzado
             jugador.dado_forzado = None
             dado_final = dado1
             
             self.eventos_turno.append(f"🎯 {nombre_jugador} usó Dado Perfecto: {dado1}")
-
             jugador.consecutive_sixes = 0
 
             if "dado_cargado" in jugador.perks_activos:
@@ -281,8 +260,9 @@ class JuegoOcaWeb:
                 elif 4 <= dado1 <= 6:
                     jugador.ganar_pm(1, fuente="perk_dado_cargado")
                     self.eventos_turno.append(f"✨ (Dado Cargado): ¡Ganas +1 PM!")
+        
+        # CASO C: Tirada Normal
         else:
-            # CASO C: Tirada Normal.
             dado1 = randint(1, 6)
             dado_final = dado1
             
@@ -417,9 +397,11 @@ class JuegoOcaWeb:
             else:
                 eventos.append(f"🩸 {jugador.get_nombre()} pierde {abs(cambio_energia_real)} E por Fuga de Energía.")
                 
+            # Comprobar si Último Aliento se activó ANTES de declarar la muerte
             if getattr(jugador, '_ultimo_aliento_usado', False) and not getattr(jugador, '_ultimo_aliento_notificado', False):
                 self.eventos_turno.append(f"❤️‍🩹 ¡Último Aliento salvó a {jugador.get_nombre()}! Sobrevive con 50 E y Escudo (3 Turnos).")
                 jugador._ultimo_aliento_notificado = True # Marcar como notificado
+            # Si no fue salvado Y está inactivo, AHORA sí mostrar mensaje de eliminación
             elif not jugador.esta_activo():
                 mensaje_elim = f"💀 ¡{jugador.get_nombre()} ha sido eliminado por Fuga de Energía!"
                 if mensaje_elim not in self.eventos_turno:
@@ -444,40 +426,6 @@ class JuegoOcaWeb:
             print(f"DEBUG Efecto 'sobrecarga_pendiente' removido para {jugador.get_nombre()}.") 
         else:
             print(f"DEBUG Efecto 'sobrecarga_pendiente' NO detectado para {jugador.get_nombre()}.") 
-
-        efecto_movimiento = self._obtener_efecto_activo(jugador, "movimiento_forzado")
-        if efecto_movimiento:
-            valor_dado = efecto_movimiento.get("dado_forzado", 1) # Usar 1 si falla
-            controlador = efecto_movimiento.get("controlador", "El Titiritero")
-            eventos.append(f"🎮 ¡Control Total! {controlador} te fuerza a moverte {valor_dado} casillas.")
-
-            # Marcar dado/habilidad como "usados" para que no pueda actuar
-            if hasattr(jugador, 'dado_lanzado_este_turno'):
-                jugador.dado_lanzado_este_turno = True
-            if hasattr(jugador, 'habilidad_usada_este_turno'):
-                jugador.habilidad_usada_este_turno = True
-
-            # Procesar el movimiento (como un "dado perfecto" forzado)
-            pos_inicial = jugador.get_posicion()
-            jugador.avanzar(valor_dado)
-            pos_final = jugador.get_posicion()
-            eventos.append(f"{jugador.get_nombre()} se mueve a la posición {pos_final}")
-            
-            # Procesar la casilla de destino
-            if pos_final < self.posicion_meta:
-                posicion_procesada = -1 
-                posicion_actual = pos_final
-                # Bucle para manejar casillas en cadena (ej. portal a trampa)
-                while posicion_actual < self.posicion_meta and posicion_actual != posicion_procesada:
-                    posicion_procesada = posicion_actual 
-                    self._procesar_efectos_posicion(jugador, posicion_procesada) 
-                    self._verificar_colision(jugador, posicion_procesada)
-                    posicion_actual = jugador.get_posicion()
-                    if posicion_actual == posicion_procesada:
-                        break # Salir si la posición no cambió
-            
-            # Consumir el efecto de movimiento
-            self._remover_efecto(jugador, "movimiento_forzado")
 
         return eventos
 

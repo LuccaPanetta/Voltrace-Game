@@ -23,8 +23,7 @@ from models import db, User, Achievement, UserAchievement
 class AchievementSystem:
     
     def __init__(self):
-        # Configuración de todos los logros disponibles
-        # Cada logro tiene: name, description, xp_reward, icon, category
+        self.db_lock = db_lock
         self.achievements_config = {
             # Logros de Primeras Veces (target_value = 1)
             "first_win": {"name": "Primera Victoria", "description": "Gana tu primera partida", "xp_reward": 100, "icon": "🏆", "category": "primeras_veces", "trigger": "game_finished", "target_value": 1},
@@ -82,95 +81,96 @@ class AchievementSystem:
         }
     
     def check_achievement(self, username, event_type, event_data=None):
-        unlocked_achievements = []
-        newly_unlocked_ids = []
+        with self.db_lock:
+            unlocked_achievements = []
+            newly_unlocked_ids = []
 
-        # Obtener el usuario de la DB
-        user = User.query.filter_by(username=username).first()
-        if not user:
-            print(f"ERROR ACH: Usuario {username} no encontrado en la DB.")
-            return []
+            # Obtener el usuario de la DB
+            user = User.query.filter_by(username=username).first()
+            if not user:
+                print(f"ERROR ACH: Usuario {username} no encontrado en la DB.")
+                return []
 
-        # Obtener IDs de logros ya desbloqueados
-        unlocked_ach_ids = [ua.achievement.internal_id for ua in user.unlocked_achievements_assoc]
-        
-        # Mapear las estadísticas del usuario para compatibilidad con las funciones de verificación
-        user_stats = {
-            'xp': user.xp,
-            'level': user.level,
-            'games_played': user.games_played,
-            'games_won': user.games_won,
-            'abilities_used': getattr(user, 'abilities_used', 0), 
-            'game_messages_sent': getattr(user, 'game_messages_sent', 0),    
-            'private_messages_sent': getattr(user, 'private_messages_sent', 0),
-            'messages_sent': getattr(user, 'chat_messages_sent', 0),    
-            'rooms_created': getattr(user, 'rooms_created', 0),
-            'friends_count': user.friends.count(),
-            'unique_login_days_count': getattr(user, 'unique_login_days_count', 0)
-        }
-        
-        # Llamar a las funciones de verificación
-        if event_type == 'game_finished':
-            newly_unlocked_ids.extend(self._check_game_finished_achievements(username, event_data, unlocked_ach_ids, user_stats))
-        
-        elif event_type == 'ability_used':
-            newly_unlocked_ids.extend(self._check_ability_achievements(username, event_data, unlocked_ach_ids, user_stats))
-        
-        elif event_type == 'room_created':
-            newly_unlocked_ids.extend(self._check_room_achievements(username, unlocked_ach_ids, user_stats))
-        
-        elif event_type == 'dice_rolled':
-            newly_unlocked_ids.extend(self._check_dice_achievements(username, event_data, unlocked_ach_ids, user_stats))
-        
-        elif event_type == 'special_tile':
-            newly_unlocked_ids.extend(self._check_special_tile_achievements(username, event_data, unlocked_ach_ids, user_stats))
-
-        elif event_type == 'game_event':
-            newly_unlocked_ids.extend(self._check_game_event_achievements(username, event_data, unlocked_ach_ids, user_stats))
-
-        elif event_type == 'login':
-             newly_unlocked_ids.extend(self._check_login_achievements(username, event_data, unlocked_ach_ids, user_stats))
-
-        # Añadimos los nuevos triggers sociales
-        elif event_type == 'friend_added':
-            newly_unlocked_ids.extend(self._check_social_achievements(username, event_type, unlocked_ach_ids, user_stats))
-        
-        elif event_type == 'private_message_sent':
-            newly_unlocked_ids.extend(self._check_social_achievements(username, event_type, unlocked_ach_ids, user_stats))
-
-        newly_unlocked_ids.extend(self._check_persistence_achievements(username, unlocked_ach_ids, user_stats))
-
-        # Guardar logros desbloqueados y otorgar XP (EN LA DB)
-        total_xp_gained = 0
-        
-        # Filtra solo los ID de logros que aún no hemos procesado para evitar doble conteo si una subfunción retorna el mismo ID
-        final_unlocks = list(set(newly_unlocked_ids))
-        
-        # Obtener todos los objetos Achievement necesarios en una sola consulta
-        achievements_to_unlock = Achievement.query.filter(Achievement.internal_id.in_(final_unlocks)).all()
-        
-        for achievement_obj in achievements_to_unlock:
-            # Verificar UNA ÚLTIMA VEZ que el logro no esté ya en la tabla de asociación
-            is_already_unlocked = UserAchievement.query.filter_by(user_id=user.id, achievement_id=achievement_obj.id).first()
+            # Obtener IDs de logros ya desbloqueados
+            unlocked_ach_ids = [ua.achievement.internal_id for ua in user.unlocked_achievements_assoc]
             
-            if not is_already_unlocked:
-                # Añadir a la tabla de asociación UserAchievement
-                ua = UserAchievement(user=user, achievement=achievement_obj)
-                db.session.add(ua)
-                
-                # Sumar XP y guardar ID para retorno
-                xp_reward = achievement_obj.xp_reward
-                total_xp_gained += xp_reward
-                unlocked_achievements.append(achievement_obj.internal_id)
+            # Mapear las estadísticas del usuario para compatibilidad con las funciones de verificación
+            user_stats = {
+                'xp': user.xp,
+                'level': user.level,
+                'games_played': user.games_played,
+                'games_won': user.games_won,
+                'abilities_used': getattr(user, 'abilities_used', 0), 
+                'game_messages_sent': getattr(user, 'game_messages_sent', 0),    
+                'private_messages_sent': getattr(user, 'private_messages_sent', 0),
+                'messages_sent': getattr(user, 'chat_messages_sent', 0),    
+                'rooms_created': getattr(user, 'rooms_created', 0),
+                'friends_count': user.friends.count(),
+                'unique_login_days_count': getattr(user, 'unique_login_days_count', 0)
+            }
+            
+            # Llamar a las funciones de verificación
+            if event_type == 'game_finished':
+                newly_unlocked_ids.extend(self._check_game_finished_achievements(username, event_data, unlocked_ach_ids, user_stats))
+            
+            elif event_type == 'ability_used':
+                newly_unlocked_ids.extend(self._check_ability_achievements(username, event_data, unlocked_ach_ids, user_stats))
+            
+            elif event_type == 'room_created':
+                newly_unlocked_ids.extend(self._check_room_achievements(username, unlocked_ach_ids, user_stats))
+            
+            elif event_type == 'dice_rolled':
+                newly_unlocked_ids.extend(self._check_dice_achievements(username, event_data, unlocked_ach_ids, user_stats))
+            
+            elif event_type == 'special_tile':
+                newly_unlocked_ids.extend(self._check_special_tile_achievements(username, event_data, unlocked_ach_ids, user_stats))
 
-        # Actualizar XP del usuario y guardar en DB
-        if total_xp_gained > 0:
-            user.xp += total_xp_gained
-        
-        # Guardar todos los cambios de una vez
-        db.session.commit()
-        
-        return unlocked_achievements
+            elif event_type == 'game_event':
+                newly_unlocked_ids.extend(self._check_game_event_achievements(username, event_data, unlocked_ach_ids, user_stats))
+
+            elif event_type == 'login':
+                newly_unlocked_ids.extend(self._check_login_achievements(username, event_data, unlocked_ach_ids, user_stats))
+
+            # Añadimos los nuevos triggers sociales
+            elif event_type == 'friend_added':
+                newly_unlocked_ids.extend(self._check_social_achievements(username, event_type, unlocked_ach_ids, user_stats))
+            
+            elif event_type == 'private_message_sent':
+                newly_unlocked_ids.extend(self._check_social_achievements(username, event_type, unlocked_ach_ids, user_stats))
+
+            newly_unlocked_ids.extend(self._check_persistence_achievements(username, unlocked_ach_ids, user_stats))
+
+            # Guardar logros desbloqueados y otorgar XP (EN LA DB)
+            total_xp_gained = 0
+            
+            # Filtra solo los ID de logros que aún no hemos procesado para evitar doble conteo si una subfunción retorna el mismo ID
+            final_unlocks = list(set(newly_unlocked_ids))
+            
+            # Obtener todos los objetos Achievement necesarios en una sola consulta
+            achievements_to_unlock = Achievement.query.filter(Achievement.internal_id.in_(final_unlocks)).all()
+            
+            for achievement_obj in achievements_to_unlock:
+                # Verificar UNA ÚLTIMA VEZ que el logro no esté ya en la tabla de asociación
+                is_already_unlocked = UserAchievement.query.filter_by(user_id=user.id, achievement_id=achievement_obj.id).first()
+                
+                if not is_already_unlocked:
+                    # Añadir a la tabla de asociación UserAchievement
+                    ua = UserAchievement(user=user, achievement=achievement_obj)
+                    db.session.add(ua)
+                    
+                    # Sumar XP y guardar ID para retorno
+                    xp_reward = achievement_obj.xp_reward
+                    total_xp_gained += xp_reward
+                    unlocked_achievements.append(achievement_obj.internal_id)
+
+            # Actualizar XP del usuario y guardar en DB
+            if total_xp_gained > 0:
+                user.xp += total_xp_gained
+            
+            # Guardar todos los cambios de una vez
+            db.session.commit()
+            
+            return unlocked_achievements
     
     def _check_game_finished_achievements(self, username, event_data, current_achievements, user_stats):
         unlocked = []
