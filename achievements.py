@@ -22,41 +22,41 @@ from models import db, User, Achievement, UserAchievement
 
 class AchievementSystem:
     
-    def __init__(self):
+    def __init__(self, db_lock):
         self.db_lock = db_lock
         self.achievements_config = {
-            # Logros de Primeras Veces (target_value = 1)
+            # Logros de Primeras Veces
             "first_win": {"name": "Primera Victoria", "description": "Gana tu primera partida", "xp_reward": 100, "icon": "🏆", "category": "primeras_veces", "trigger": "game_finished", "target_value": 1},
             "first_game": {"name": "Primer Juego", "description": "Completa tu primera partida", "xp_reward": 50, "icon": "🎮", "category": "primeras_veces", "trigger": "game_finished", "target_value": 1},
             "first_room": {"name": "Creador Novato", "description": "Crea tu primera sala", "xp_reward": 25, "icon": "🏠", "category": "primeras_veces", "trigger": "room_created", "target_value": 1},
             "first_ability": {"name": "Primer Poder", "description": "Usa tu primera habilidad", "xp_reward": 30, "icon": "⚡", "category": "primeras_veces", "trigger": "ability_used", "target_value": 1},
 
-            # Logros de Juego (con target_value específico donde aplique)
+            # Logros de Juego
             "speed_demon": {"name": "Demonio Velocista", "description": "Gana una partida en menos de 15 movimientos", "xp_reward": 200, "icon": "🚀", "category": "gameplay", "trigger": "game_finished", "target_value": 1}, # Es ganar 1 partida así
             "survivor": {"name": "Superviviente", "description": "Gana con menos de 50 de energía", "xp_reward": 150, "icon": "🩹", "category": "gameplay", "trigger": "game_finished", "target_value": 1}, # Es ganar 1 partida así
             "energy_master": {"name": "Maestro de Energía", "description": "Termina una partida con más de 1000 de energía", "xp_reward": 125, "icon": "⚡", "category": "gameplay", "trigger": "game_finished", "target_value": 1}, # Es terminar 1 partida así
             "ability_master": {"name": "Maestro de Habilidades", "description": "Usa las 4 habilidades en una partida", "xp_reward": 175, "icon": "🎯", "category": "gameplay", "trigger": "game_finished", "target_value": 1}, # Es 1 partida así
             "comeback_king": {"name": "Rey del Comeback", "description": "Gana estando en último lugar a mitad de partida", "xp_reward": 250, "icon": "👑", "category": "gameplay", "trigger": "game_finished", "target_value": 1}, # Es 1 partida así
 
-            # Logros Sociales (con target_value)
+            # Logros Sociales
             "chat_king": {"name": "Rey del Chat", "description": "Envía 25 mensajes en una sola partida", "xp_reward": 50, "icon": "💬", "category": "social", "trigger": "game_finished", "target_value": 25}, # Requiere trackeo por partida
             "room_host": {"name": "Anfitrión Experto", "description": "Crea 10 salas", "xp_reward": 100, "icon": "🏠", "category": "social", "trigger": "room_created", "target_value": 10},
             "social_butterfly": {"name": "Mariposa Social", "description": "Agrega 5 amigos", "xp_reward": 150, "icon": "🦋", "category": "social", "trigger": "friend_added", "target_value": 5},
             "popular": {"name": "Popular", "description": "Alcanza 15 amigos", "xp_reward": 500, "icon": "⭐", "category": "social", "trigger": "friend_added", "target_value": 15},
             "chat_master": {"name": "Maestro del Chat", "description": "Envía 50 mensajes privados", "xp_reward": 200, "icon": "💬", "category": "social", "trigger": "private_message_sent", "target_value": 50},
 
-            # Logros de Suerte (la mayoría son de 1 vez)
+            # Logros de Suerte
             "lucky_seven": {"name": "Siete de la Suerte", "description": "Saca 6 en el dado 3 veces seguidas", "xp_reward": 300, "icon": "🍀", "category": "luck", "trigger": "dice_rolled", "target_value": 1}, # Es 1 vez que ocurra
             "treasure_hunter": {"name": "Cazatesoros", "description": "Cae en 5 casillas de tesoro en una partida", "xp_reward": 150, "icon": "💰", "category": "luck", "trigger": "game_finished", "target_value": 5}, # Requiere trackeo por partida
             "trap_avoider": {"name": "Esquiva Trampas", "description": "Completa una partida sin caer en ninguna trampa", "xp_reward": 100, "icon": "🛡️", "category": "luck", "trigger": "game_finished", "target_value": 1}, # Es 1 partida así
 
-            # Logros de Persistencia (con target_value)
+            # Logros de Persistencia
             "veteran": {"name": "Veterano", "description": "Juega 50 partidas", "xp_reward": 500, "icon": "🎖️", "category": "persistence", "trigger": "game_finished", "target_value": 50},
             "champion": {"name": "Campeón", "description": "Gana 25 partidas", "xp_reward": 750, "icon": "🏆", "category": "persistence", "trigger": "game_finished", "target_value": 25},
             "dedicated": {"name": "Dedicado", "description": "Juega durante 7 días diferentes", "xp_reward": 200, "icon": "📅", "category": "persistence", "trigger": "login", "target_value": 7}, # Requiere trackeo de días
             "level_master": {"name": "Maestro de Niveles", "description": "Alcanza el nivel 10", "xp_reward": 1000, "icon": "🌟", "category": "persistence", "trigger": "level_up", "target_value": 10},
 
-            # Logros Específicos del Juego (la mayoría son de 1 vez)
+            # Logros Específicos del Juego
             "superviviente": {"name": "Superviviente", "description": "Terminar el juego sin ser eliminado", "xp_reward": 200, "icon": "💪", "category": "survival", "trigger": "game_finished", "target_value": 1},
             "meta_alcanzada": {"name": "¡Meta Alcanzada!", "description": "Llegar a la casilla 75", "xp_reward": 300, "icon": "🏁", "category": "achievement", "trigger": "game_finished", "target_value": 1},
             "explosion_perfecta": {"name": "Explosión Perfecta", "description": "Afectar a 2 o más jugadores con Bomba Energética", "xp_reward": 250, "icon": "💥", "category": "combat", "trigger": "ability_used", "target_value": 1},
