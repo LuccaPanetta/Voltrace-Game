@@ -39,7 +39,7 @@ def crear_habilidades():
             Habilidad("Invisibilidad", "defensiva", "No te afectan las habilidades de los oponentes por 2 turnos", "👻", 5, 50),
             Habilidad("Barrera", "defensiva", "Refleja el próximo ataque que recibas por 2 turnos", "🔮", 5, 45),
             Habilidad("Transferencia de Fase", "defensiva", "Intangible e inmune a casillas negativas en tu próximo movimiento de dado", "💨", 4, 25),
-            Habilidad("Traspaso de Dolor", "defensiva", "El 50% del daño recibido en tu próximo turno es redirigido a tu objetivo Vinculado.", "💔", 4, 50),
+            Habilidad("Traspaso de Dolor", "defensiva", "El 50% del daño recibido en tus próximos 2 turno es redirigido a tu objetivo Vinculado.", "💔", 4, 35),
         ],
         "movimiento": [
             Habilidad("Cohete", "movimiento", "Avanza inmediatamente 3-7 casillas", "🚀", 5, 40),
@@ -54,9 +54,9 @@ def crear_habilidades():
             Habilidad("Caos", "control", "Todos los jugadores se mueven aleatoriamente", "🎪", 6, 50), 
             Habilidad("Bloqueo Energético", "control", "Impide que un oponente gane energía por 2 rondas", "🚫", 5, 55),
             Habilidad("Sobrecarga Inestable", "control", "Apuesta tu energía. Próximo turno: 33% pierdes 25E, 33% ganas 75E, 33% ganas 150E.", "🎲", 4, 50),
-            Habilidad("Hilos Espectrales", "control", "Aplica 'Vínculo' a un jugador (4 turnos) en un rango de 6 casillas.", "🔗", 0, 30),
-            Habilidad("Tirón de Cadenas", "control", "Tira del jugador Vinculado 3 casillas hacia ti.", "⛓️", 2, 40),
-            Habilidad("Control Total", "control", "Eliges el dado (1-6) y movimiento del jugador Vinculado en su próximo turno.", "🎮", 7, 120),
+            Habilidad("Hilos Espectrales", "control", "Aplica 'Vínculo' a un jugador (4 turnos) en un rango de 10 casillas.", "🔗", 0, 0),
+            Habilidad("Tirón de Cadenas", "control", "Tira del jugador Vinculado 5 casillas hacia ti.", "⛓️", 2, 30),
+            Habilidad("Control Total", "control", "Eliges el dado (1-6) y movimiento del jugador Vinculado en su próximo turno.", "🎮", 7, 90),
         ],
     }
 

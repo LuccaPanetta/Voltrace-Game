@@ -990,6 +990,10 @@ class JuegoOcaWeb:
         # Validaciones Iniciales
         self.eventos_turno = []
         jugador = self._encontrar_jugador(nombre_jugador)
+
+        if self._verificar_efecto_activo(jugador, "pausa"):
+            return {"exito": False, "mensaje": "No puedes usar habilidades mientras estás pausado."}
+        
         if not jugador:
             return {"exito": False, "mensaje": "Jugador no encontrado"}
         
@@ -2020,7 +2024,7 @@ class JuegoOcaWeb:
             return {"exito": False, "eventos": ["No puedes vincularte a ti mismo."]}
 
         # Chequeo de Rango
-        RANGO_MAX = 6 
+        RANGO_MAX = 10 
         pos_j = jugador.get_posicion()
         pos_o = obj.get_posicion()
         if abs(pos_j - pos_o) > RANGO_MAX:
@@ -2087,7 +2091,7 @@ class JuegoOcaWeb:
              return {"exito": False, "eventos": eventos}
 
         # Calcular movimiento
-        DISTANCIA_TIRON = 3
+        DISTANCIA_TIRON = 5
         
         # Chequear perk de Desvío Cinético del OBJETIVO
         if "desvio_cinetico" in obj.perks_activos:
@@ -2145,7 +2149,7 @@ class JuegoOcaWeb:
             return {"exito": False, "eventos": [f"Tu objetivo vinculado ({nombre_objetivo}) no está disponible."]}
 
         # Aplicar el efecto de Traspaso al Titiritero
-        DURACION_TRASPASO = 2 
+        DURACION_TRASPASO = 3
         
         # Quitar cualquier Traspaso anterior para refrescar la duración
         self._remover_efecto(jugador, "traspaso_dolor") 
