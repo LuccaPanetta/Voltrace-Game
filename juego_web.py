@@ -214,22 +214,15 @@ class JuegoOcaWeb:
             self.eventos_turno.append(f"⚠️ {nombre_jugador} debe elegir un perk.")
             return {"exito": False, "mensaje": "Debes elegir un perk de la oferta pendiente.", "oferta_pendiente": True}
 
-        # Verificar si está pausado
-        if self._verificar_efecto_activo(jugador, "pausa"):
-            # Si está pausado, el turno termina, así que el flag del dado debe resetearse en el paso 2
-            self.eventos_turno.append(f"⏸️ {nombre_jugador} pierde su turno por estar pausado")
-            self._reducir_efectos_temporales(jugador) # Consume el turno de pausa
-            self._avanzar_turno() # Avanza el turno INMEDIATAMENTE
-            return {"exito": True, "eventos": self.eventos_turno, "pausado": True}
+        efecto_control = self._obtener_efecto_activo(jugador, "movimiento_forzado")
         
+        # Lógica del Dado
         dado_final = 0
         es_doble_dado = self._verificar_efecto_activo(jugador, "doble_dado")
         consecutive_sixes_count = 0 
         
-        # CASO A: ¿Está el jugador 'Controlado' por "Control Total"?
-        efecto_control = self._obtener_efecto_activo(jugador, "movimiento_forzado")
-        
         if efecto_control:
+            # CASO A: El jugador está 'Controlado' 
             valor_dado_forzado = efecto_control.get("dado_forzado", 1) # Usar 1 si falla
             controlador = efecto_control.get("controlador", "El Titiritero")
             
@@ -240,47 +233,58 @@ class JuegoOcaWeb:
             
             # Consumir el efecto
             self._remover_efecto(jugador, "movimiento_forzado")
-
-        # CASO B: ¿Usó "Dado Perfecto"?
-        elif hasattr(jugador, 'dado_forzado') and jugador.dado_forzado:
-            dado1 = jugador.dado_forzado
-            jugador.dado_forzado = None
-            dado_final = dado1
-            
-            self.eventos_turno.append(f"🎯 {nombre_jugador} usó Dado Perfecto: {dado1}")
-            jugador.consecutive_sixes = 0
-
-            if "dado_cargado" in jugador.perks_activos:
-                if 1 <= dado1 <= 3:
-                    energia_ganada = jugador.procesar_energia(10)
-                    if energia_ganada > 0:
-                        self.eventos_turno.append(f"⚡ (Dado Cargado): ¡Ganas +{energia_ganada} Energía!")
-                    else:
-                        self.eventos_turno.append(f"🚫 (Dado Cargado): Bloqueado (+10 Energía).")
-                elif 4 <= dado1 <= 6:
-                    jugador.ganar_pm(1, fuente="perk_dado_cargado")
-                    self.eventos_turno.append(f"✨ (Dado Cargado): ¡Ganas +1 PM!")
         
-        # CASO C: Tirada Normal
         else:
-            dado1 = randint(1, 6)
-            dado_final = dado1
-            
-            if dado1 == 6:
-                jugador.consecutive_sixes += 1
-                consecutive_sixes_count = jugador.consecutive_sixes
-                if consecutive_sixes_count >= 2:
-                     self.eventos_turno.append(f"🔥 ¡Racha! {nombre_jugador} sacó {consecutive_sixes_count} seises seguidos.")
-            else:
-                jugador.consecutive_sixes = 0 
+            # Comprobar "Pausa" (Sabotaje, etc.) DESPUÉS
+            if self._verificar_efecto_activo(jugador, "pausa"):
+                # Si está pausado, el turno termina
+                self.eventos_turno.append(f"⏸️ {nombre_jugador} pierde su turno por estar pausado")
+                self._reducir_efectos_temporales(jugador) # Consume el turno de pausa
+                self._avanzar_turno() # Avanza el turno INMEDIATAMENTE
+                return {"exito": True, "eventos": self.eventos_turno, "pausado": True}
 
-            if es_doble_dado:
-                dado2 = randint(1, 6)
-                dado_final = dado1 + dado2 
-                self.eventos_turno.append(f"🔄 ¡Doble Turno! {nombre_jugador} sacó {dado1} + {dado2} = {dado_final}")
+            # Si no está ni controlado ni pausado, proceder con dado normal
+            
+            # CASO B: ¿Usó "Dado Perfecto"?
+            if hasattr(jugador, 'dado_forzado') and jugador.dado_forzado:
+                dado1 = jugador.dado_forzado
+                jugador.dado_forzado = None
+                dado_final = dado1
+                
+                self.eventos_turno.append(f"🎯 {nombre_jugador} usó Dado Perfecto: {dado1}")
+                jugador.consecutive_sixes = 0
+
+                if "dado_cargado" in jugador.perks_activos:
+                    if 1 <= dado1 <= 3:
+                        energia_ganada = jugador.procesar_energia(10)
+                        if energia_ganada > 0:
+                            self.eventos_turno.append(f"⚡ (Dado Cargado): ¡Ganas +{energia_ganada} Energía!")
+                        else:
+                            self.eventos_turno.append(f"🚫 (Dado Cargado): Bloqueado (+10 Energía).")
+                    elif 4 <= dado1 <= 6:
+                        jugador.ganar_pm(1, fuente="perk_dado_cargado")
+                        self.eventos_turno.append(f"✨ (Dado Cargado): ¡Ganas +1 PM!")
+            
+            # CASO C: Tirada Normal
             else:
-                if consecutive_sixes_count < 2:
-                    self.eventos_turno.append(f"{nombre_jugador} sacó {dado_final}")
+                dado1 = randint(1, 6)
+                dado_final = dado1
+                
+                if dado1 == 6:
+                    jugador.consecutive_sixes += 1
+                    consecutive_sixes_count = jugador.consecutive_sixes
+                    if consecutive_sixes_count >= 2:
+                         self.eventos_turno.append(f"🔥 ¡Racha! {nombre_jugador} sacó {consecutive_sixes_count} seises seguidos.")
+                else:
+                    jugador.consecutive_sixes = 0 
+
+                if es_doble_dado:
+                    dado2 = randint(1, 6)
+                    dado_final = dado1 + dado2 
+                    self.eventos_turno.append(f"🔄 ¡Doble Turno! {nombre_jugador} sacó {dado1} + {dado2} = {dado_final}")
+                else:
+                    if consecutive_sixes_count < 2:
+                        self.eventos_turno.append(f"{nombre_jugador} sacó {dado_final}")
         
         # Cálculo del Avance
         multiplicador = 2 if self._verificar_efecto_activo(jugador, "turbo") else 1
@@ -474,7 +478,7 @@ class JuegoOcaWeb:
                     self.eventos_turno.append("🌎 Sobrecarga: ¡Valor del tesoro duplicado!")
 
                 if energia_intentada > 0 and "eficiencia_energetica" in jugador.perks_activos:
-                    energia_modificada = int(energia_modificada * 1.20)
+                    energia_modificada = int(energia_modificada * 1.20) 
                     self.eventos_turno.append("⚡ Eficiencia Energética: +20% en Tesoro!")
                 
                 energia_ganada_real = jugador.procesar_energia(energia_modificada)
@@ -682,13 +686,16 @@ class JuegoOcaWeb:
                 elif self.evento_global_activo == "Sobrecarga":
                     energia_modificada *= 2
                     self.eventos_turno.append("🌎 Sobrecarga: ¡Valor del pack duplicado!")
+                
 
                 # Aplicar perks que modifican el valor ANTES de procesar
                 if energia_original > 0 and "eficiencia_energetica" in jugador.perks_activos:
-                    energia_modificada = int(energia_original * 1.20)
+                    # Usar energia_modificada
+                    energia_modificada = int(energia_modificada * 1.20) 
                     self.eventos_turno.append("⚡ Eficiencia Energética!")
                 elif energia_original < 0 and "aislamiento" in jugador.perks_activos:
-                    energia_modificada = int(energia_original * 0.80)
+                    # Usar energia_modificada
+                    energia_modificada = int(energia_modificada * 0.80) 
                     self.eventos_turno.append("🛡️ Aislamiento!")
 
                 # Llamar a procesar_energia con el valor modificado
