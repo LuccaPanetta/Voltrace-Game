@@ -504,12 +504,7 @@ class JuegoOcaWeb:
                 # Obtener valor base de la trampa
                 energia_perdida_base = casilla["valor"] 
 
-                # Aplicar Perk 'Aislamiento'
-                if "aislamiento" in jugador.perks_activos:
-                    energia_perdida_final = int(energia_perdida_base * 0.80) 
-                    self.eventos_turno.append("🛡️ Aislamiento reduce pérdida!")
-                else:
-                    energia_perdida_final = energia_perdida_base 
+                energia_perdida_final = energia_perdida_base 
 
                 # Aplicar la pérdida de energía
                 jugador.procesar_energia(energia_perdida_final) 
@@ -560,9 +555,6 @@ class JuegoOcaWeb:
                 pm_perdidos = casilla.get("valor_pm", -3)
                 
                 energia_perdida_real = energia_perdida
-                if "aislamiento" in jugador.perks_activos:
-                    energia_perdida_real = int(energia_perdida_real * 0.80)
-                    self.eventos_turno.append("🛡️ Aislamiento reduce pérdida de Peaje.")
                 
                 jugador.procesar_energia(energia_perdida_real)
                 self.eventos_turno.append(f"💸 Peaje Costoso: Pierdes {abs(energia_perdida_real)} E.")
@@ -690,17 +682,20 @@ class JuegoOcaWeb:
                     energia_modificada *= 2
                     self.eventos_turno.append("🌎 Sobrecarga: ¡Valor del pack duplicado!")
                 
-
                 # Aplicar perks que modifican el valor ANTES de procesar
                 if energia_original > 0 and "eficiencia_energetica" in jugador.perks_activos:
-                    # Usar energia_modificada
                     energia_modificada = int(energia_modificada * 1.20) 
                     self.eventos_turno.append("⚡ Eficiencia Energética!")
-                elif energia_original < 0 and "aislamiento" in jugador.perks_activos:
-                    # Usar energia_modificada
-                    energia_modificada = int(energia_modificada * 0.80) 
-                    self.eventos_turno.append("🛡️ Aislamiento!")
 
+                esta_invisible_con_perk = (
+                    "sombra_fugaz" in jugador.perks_activos and
+                    self._verificar_efecto_activo(jugador, "invisible")
+                )
+
+                if esta_invisible_con_perk and energia_modificada < 0:
+                    self.eventos_turno.append(f"👻 {jugador.get_nombre()} atraviesa el pack de energía negativa (Sombra Fugaz).")
+                    return 0
+                
                 # Llamar a procesar_energia con el valor modificado
                 energia_cambio_real = jugador.procesar_energia(energia_modificada)
 
@@ -1597,13 +1592,14 @@ class JuegoOcaWeb:
             eventos.append(f"🔮 {obj.get_nombre()} refleja el Robo.")
             self._remover_efecto(obj, "barrera") # Barrera se consume
             
+            # Comprobar defensas del ATACANTE
             if self._verificar_efecto_activo(jugador, "escudo"):
                 self._reducir_efectos_temporales(jugador, tipo_efecto="escudo", reducir_todo=False)
                 eventos.append(f"🛡️ {jugador.get_nombre()} bloqueó el daño reflejado con Escudo.")
             elif self._verificar_efecto_activo(jugador, "invisible"):
                  eventos.append(f"👻 {jugador.get_nombre()} evitó el daño reflejado (Invisible).")
             else:
-                # Si el atacante no tiene defensas, aplicar daño reflejado
+                # Aplicar daño reflejado 
                 energia_cambio_reflejo = jugador.procesar_energia(-energia_a_robar)
                 eventos.append(f"💥 ¡Recibes {energia_cambio_reflejo} de daño reflejado!")
                 
@@ -1615,25 +1611,25 @@ class JuegoOcaWeb:
                 elif getattr(jugador_afectado, '_ultimo_aliento_usado', False) and not getattr(jugador_afectado, '_ultimo_aliento_notificado', False):
                     self.eventos_turno.append(f"❤️‍🩹 ¡Último Aliento salvó a {jugador_afectado.get_nombre()}! Sobrevive con 50 E y Escudo (3 Turnos).")
                     jugador_afectado._ultimo_aliento_notificado = True
-            return {"exito": True, "eventos": eventos, "reflejo_exitoso": True, "jugador_reflejo": obj.get_nombre()} # Robo REFLEJADO
-
-        # Comprobar Escudo del objetivo
-        elif self._verificar_efecto_activo(obj, "escudo"):
-            eventos.append(f"🛡️ {obj.get_nombre()} bloqueó el Robo (Escudo consumido).")
-            self._reducir_efectos_temporales(obj, tipo_efecto="escudo", reducir_todo=False)
-            return {"exito": False, "eventos": eventos} # Robo fallido por escudo
+            
+            return {"exito": True, "eventos": eventos, "reflejo_exitoso": True, "jugador_reflejo": obj.get_nombre()}
 
         # Si no está protegido, realizar el robo
         else:
-            jugador._JugadorWeb__puntaje += energia_a_robar
-            energia_cambio_jugador = energia_a_robar
+            # Quitar energía al objetivo
+            obj.procesar_energia(-energia_a_robar)
+            
+            # Dar energía al atacante
+            energia_cambio_jugador = jugador.procesar_energia(energia_a_robar) 
+            
             self._procesar_recompensa_caza(atacante=jugador, objetivo=obj)
 
             if energia_cambio_jugador > 0:
                  eventos.append(f"🎭 Robas {energia_cambio_jugador} energía a {obj.get_nombre()}.")
-            elif energia_a_robar > 0: # Si intentó ganar pero estaba bloqueado
+            elif energia_a_robar > 0: # Si intentó ganar pero cambio_real fue 0
                  eventos.append(f"🚫 {jugador.get_nombre()} no pudo recibir la energía robada por Bloqueo.")
 
+            # Comprobar muerte/último aliento del OBJETIVO
             jugador_afectado = obj
             if not jugador_afectado.esta_activo():
                 mensaje_elim = f"💀 ¡{jugador_afectado.get_nombre()} ha sido eliminado (por Robo)!"

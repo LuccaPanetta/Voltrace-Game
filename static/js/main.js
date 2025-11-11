@@ -180,35 +180,43 @@ import { initArsenal, loadArsenalData } from './modules/arsenal.js';
     // Seleccionar un kit
     kitCards.forEach(card => {
         card.addEventListener('click', (e) => {
-            const kitId = e.currentTarget.dataset.kit;
-            if (kitId && kitId !== state.kitSeleccionado.value) {
-                playSound('ClickMouse', 0.3);
-                socket.emit('guardar_kit', { kit_id: kitId });
-                state.kitSeleccionado.value = kitId;
-                state.currentUser.kit_id = kitId;
-                actualizarKitUI(kitId);
-            }
+        const kitId = e.currentTarget.dataset.kit;
+        
+        if (kitId && kitId !== state.kitSeleccionado.value) {
+            playSound('ClickMouse', 0.3);
+            socket.emit('guardar_kit', { kit_id: kitId });
+
+            actualizarKitUI(kitId); 
+        }
         });
     });
 
     // --- Listener Global para Tecla Escape ---
     document.addEventListener("keydown", (e) => {
         if (e.key === "Escape") {
-            modalesCerrables.forEach(modal => {
-                if (modal && modal.style.display === "flex") {
-                    const isPerkModalWaiting = modal.id === 'modal-perks' && btnCerrarPerks && btnCerrarPerks.style.display === 'none';
-                    if (!isPerkModalWaiting) {
-                        modal.style.display = "none";
-                        playSound('OpenCloseModal', 0.2);
-                        if (modal.id === 'modal-perks') {
-                        }
+        for (let i = modalesCerrables.length - 1; i >= 0; i--) {
+            const modal = modalesCerrables[i];
+            
+            if (modal && modal.style.display === "flex") {
+                const isPerkModalWaiting = modal.id === 'modal-perks' && btnCerrarPerks && btnCerrarPerks.style.display === 'none';
+
+                if (isPerkModalWaiting) {
+                    showNotification("Debes seleccionar un perk para continuar", notificacionesContainer, "warning");
+                } else {
+                    const closeButton = modal.querySelector('.btn-cerrar-modal, #btn-cerrar-perks, #btn-cerrar-social, #btn-cerrar-arsenal, #btn-cerrar-glossary, #btn-cerrar-avatar, #close-modal-kits');
+                    
+                    if (closeButton) {
+                        closeButton.click()
                     } else {
-                        showNotification("Debes seleccionar un perk para continuar", notificacionesContainer, "warning");
+                        modal.style.display = "none"; // Fallback si no tiene botón
+                        playSound('OpenCloseModal', 0.2);
                     }
                 }
-            });
+                break; 
+            }
         }
-    });
+    }
+});
 
     // --- Heartbeat de Presencia ---
     setInterval(() => {

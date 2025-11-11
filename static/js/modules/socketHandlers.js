@@ -101,6 +101,16 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
         updatePerkPrices(costos);
     });
 
+    _socket.on('kit_actual', (data) => {
+        console.log(`Servidor confirmó kit: ${data.kit_id}`);
+        if (_state.currentUser) {
+            _state.currentUser.kit_id = data.kit_id;
+        }
+        if (_state.kitSeleccionado) {
+            _state.kitSeleccionado.value = data.kit_id;
+        }
+    });
+
     // --- Lobby y Sala de Espera ---
     _socket.on("sala_creada", (data) => {
         setLoading(false, _loadingElement);

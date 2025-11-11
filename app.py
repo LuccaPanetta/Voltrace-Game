@@ -2525,30 +2525,42 @@ def _crear_nueva_sala_revancha(id_sala_original):
 
     jugadores_a_unir = []
     jugadores_rechazados = [] # Para notificar a los que están ocupados
+    jugadores_colgados = [] # Para notificar a los que no respondieron
+    nombres_solicitantes = info_revancha['solicitudes']
 
     # Filtrar solo a los participantes originales que solicitaron revancha
     for p_data in info_revancha['participantes']:
         p_username = p_data['nombre']
-        if p_username in info_revancha['solicitudes']:
+        
+        if p_username in nombres_solicitantes:
             p_sid_actual = social_system.presence_data.get(p_username, {}).get('extra_data', {}).get('sid')
-            
-            # Verificar el estado actual del jugador ANTES de unirlo
             estado_actual = social_system._get_user_status(p_username)
             
             # Solo unir si tiene SID y está 'online' (no en otra sala o juego)
             if p_sid_actual and estado_actual not in ['in_game', 'in_lobby']:
                 jugadores_a_unir.append({'sid': p_sid_actual, 'nombre': p_username, 'data_original': p_data})
             else:
-                jugadores_rechazados.append({'sid': p_sid_actual, 'nombre': p_username})
+                jugadores_rechazados.append({'sid': p_sid_actual, 'nombre': p_username, 'data_original': p_data})
                 print(f"WARN (Revancha): Jugador {p_username} solicitó pero su estado es '{estado_actual}'. No será unido.")
+        
+        else:
+            # Si el jugador estaba en la lista de participantes pero no en la de solicitudes
+            p_sid_original = p_data.get('sid') # Usamos el SID original (del modal)
+            jugadores_colgados.append({'sid': p_sid_original, 'nombre': p_username, 'data_original': p_data})
 
     # Verificar mínimo de jugadores
     if len(jugadores_a_unir) < MIN_JUGADORES_REVANCHA:
             print(f"REVANCHA CANCELADA (Sala {id_sala_original}): Solo {len(jugadores_a_unir)} jugadores estaban disponibles.")
-            # Notificar cancelación a los que sí solicitaron Y a los que estaban ocupados
-            for j in (jugadores_a_unir + jugadores_rechazados):
-                if j.get('sid'): # Asegurarse que el SID existe
-                    socketio.emit('revancha_cancelada', {'mensaje': f'Revancha cancelada. Mínimo de {MIN_JUGADORES_REVANCHA} jugadores requerido.'}, room=j['sid'])
+            
+            # Notificar también a los colgados si el mínimo no se alcanzó
+            participantes_a_notificar_cancelacion = jugadores_a_unir + jugadores_rechazados + jugadores_colgados
+            mensaje_cancelacion = f'Revancha cancelada. Mínimo de {MIN_JUGADORES_REVANCHA} jugadores requerido.'
+            
+            for j in participantes_a_notificar_cancelacion:
+                sid_a_notificar = j.get('sid') or j.get('data_original', {}).get('sid')
+                if sid_a_notificar: 
+                    socketio.emit('revancha_cancelada', {'mensaje': mensaje_cancelacion}, room=sid_a_notificar)
+            
             if nueva_id_sala in salas_activas: del salas_activas[nueva_id_sala] # Eliminar sala nueva vacía
             return
 
@@ -2563,10 +2575,16 @@ def _crear_nueva_sala_revancha(id_sala_original):
             socketio.emit('revancha_lista', {'nueva_id_sala': nueva_id_sala}, room=sid_a_unir) # Notificar al cliente
             social_system.update_user_presence(nombre_a_unir, 'in_lobby', {'room_id': nueva_id_sala, 'sid': sid_a_unir}) # Actualizar presencia
 
-    # Notificar a los que fueron rechazados
+    # Notificar a los que fueron rechazados 
     for jugador_info in jugadores_rechazados:
          if jugador_info.get('sid'):
             socketio.emit('revancha_cancelada', {'mensaje': 'Tu revancha se formó, pero ya estabas en otra sala.'}, room=jugador_info['sid'])
+
+    # Notificar a los que se quedaron colgados
+    for jugador_info in jugadores_colgados:
+        p_sid_original = jugador_info.get('sid') # El SID original del modal
+        if p_sid_original:
+            socketio.emit('revancha_cancelada', {'mensaje': 'El tiempo para la revancha expiró.'}, room=p_sid_original)
 
     if id_sala_original in salas_activas:
         del salas_activas[id_sala_original]
@@ -2688,104 +2706,116 @@ def _procesar_estadisticas_fin_juego_async(app, jugadores_items, ganador_nombre,
             print(f"--- THREAD: Iniciando procesamiento de estadísticas para {len(jugadores_items)} jugadores...")
             try:
                 for sid, jugador_data in jugadores_items:
-                    if sid in sessions_activas: 
-                        username = sessions_activas[sid]['username']
+                    
+                    username = jugador_data.get('nombre')
+                    if not username:
+                        print(f"ADVERTENCIA: No se encontró nombre en jugador_data. Omitiendo stats.")
+                        continue # Saltar a este jugador
+                    
+                    jugador_juego = juego_obj._encontrar_jugador(username)
+                    if not jugador_juego:
+                        print(f"ADVERTENCIA: No se encontró a {username} en el objeto juego. Omitiendo stats.")
+                        continue
+                    
+                    is_winner = username == ganador_nombre
+                    user_db = User.query.filter_by(username=username).first()
+                    
+                    if user_db:
+                        user_db.games_played += 1
+                        xp_ganada = 50 
                         
-                        jugador_nombre_loop = jugador_data['nombre']
-                        jugador_juego = juego_obj._encontrar_jugador(jugador_nombre_loop)
-                        if not jugador_juego:
-                            print(f"ADVERTENCIA: No se encontró a {jugador_nombre_loop} en el objeto juego. Omitiendo stats.")
-                            continue
+                        current_consecutive_wins = 0 
+                        if is_winner: 
+                            user_db.games_won += 1
+                            xp_ganada += 25 
+                            user_db.consecutive_wins = getattr(user_db, 'consecutive_wins', 0) + 1
+                            current_consecutive_wins = user_db.consecutive_wins
+                        else:
+                            user_db.consecutive_wins = 0
+                            current_consecutive_wins = 0
 
-                        if jugador_juego:
-                            is_winner = jugador_nombre_loop == ganador_nombre
-                            user_db = User.query.filter_by(username=username).first()
-                            if user_db:
-                                user_db.games_played += 1
-                                xp_ganada = 50 
+                        if user_db.level >= 5:
+                            try:
+                                kit_usado = jugador_data.get('kit_id', 'tactico')
+                                xp_maestria_ganada = 100 if is_winner else 50 
                                 
-                                current_consecutive_wins = 0 
-                                if is_winner: 
-                                    user_db.games_won += 1
-                                    xp_ganada += 25 
-                                    user_db.consecutive_wins = getattr(user_db, 'consecutive_wins', 0) + 1
-                                    current_consecutive_wins = user_db.consecutive_wins
-                                else:
-                                    user_db.consecutive_wins = 0
-                                    current_consecutive_wins = 0
-
-                                if user_db.level >= 5:
-                                    try:
-                                        kit_usado = jugador_data.get('kit_id', 'tactico')
-                                        xp_maestria_ganada = 100 if is_winner else 50 
-                                        
-                                        maestria = UserKitMaestria.query.filter_by(
-                                            user_id=user_db.id,
-                                            kit_id=kit_usado
-                                        ).first()
-                                        
-                                        if not maestria:
-                                            maestria = UserKitMaestria(
-                                                user_id=user_db.id,
-                                                kit_id=kit_usado,
-                                                xp=0,
-                                                level=1
-                                            )
-                                        
-                                        maestria.xp += xp_maestria_ganada
-                                        
-                                        MAESTRIA_XP_NV10 = 6750 
-                                        
-                                        if maestria.xp >= MAESTRIA_XP_NV10 and maestria.cosmetic_unlocked == False:
-                                            maestria.cosmetic_unlocked = True
-                                            print(f"--- COSMÉTICO DESBLOQUEADO: {kit_usado} para {user_db.username}")
-                                            socketio.emit('cosmetic_unlocked', {'kit_id': kit_usado}, to=sid)
-
-                                        db.session.add(maestria)
-                                        print(f"--- MAESTRÍA: {xp_maestria_ganada} XP añadidos a {user_db.username} para kit {kit_usado}. Total: {maestria.xp}")
-
-                                    except Exception as e:
-                                        db.session.rollback() 
-                                        print(f"!!! ERROR al procesar Maestría de Kit: {e}")
-
-                                level_up = update_xp_and_level(user_db, xp_ganada) 
+                                maestria = UserKitMaestria.query.filter_by(
+                                    user_id=user_db.id,
+                                    kit_id=kit_usado
+                                ).first()
                                 
-                                socketio.emit('profile_stats_updated', {
-                                    'games_played': user_db.games_played,
-                                    'games_won': user_db.games_won,
-                                    'consecutive_wins': user_db.consecutive_wins,
-                                    'xp': user_db.xp,
-                                    'level': user_db.level,
-                                    'equipped_title': getattr(user_db, 'equipped_title', None),
-                                    'xp_next_level': get_xp_for_next_level(user_db.level)
-                                }, to=sid)
+                                if not maestria:
+                                    maestria = UserKitMaestria(
+                                        user_id=user_db.id,
+                                        kit_id=kit_usado,
+                                        xp=0,
+                                        level=1
+                                    )
                                 
-                                event_data = {
-                                    'won': is_winner,
-                                    'final_energy': jugador_juego.get_puntaje(),
-                                    'reached_position': jugador_juego.get_posicion(),
-                                    'total_rounds': ronda,
-                                    'player_count': player_count_db, 
-                                    'colisiones': getattr(jugador_juego, 'colisiones_causadas', 0),
-                                    'special_tiles_activated': getattr(jugador_juego, 'tipos_casillas_visitadas', set()),
-                                    'abilities_used': getattr(jugador_juego, 'habilidades_usadas_en_partida', 0),
-                                    'treasures_this_game': getattr(jugador_juego, 'tesoros_recogidos', 0),
-                                    'completed_without_traps': getattr(jugador_juego, 'trampas_evitadas', True),
-                                    'precision_laser': getattr(jugador_juego, 'dado_perfecto_usado', 0),
-                                    'messages_this_game': getattr(jugador_juego, 'game_messages_sent_this_match', 0),
-                                    'only_active_player': len([j for j in juego_obj.jugadores if j.esta_activo()]) == 1,
-                                    'never_eliminated': jugador_juego.esta_activo(),
-                                    'energy_packs_collected': getattr(jugador_juego, 'energy_packs_collected', 0),
-                                    'consecutive_wins': current_consecutive_wins,
-                                    'ultimo_en_mid_game': getattr(juego_obj, 'ultimo_en_mid_game', None)
-                                }
+                                maestria.xp += xp_maestria_ganada
+                                
+                                MAESTRIA_XP_NV10 = 6750 
+                                
+                                if maestria.xp >= MAESTRIA_XP_NV10 and maestria.cosmetic_unlocked == False:
+                                    maestria.cosmetic_unlocked = True
+                                    print(f"--- COSMÉTICO DESBLOQUEADO: {kit_usado} para {user_db.username}")
+                                    # Comprobar si el SID sigue activo ANTES de emitir
+                                    if sid in sessions_activas:
+                                        socketio.emit('cosmetic_unlocked', {'kit_id': kit_usado}, to=sid)
 
-                                unlocked_achievements = achievement_system.check_achievement(username, 'game_finished', event_data) 
-                                if unlocked_achievements:
-                                    socketio.emit('achievements_unlocked', {
-                                        'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_achievements]
-                                    }, to=sid)
-                            social_system.update_user_presence(username, 'online', {'sid': sid})
+                                db.session.add(maestria)
+                                print(f"--- MAESTRÍA: {xp_maestria_ganada} XP añadidos a {user_db.username} para kit {kit_usado}. Total: {maestria.xp}")
+
+                            except Exception as e:
+                                db.session.rollback() 
+                                print(f"!!! ERROR al procesar Maestría de Kit: {e}")
+
+                        level_up = update_xp_and_level(user_db, xp_ganada) 
+                        
+                        # Comprobar si el SID sigue activo ANTES de emitir
+                        if sid in sessions_activas:
+                            socketio.emit('profile_stats_updated', {
+                                'games_played': user_db.games_played,
+                                'games_won': user_db.games_won,
+                                'consecutive_wins': user_db.consecutive_wins,
+                                'xp': user_db.xp,
+                                'level': user_db.level,
+                                'equipped_title': getattr(user_db, 'equipped_title', None),
+                                'xp_next_level': get_xp_for_next_level(user_db.level)
+                            }, to=sid)
+                        
+                        event_data = {
+                            'won': is_winner,
+                            'final_energy': jugador_juego.get_puntaje(),
+                            'reached_position': jugador_juego.get_posicion(),
+                            'total_rounds': ronda,
+                            'player_count': player_count_db, 
+                            'colisiones': getattr(jugador_juego, 'colisiones_causadas', 0),
+                            'special_tiles_activated': getattr(jugador_juego, 'tipos_casillas_visitadas', set()),
+                            'abilities_used': getattr(jugador_juego, 'habilidades_usadas_en_partida', 0),
+                            'treasures_this_game': getattr(jugador_juego, 'tesoros_recogidos', 0),
+                            'completed_without_traps': getattr(jugador_juego, 'trampas_evitadas', True),
+                            'precision_laser': getattr(jugador_juego, 'dado_perfecto_usado', 0),
+                            'messages_this_game': getattr(jugador_juego, 'game_messages_sent_this_match', 0),
+                            'only_active_player': len([j for j in juego_obj.jugadores if j.esta_activo()]) == 1,
+                            'never_eliminated': jugador_juego.esta_activo(),
+                            'energy_packs_collected': getattr(jugador_juego, 'energy_packs_collected', 0),
+                            'consecutive_wins': current_consecutive_wins,
+                            'ultimo_en_mid_game': getattr(juego_obj, 'ultimo_en_mid_game', None)
+                        }
+
+                        unlocked_achievements = achievement_system.check_achievement(username, 'game_finished', event_data) 
+                        
+                        # Comprobar si el SID sigue activo ANTES de emitir
+                        if unlocked_achievements and sid in sessions_activas:
+                            socketio.emit('achievements_unlocked', {
+                                'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_achievements]
+                            }, to=sid)
+                    
+                    # Comprobar si el SID sigue activo ANTES de actualizar la presencia
+                    if sid in sessions_activas:
+                        social_system.update_user_presence(username, 'online', {'sid': sid})
+                
                 print("--- THREAD: Procesamiento de estadísticas COMPLETO.")
             except Exception as e:
                 print(f"!!! ERROR FATAL en hilo _procesar_estadisticas_fin_juego: {e}")

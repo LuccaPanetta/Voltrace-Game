@@ -146,11 +146,13 @@ export function invalidateSocialCache() {
     console.log("Invalidando caché social...");
     socialCache.isLoaded = false;
     socialCache.data = null;
+    socialCache.isLoading = false;
+
+    loadSocialData();
     
-    // Si el modal está abierto, recargarlo
+    // Si el modal está abierto, recargarlo 
     if (modalSocialElement?.style.display === "flex") {
         console.log("Modal social abierto, forzando recarga de datos...");
-        loadSocialData(); 
     }
 }
 

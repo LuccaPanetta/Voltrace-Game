@@ -90,18 +90,27 @@ class JugadorWeb:
     def procesar_energia(self, cantidad):
         energia_anterior = self.__puntaje
         energia_cambiada = 0 # Inicializar cambio
+        cantidad_final = cantidad 
 
         # --- BLOQUE DE PROTECCIÓN (ESCUDO) ---
-        if cantidad < 0:
+        if cantidad_final < 0:
             if any(efecto.get('tipo') == 'escudo' for efecto in self.efectos_activos):
-                print(f"DEBUG procesar_energia: {self.nombre} bloqueó {cantidad}E de daño con Escudo.")
+                print(f"DEBUG procesar_energia: {self.nombre} bloqueó {cantidad_final}E de daño con Escudo.")
                 
-                # Asegurarse de que juego_actual y eventos_turno existan antes de añadir el evento
                 if self.juego_actual and hasattr(self.juego_actual, 'eventos_turno'):
-                    self.juego_actual.eventos_turno.append(f"🛡️ {self.nombre} bloqueó {abs(cantidad)} de daño con Escudo.")
+                    self.juego_actual.eventos_turno.append(f"🛡️ {self.nombre} bloqueó {abs(cantidad_final)} de daño con Escudo.")
                 return 0 # No se aplica daño
+            
+        if cantidad_final < 0 and "aislamiento" in self.perks_activos:
+            cantidad_original_antes_aislamiento = cantidad_final
+            cantidad_final = int(cantidad_final * 0.80) # Reduce el daño en 20%
+            print(f"DEBUG: {self.nombre} activó Aislamiento. Daño reducido de {cantidad_original_antes_aislamiento} a {cantidad_final}.")
+            
+            if self.juego_actual and hasattr(self.juego_actual, 'eventos_turno'):
+                if cantidad_final > cantidad_original_antes_aislamiento: # Si el daño se redujo
+                    self.juego_actual.eventos_turno.append(f"🛡️ ¡Aislamiento! Daño reducido para {self.nombre}.")
 
-        if cantidad < 0: # Solo se activa al RECIBIR daño 
+        if cantidad_final < 0: 
             efecto_traspaso = next((efecto for efecto in self.efectos_activos if efecto.get('tipo') == 'traspaso_dolor'), None)
             
             if efecto_traspaso:
@@ -110,35 +119,32 @@ class JugadorWeb:
                 objetivo = self.juego_actual._encontrar_jugador(nombre_objetivo) if self.juego_actual else None
                 
                 if objetivo and objetivo.esta_activo() and objetivo != self:
-                    # Calcular daño a transferir (50% del daño recibido)
-                    dano_transferido = int(cantidad * 0.5) # cantidad ya es negativa
+                    # Calcular daño a transferir 
+                    dano_transferido = int(cantidad_final * 0.5)
                     
                     if self.juego_actual and hasattr(self.juego_actual, 'eventos_turno'):
                         self.juego_actual.eventos_turno.append(f"💔 ¡Traspaso de Dolor! {self.nombre} redirige {abs(dano_transferido)}E de daño a {objetivo.get_nombre()}.")
                     
-                    # Aplicar el daño al objetivo.
                     objetivo.procesar_energia(dano_transferido)
                     
-                    # Verificar si el objetivo fue eliminado por el traspaso
                     if not objetivo.esta_activo():
                         mensaje_elim = f"💀 ¡{objetivo.get_nombre()} ha sido eliminado por Traspaso de Dolor!"
                         if self.juego_actual and mensaje_elim not in self.juego_actual.eventos_turno:
                             self.juego_actual.eventos_turno.append(mensaje_elim)
-                    # Verificar si el objetivo usó Último Aliento
                     elif getattr(objetivo, '_ultimo_aliento_usado', False) and not getattr(objetivo, '_ultimo_aliento_notificado', False):
                         if self.juego_actual:
                             self.juego_actual.eventos_turno.append(f"❤️‍🩹 ¡Último Aliento salvó a {objetivo.get_nombre()}! (Daño de Traspaso)")
                         objetivo._ultimo_aliento_notificado = True
                 
-                # El efecto Traspaso de Dolor se consume después de un uso
                 self.efectos_activos = [e for e in self.efectos_activos if e.get('tipo') != 'traspaso_dolor']
 
         esta_bloqueado = any(efecto.get('tipo') == 'bloqueo_energia' for efecto in self.efectos_activos)
-        if esta_bloqueado and cantidad > 0:
-            print(f"DEBUG procesar_energia: {self.nombre} intentó ganar {cantidad}E pero está bloqueado.")
+        if esta_bloqueado and cantidad_final > 0:
+            print(f"DEBUG procesar_energia: {self.nombre} intentó ganar {cantidad_final}E pero está bloqueado.")
             return 0 # No se aplica la ganancia
 
-        energia_final_calculada = energia_anterior + cantidad
+        energia_final_calculada = energia_anterior + cantidad_final
+
 
         if energia_final_calculada <= 0 and \
            "ultimo_aliento" in self.perks_activos and \
