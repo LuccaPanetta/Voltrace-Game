@@ -77,6 +77,8 @@ class SocialSystem:
         try:
             # Lógica para aceptar: borra la solicitud y crea la amistad
             if user.accept_friend_request(sender):
+                user.friends_count = (user.friends_count or 0) + 1
+                sender.friends_count = (sender.friends_count or 0) + 1
                 db.session.commit()
                 
                 # Notificación interna
@@ -131,6 +133,8 @@ class SocialSystem:
         try:
             # Lógica para remover la amistad (definida en models.py)
             if user.remove_friend(friend):
+                user.friends_count = max(0, (user.friends_count or 0) - 1)
+                friend.friends_count = max(0, (friend.friends_count or 0) - 1)
                 db.session.commit()
                 
                 self.update_user_presence(friend_to_remove, 'online', {'friend_removed': username})

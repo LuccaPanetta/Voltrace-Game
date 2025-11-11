@@ -76,6 +76,7 @@ class User(db.Model, UserMixin):
     consecutive_wins = db.Column(db.Integer, default=0)
     last_login_date = db.Column(db.Date, nullable=True) 
     unique_login_days_count = db.Column(db.Integer, default=0)
+    friends_count = db.Column(db.Integer, default=0, nullable=False)
     
     # --- Sistema Social (Amigos) ---
     

@@ -19,6 +19,7 @@
 
 from datetime import datetime
 from models import db, User, Achievement, UserAchievement
+from sqlalchemy.orm import selectinload
 
 class AchievementSystem:
     
@@ -469,8 +470,10 @@ class AchievementSystem:
         return self.achievements_config
     
     def get_user_achievement_progress(self, username):
-        # Obtener el usuario y sus logros desbloqueados de la DB
-        user = User.query.filter_by(username=username).first()
+        user = User.query.options(
+            selectinload(User.unlocked_achievements_assoc)
+            .selectinload(UserAchievement.achievement)
+        ).filter_by(username=username).first()
         if not user:
             return {'error': 'Usuario no encontrado'}
 
@@ -488,7 +491,7 @@ class AchievementSystem:
             'private_messages_sent': getattr(user, 'private_messages_sent', 0),
             'rooms_created': getattr(user, 'rooms_created', 0), 
             'unlocked_achievements_count': len(unlocked_ids_set),
-            'friends_count': user.friends.count(),
+            'friends_count': getattr(user, 'friends_count', 0),
             'unique_login_days_count': getattr(user, 'unique_login_days_count', 0)
         }
 
