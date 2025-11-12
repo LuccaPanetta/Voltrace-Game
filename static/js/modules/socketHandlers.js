@@ -7,7 +7,7 @@ import { updateProfileUI, fetchAndUpdateUserProfile } from './auth.js';
 import { updateWaitingRoomUI, appendLobbyChatMessage, loadTopPlayers } from './lobby.js';
 import { actualizarEstadoJuego, renderEventos, agregarAlLog, appendGameChatMessage, mostrarModalFinJuego, actualizarCooldownsUI, actualizarEstadoParcial, actualizarEstadoRevancha } from './gameUI.js';
 import { displayPerkOffer, handlePerkActivated, updatePerkPrices } from './perks.js';
-import { appendPrivateMessage, updateSocialNotificationIndicator, invalidateSocialCache, updateFriendStatusInCache } from './social.js';
+import { appendPrivateMessage, updateSocialNotificationIndicator, invalidateSocialCache, updateFriendStatusInCache, getFriendStatusFromCache } from './social.js';
 import { invalidateAchievementsCache } from './achievements.js'; 
 import { handleMaestriaData, invalidateArsenalCache, loadArsenalData } from './arsenal.js';
 
@@ -480,11 +480,11 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
     _socket.on("friend_status_update", (data) => {
         const friendName = escapeHTML(data.username || data.friend);
         let message = `👤 Estado de ${friendName} actualizado.`; 
-        const oldStatus = socialCache.friends.find(f => f.username === friendName)?.status || 'offline';
+        const oldStatus = getFriendStatusFromCache(friendName); 
         const newStatus = data.status;
-
         if (oldStatus === newStatus) {
             console.log(`Notificación de estado para ${friendName} omitida (estado ya es ${newStatus}).`);
+            updateFriendStatusInCache(data);
             return; 
         }
 

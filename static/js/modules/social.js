@@ -623,3 +623,16 @@ export function updateFriendStatusInCache(friendData) {
         }
     }
 }
+
+/**
+ * Devuelve el estado de un amigo específico desde el caché.
+ * @param {string} username - El nombre del amigo a buscar.
+ * @returns {string} - 'online', 'in_game', 'in_lobby', 'offline'.
+ */
+export function getFriendStatusFromCache(username) {
+    if (!socialCache.isLoaded || !socialCache.friends) {
+        return 'offline'; // Si el caché no está listo, asumir offline
+    }
+    const friend = socialCache.friends.find(f => f.username === username);
+    return friend ? (friend.status || 'offline') : 'offline';
+}

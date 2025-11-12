@@ -386,7 +386,7 @@ class SalaJuego:
         # Necesita al menos 2 jugadores y estar en estado 'esperando'
         return len(self.jugadores) >= 2 and self.estado == 'esperando'
 
-    def iniciar_juego(self):
+    def iniciar_juego(self, achievement_system=None):
         if self.puede_iniciar():
             jugadores_config = []
             for datos in self.jugadores.values():
