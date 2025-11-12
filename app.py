@@ -970,44 +970,29 @@ def crear_sala(data):
 def unirse_sala(data):
     # Maneja cuando un jugador intenta unirse a una sala existente
     id_sala_original = data['id_sala']
-    id_sala = id_sala_original.lower() # Normalizar a minúsculas
-
+    id_sala = id_sala_original.lower()
+    
     if request.sid not in sessions_activas:
         emit('error', {'mensaje': 'Debes iniciar sesión para unirte a una sala.'})
         return
-
     username = sessions_activas[request.sid]['username']
-
     if id_sala not in salas_activas:
         emit('error', {'mensaje': f'La sala "{id_sala_original}" no existe.'})
         return
-
     sala = salas_activas[id_sala]
-
-    # Validar estado de la sala y si ya está llena
     if sala.estado != 'esperando':
         emit('error', {'mensaje': 'No puedes unirte, la partida ya comenzó.'})
         return
     if len(sala.jugadores) >= 4:
         emit('error', {'mensaje': 'La sala está llena (máximo 4 jugadores).'})
         return
-
-    # Verificar si el usuario ya está en la sala
-    for sid_jugador, datos_jugador in sala.jugadores.items():
-        if datos_jugador['nombre'] == username:
-            print(f"DEBUG: {username} intentó unirse a la sala {id_sala} pero ya estaba dentro.")
-            emit('unido_exitoso', {'id_sala': id_sala, 'mensaje': 'Ya estabas en esta sala.'})
-            return
-            
+    
     kit_seleccionado = data.get('kit_id', 'tactico')
     avatar_guardado = data.get('avatar_emoji', '👤')
 
-    # Intentar agregar al jugador
     if sala.agregar_jugador(request.sid, username, kit_seleccionado, avatar_guardado):
-        join_room(id_sala) # Unir a la room de SocketIO
-
+        join_room(id_sala) 
         social_system.update_user_presence(username, 'in_lobby', {'room_id': id_sala, 'sid': request.sid})
-
         emit('unido_exitoso', {
             'id_sala': id_sala,
             'mensaje': f'Te uniste a la sala {id_sala}'
@@ -1015,14 +1000,13 @@ def unirse_sala(data):
 
         puede_iniciar_actualizado = sala.puede_iniciar()
 
-        # Notificar a TODOS en la sala sobre el estado actualizado
         socketio.emit('jugador_unido', {
-            'jugador_nombre': username, # Quién se unió
+            'jugador_nombre': username,
             'jugadores': len(sala.jugadores),
             'lista_jugadores': [datos['nombre'] for datos in sala.jugadores.values()],
             'puede_iniciar': puede_iniciar_actualizado, 
             'estado': sala.estado, 
-            'log_eventos': sala.log_eventos[-10:] # Últimos eventos
+            'log_eventos': sala.log_eventos[-10:]
         }, room=id_sala)
     else:
         emit('error', {'mensaje': 'Error al unirse a la sala (posiblemente llena).'})
