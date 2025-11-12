@@ -266,6 +266,9 @@ function updateJugadoresEstado(nuevosJugadores) {
                         case "fase_activa": icono = "💨"; break;
                         case "sobrecarga_pendiente": icono = "🎲"; break;
                         case "fuga_energia": icono = "🩸"; break;
+                        case "vinculo": icono = "🔗"; break;
+                        case "traspaso_dolor": icono = "💔"; break;
+                        case "movimiento_forzado": icono = "🎮"; break;
                     }
                     const duracion = efecto.turnos > 1 ? ` (${efecto.turnos}t)` : "";
                     const tooltip = `${efecto.tipo.charAt(0).toUpperCase() + efecto.tipo.slice(1)}${duracion}`;
@@ -698,6 +701,12 @@ function handleUsarHabilidadClick(e) {
         case "Curación": playSound('Curación', 0.3); break;
         case "Doble Turno": playSound('DobleTurno', 0.3); break;
         case "Sobrecarga Inestable": playSound('Sobrecarga Inestable', 0.2); break;
+
+        // Titiritero
+        case "Hilos Espectrales": playSound('HilosEspectrales', 0.2); break; 
+        case "Tirón de Cadenas": playSound('TironDeCadenas', 0.3); break;
+        case "Traspaso de Dolor": playSound('TraspasoDeDolor', 0.3); break;
+        case "Control Total": playSound('ControlTotal', 0.3); break;
         
         default: playSound('ClickMouse', 0.3);
     }

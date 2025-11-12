@@ -49,6 +49,10 @@ class SocialSystem:
         if target.has_sent_request_to(sender):
             return {'success': False, 'message': f'{target_username} ya te envió una solicitud. Revísala en la pestaña "Solicitudes".'}
 
+        if target.has_sent_request_to(sender):
+            print(f"--- ACEPTACIÓN IMPLÍCITA: {sender_username} envió solicitud a {target_username}, que ya había enviado una. Aceptando...")
+            return self.accept_friend_request(username=sender_username, friend_username=target_username)
+
         try:
             # Intentar crear la solicitud en la DB
             if sender.send_friend_request(target):
