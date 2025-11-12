@@ -609,6 +609,14 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
             }
         }
 
+        else if (['Hilos Espectrales', 'Tirón de Cadenas', 'Traspaso de Dolor', 'Control Total'].includes(nombreHab)) {
+            kitId = 'marionetista';
+            if (_state.cosmeticsUnlocked.includes(kitId)) {
+                _gameAnimations.playTitiriteroCosmetic(jugadorNombre);
+                cosmeticPlayed = true;
+            }
+        }
+
         if (!cosmeticPlayed && jugadoresEstadoDisplay) {
             const playerElement = Array.from(jugadoresEstadoDisplay.children).find(el => el.textContent.includes(jugadorNombre));
             if (playerElement) _gameAnimations.animateAbilityUse(habilidadData.tipo || "magic", playerElement);

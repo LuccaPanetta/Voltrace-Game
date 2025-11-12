@@ -2138,3 +2138,41 @@ progress#user-xp-bar::-moz-progress-bar {
 .btn-close {
     cursor: pointer;
 }
+
+/* Keyframe para Hilos de Control (Titiritero) */
+@keyframes cosmetic-titiritero-strings {
+    0% {
+        transform: scale(0.5);
+        opacity: 1;
+        /* Un color fucsia/violeta brillante */
+        box-shadow: 0 0 15px 5px #f0abfc, 
+                    0 0 25px 10px #c026d3; 
+    }
+    100% {
+        transform: scale(3); /* Se expande */
+        opacity: 0; /* Se desvanece */
+        box-shadow: 0 0 5px 0px #f0abfc,
+                    0 0 10px 0px #c026d3;
+    }
+}
+
+/* Estilo del elemento de la animación */
+.cosmetic-animation.titiritero-strings {
+  position: fixed; 
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  
+  /* Color del Titiritero (Fucsia/Violeta) */
+  background-color: rgba(232, 121, 249, 0.3);
+  border: 2px solid #f0abfc;
+  
+  opacity: 0;
+  transform-origin: center;
+  
+  /* Aplicar la animación (1.0s) */
+  animation: cosmetic-titiritero-strings 1.0s ease-out forwards;
+  
+  pointer-events: none;
+  z-index: 1001;
+}

@@ -521,6 +521,38 @@ export class AnimationSystem {
     }, 600);
   }
 
+  /**
+   * Reproduce la animación "Hilos de Control" (Maestría Nv. 10 Titiritero).
+   * @param {string} playerName - El nombre del jugador que usa la habilidad.
+   */
+  playTitiriteroCosmetic(playerName) {
+    if (!this.isEnabled) return;
+
+    const playerPiece = document.querySelector(`.ficha-jugador[data-username="${playerName}"]`);
+    if (!playerPiece) {
+        console.warn(`[AnimSystem] No se encontró la ficha para ${playerName} (Titiritero).`);
+        return;
+    }
+
+    // Crear el elemento de la animación
+    const animElement = document.createElement('div');
+    animElement.className = 'cosmetic-animation titiritero-strings'; 
+    
+    // Posicionar el elemento (centrado en la ficha)
+    const pieceRect = playerPiece.getBoundingClientRect();
+    const pieceSize = playerPiece.offsetWidth;
+    const animSize = 60; // Tamaño de la animación
+    
+    animElement.style.left = `${pieceRect.left + (pieceSize / 2) - (animSize / 2)}px`;
+    animElement.style.top = `${pieceRect.top + (pieceSize / 2) - (animSize / 2)}px`;
+
+    document.body.appendChild(animElement); 
+
+    setTimeout(() => {
+        animElement.remove();
+    }, 1000); // 1 segundo
+  }
+
   // Efecto de entrada para elementos
   fadeInElement(element, delay = 0) {
     if (!this.isEnabled || !element) return;
