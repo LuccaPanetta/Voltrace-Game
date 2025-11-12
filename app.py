@@ -395,7 +395,8 @@ class SalaJuego:
                     'kit_id': datos.get('kit_id', 'tactico'),
                     'avatar_emoji': datos.get('avatar_emoji', '👤')
                 })
-            self.juego = JuegoOcaWeb(jugadores_config, achievement_system)
+        
+            self.juego = JuegoOcaWeb(jugadores_config, achievement_system) 
             self.estado = 'jugando'
             self.log_eventos.append("¡El juego ha comenzado!")
             return True
