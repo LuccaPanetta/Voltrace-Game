@@ -265,16 +265,27 @@ function _displayTopPlayers(players) {
 
 /** Actualiza la UI de la sala de espera. */
 export function updateWaitingRoomUI(data) {
-    if (contadorJugadoresDisplay) contadorJugadoresDisplay.textContent = data.jugadores ?? '-';
+    const listaJugadores = data.lista_jugadores || [];
+    const numJugadores = data.jugadores ?? listaJugadores.length; 
+
+    if (contadorJugadoresDisplay) contadorJugadoresDisplay.textContent = numJugadores;
+    
     if (listaJugadoresDisplay) {
         listaJugadoresDisplay.innerHTML = "";
-        (data.lista_jugadores || []).forEach(nombre => {
+        listaJugadores.forEach(nombre => {
             const li = document.createElement("li");
             li.textContent = escapeHTML(nombre);
             listaJugadoresDisplay.appendChild(li);
         });
     }
-    if (btnIniciarJuego) btnIniciarJuego.disabled = !data.puede_iniciar;
+    const puede_iniciar_cliente = data.puede_iniciar !== undefined 
+        ? data.puede_iniciar 
+        : (numJugadores >= 2 && data.estado === 'esperando');
+
+    if (btnIniciarJuego) {
+        btnIniciarJuego.disabled = !puede_iniciar_cliente;
+    }
+
     if (logEventosDisplay && data.log_eventos) {
         logEventosDisplay.innerHTML = "";
         data.log_eventos.slice(-10).forEach(e => { 
