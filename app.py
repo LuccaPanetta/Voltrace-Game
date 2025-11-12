@@ -713,6 +713,16 @@ def get_friends(username):
     data = social_system.get_friends_list(username)
     return jsonify(data)
 
+@app.route('/social/unread_counts')
+@login_required
+def get_unread_counts():
+    try:
+        counts = social_system.get_unread_message_count(current_user.username)
+        return jsonify({"success": True, "counts": counts})
+    except Exception as e:
+        print(f"!!! ERROR en /social/unread_counts: {e}")
+        return jsonify({"success": False, "message": "Error al obtener conteos."}), 500
+
 @app.route('/social/solicitud/send/<sender_username>/<target_username>', methods=['POST'])
 def send_friend_request(sender_username, target_username):
     print(f"\n--- RUTA: send_friend_request --- De: {sender_username}, Para: {target_username}")
@@ -1595,10 +1605,12 @@ def usar_habilidad(data):
                             'resultado': resultado, 
                             'estado_juego_parcial': estado_juego_parcial 
                         }, room=id_sala)
+                _iniciar_temporizador_turno(id_sala, nombre_jugador_emitente)
 
         else:
             # Si la habilidad falló, enviar solo el mensaje de error al emisor
             emit('error', {'mensaje': resultado['mensaje']})
+            _iniciar_temporizador_turno(id_sala, nombre_jugador_emitente)
     
     except Exception as e:
             print(f"!!! ERROR GRAVE en 'usar_habilidad': {e}")

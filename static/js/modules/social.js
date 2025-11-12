@@ -161,36 +161,52 @@ export function invalidateSocialCache() {
  * Esta función es llamada por 'main.js' durante la precarga.
  */
 export async function loadSocialData() {
-    // Evitar recargas si ya está cargando o si ya está cargado
-    if (socialCache.isLoading || socialCache.isLoaded) return;
+    if (socialCache.isLoading) return; // Prevenir cargas duplicadas
     if (!_state.currentUser || !_state.currentUser.username) return;
-
-    console.log("Iniciando precarga de datos sociales...");
+    
+    console.log("Iniciando carga de datos sociales (amigos + no leídos)...");
     socialCache.isLoading = true;
 
-    const endpoint = `/social/amigos/${_state.currentUser.username}`;
-    try {
-        const response = await fetch(endpoint);
-        if (!response.ok) throw new Error(`Error de red ${response.status}`);
-        const data = await response.json();
-        if (data.error) throw new Error(data.error);
+    const friendsEndpoint = `/social/amigos/${_state.currentUser.username}`;
+    const unreadEndpoint = `/social/unread_counts`; 
 
-        // Guardar datos en el caché
-        socialCache.friends = data.friends || [];
-        socialCache.pending_received = data.pending_received || [];
-        socialCache.pending_sent = data.pending_sent || [];
+    try {
+        // Llamar a ambas APIs en paralelo
+        const [friendsResponse, unreadResponse] = await Promise.all([
+            fetch(friendsEndpoint),
+            fetch(unreadEndpoint) 
+        ]);
+
+        if (!friendsResponse.ok) throw new Error(`Error de red (amigos) ${friendsResponse.status}`);
+        if (!unreadResponse.ok) throw new Error(`Error de red (no leídos) ${unreadResponse.status}`);
+        
+        const friendsData = await friendsResponse.json();
+        const unreadData = await unreadResponse.json();
+
+        if (friendsData.error) throw new Error(friendsData.error);
+        if (!unreadData.success) throw new Error(unreadData.message || "Error al cargar conteos");
+
+        // Guardar AMBOS resultados en el caché
+        socialCache.friends = friendsData.friends || [];
+        socialCache.pending_received = friendsData.pending_received || [];
+        socialCache.pending_sent = friendsData.pending_sent || [];
+        socialCache.unread = unreadData.counts || {};
         socialCache.isLoaded = true;
-        console.log("Caché social cargado exitosamente.");
+        console.log("Caché social cargado:", socialCache);
+        
+        // Apagar el indicador global SOLO si no hay solicitudes Y no hay mensajes
+        if (socialCache.pending_received.length === 0 && Object.keys(socialCache.unread).length === 0) {
+            updateSocialNotificationIndicator(false);
+        }
 
         // Si el modal está abierto, renderizar los datos que acabamos de cargar
         if (modalSocialElement?.style.display === "flex") {
-            renderFriendsList(socialCache.friends);
+            renderFriendsList(socialCache.friends, socialCache.unread);
             renderRequestsList(socialCache.pending_received);
         }
 
     } catch (error) {
         console.error(`Error al cargar datos sociales:`, error);
-        // Si falla, permitir un reintento la próxima vez que se abra el modal
         socialCache.isLoaded = false; 
         if (modalSocialElement?.style.display === "flex") {
             const errorHTML = `<p style="text-align: center; color: var(--danger);">Error al cargar: ${error.message}</p>`;
@@ -239,7 +255,7 @@ function switchSocialTab(tabName) {
 
 // --- Renderizado UI Social ---
 
-function renderFriendsList(friends) {
+function renderFriendsList(friends, unreadCounts = {}) {
     if (!socialFriendsListDisplay) return;
     if (!friends || friends.length === 0) {
         socialFriendsListDisplay.innerHTML = '<p style="text-align: center; color: var(--muted);">No tienes amigos aún. ¡Busca y agrega!</p>';
@@ -250,11 +266,29 @@ function renderFriendsList(friends) {
         const item = document.createElement("div");
         item.className = "social-list-item";
         item.dataset.username = friend.username;
+        
         let statusClass = "offline", statusText = "Offline";
         const friendStatus = friend.status || "offline";
-        if (friendStatus.startsWith("in_game")) { statusClass = "in_game"; statusText = "En Partida"; }
-        else if (friendStatus === "online" || friendStatus.startsWith("in_lobby")) { statusClass = "online"; statusText = "Online"; }
-        const canInvite = statusClass === "online" && _state.idSala.value;
+        
+        if (friendStatus === "in_game") { 
+            statusClass = "in_game"; 
+            statusText = "En Partida"; 
+        }
+        else if (friendStatus === "in_lobby") { 
+            statusClass = "online";
+            statusText = "En Sala"; 
+        }
+        else if (friendStatus === "online") {
+            statusClass = "online"; 
+            statusText = "Online"; 
+        }
+        const canInvite = friendStatus === "online" && _state.idSala.value;
+
+        const unreadCount = unreadCounts[friend.username] || 0;
+        const unreadBadge = unreadCount > 0 
+            ? `<span class="unread-badge" title="${unreadCount} mensajes no leídos">${unreadCount}</span>` 
+            : '';
+
         item.innerHTML = `
           <div class="social-user-info">
             <div class="social-status ${statusClass}" title="${statusText}"></div>
@@ -491,6 +525,11 @@ async function openPrivateChat(targetUsername) {
     privateChatMessagesDisplay.innerHTML = '<p style="text-align: center; color: var(--muted);">Cargando historial...</p>';
     modalPrivateChatElement.style.display = "flex";
     if (modalSocialElement) modalSocialElement.style.display = "none"; 
+    
+    if (socialCache.unread && socialCache.unread[targetUsername]) {
+        delete socialCache.unread[targetUsername];
+    }
+
     try {
         const response = await fetch(`/social/messages/${_state.currentUser.username}/${targetUsername}`);
         if (!response.ok) throw new Error("Error al cargar mensajes");

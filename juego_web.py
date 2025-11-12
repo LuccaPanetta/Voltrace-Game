@@ -2492,27 +2492,52 @@ class JuegoOcaWeb:
         jugador.efectos_activos = nuevos_efectos
     
     def _puede_ser_afectado(self, objetivo, habilidad_usada=None):
-        # Verificar Anticipación PRIMERO si se pasó una habilidad ofensiva
         if habilidad_usada and habilidad_usada.tipo == "ofensiva" and "anticipacion" in objetivo.perks_activos:
             if random.random() < 0.20: 
-                # Añadir evento solo si la esquiva ocurre
-                self.eventos_turno.append(f"🛡️ ¡{objetivo.get_nombre()} esquivó {habilidad_usada.nombre}!")
+                self.eventos_turno.append(f"🛡️ ¡{objetivo.get_nombre()} esquivó {habilidad_usada.nombre} (Anticipación)!")
+                
+                # Disparar el logro "Fantasma"
+                if self.achievement_system:
+                    try:
+                        threading.Thread(
+                            target=self.achievement_system.check_achievement,
+                            args=(
+                                objetivo.get_nombre(), 
+                                'game_event', 
+                                {'event_name': 'fantasma'}
+                            )
+                        ).start()
+                    except Exception as e:
+                        print(f"!!! ERROR al verificar logro 'fantasma' (Anticipación): {e}")
+                
                 return False # No puede ser afectado
 
-        # Verificar Escudo, O Invisibilidad base, O Invisibilidad con Sombra Fugaz
-        if (self._verificar_efecto_activo(objetivo, "escudo") or
-            self._verificar_efecto_activo(objetivo, "invisible") or 
-           ("sombra_fugaz" in objetivo.perks_activos and self._verificar_efecto_activo(objetivo, "invisible"))):
+        # Comprobar Invisibilidad 
+        if self._verificar_efecto_activo(objetivo, "invisible"):
+            self.eventos_turno.append(f"👻 {objetivo.get_nombre()} está protegido por Invisibilidad.")
             
-            # Determinar el mensaje de protección
-            if self._verificar_efecto_activo(objetivo, "escudo"):
-                self.eventos_turno.append(f"🛡️ {objetivo.get_nombre()} está protegido por Escudo.")
-            else:
-                 self.eventos_turno.append(f"👻 {objetivo.get_nombre()} está protegido por Invisibilidad.")
-            
-            return False
+            # Disparar el logro "Fantasma"
+            if self.achievement_system:
+                try:
+                    threading.Thread(
+                        target=self.achievement_system.check_achievement,
+                        args=(
+                            objetivo.get_nombre(), 
+                            'game_event', 
+                            {'event_name': 'fantasma'}
+                        )
+                    ).start()
+                except Exception as e:
+                    print(f"!!! ERROR al verificar logro 'fantasma' (Invisibilidad): {e}")
 
-        # Si no esquivó ni estaba protegido, puede ser afectado
+            return False # No puede ser afectado
+
+        # Comprobar Escudo Total
+        if self._verificar_efecto_activo(objetivo, "escudo"):
+            self.eventos_turno.append(f"🛡️ {objetivo.get_nombre()} está protegido por Escudo.")
+            
+            return False # No puede ser afectado
+
         return True
     
     def _remover_efecto(self, jugador, tipo_efecto):

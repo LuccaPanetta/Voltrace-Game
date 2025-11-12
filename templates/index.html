@@ -43,11 +43,23 @@
                         <div class="form-group auth-form-column">
                             <div class="input-group">
                                 <label for="login-email">Email:</label>
-                                <input type="email" id="login-email" placeholder="tu@email.com" required class="text-input">
+                                <input 
+                                    type="email" 
+                                    id="login-email" 
+                                    name="email" 
+                                    autocomplete="username" 
+                                    required 
+                                />
                             </div>
                             <div class="input-group">
                                 <label for="login-password">Contraseña:</label>
-                                <input type="password" id="login-password" placeholder="Contraseña" required class="text-input">
+                                <input 
+                                    type="password" 
+                                    id="login-password" 
+                                    name="password" 
+                                    autocomplete="current-password" 
+                                    required 
+                                />
                             </div>
                             <div style="text-align: right; font-size: 0.9em; margin-top: 5px; margin-bottom: 10px;">
                                 <a href="{{ url_for('forgot_password') }}" style="color: var(--primary); text-decoration: none;">

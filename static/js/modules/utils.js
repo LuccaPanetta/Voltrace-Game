@@ -156,7 +156,6 @@ export function playSound(soundName, relativeVolume = 0.5) {
                 preloadSounds([
                     'ClickMouse', 'Dice', 'GameStart', 'OpenCloseModal', 
                     'LandOnTrap', 'LandOnTreasure', 'Collision', 'Teleport', 
-                    'MovementAbility', 'OffensiveAbility', 'DefensiveAbility',
                     'GameWin', 'GameLost' 
                 ]);
             };
