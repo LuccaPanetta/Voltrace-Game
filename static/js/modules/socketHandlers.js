@@ -480,6 +480,13 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
     _socket.on("friend_status_update", (data) => {
         const friendName = escapeHTML(data.username || data.friend);
         let message = `👤 Estado de ${friendName} actualizado.`; 
+        const oldStatus = socialCache.friends.find(f => f.username === friendName)?.status || 'offline';
+        const newStatus = data.status;
+
+        if (oldStatus === newStatus) {
+            console.log(`Notificación de estado para ${friendName} omitida (estado ya es ${newStatus}).`);
+            return; 
+        }
 
         // Comprobar el tipo de actualización para mensajes más claros
         if (data.type === "accepted") {

@@ -992,13 +992,13 @@ def unirse_sala(data):
         emit('error', {'mensaje': 'La sala está llena (máximo 4 jugadores).'})
         return
 
-    # Verificar si el usuario ya está en la sala (quizás con otro SID, improbable pero posible)
+    # Verificar si el usuario ya está en la sala
     for sid_jugador, datos_jugador in sala.jugadores.items():
         if datos_jugador['nombre'] == username:
             print(f"DEBUG: {username} intentó unirse a la sala {id_sala} pero ya estaba dentro.")
-            # Podrías simplemente reenviar el estado actual o un mensaje de éxito
             emit('unido_exitoso', {'id_sala': id_sala, 'mensaje': 'Ya estabas en esta sala.'})
             return
+            
     kit_seleccionado = data.get('kit_id', 'tactico')
     avatar_guardado = data.get('avatar_emoji', '👤')
 
@@ -1006,25 +1006,25 @@ def unirse_sala(data):
     if sala.agregar_jugador(request.sid, username, kit_seleccionado, avatar_guardado):
         join_room(id_sala) # Unir a la room de SocketIO
 
-        # Actualizar presencia a 'in_lobby'
         social_system.update_user_presence(username, 'in_lobby', {'room_id': id_sala, 'sid': request.sid})
 
-        # Enviar confirmación al jugador que se unió
         emit('unido_exitoso', {
             'id_sala': id_sala,
             'mensaje': f'Te uniste a la sala {id_sala}'
         })
+
+        puede_iniciar_actualizado = sala.puede_iniciar()
 
         # Notificar a TODOS en la sala sobre el estado actualizado
         socketio.emit('jugador_unido', {
             'jugador_nombre': username, # Quién se unió
             'jugadores': len(sala.jugadores),
             'lista_jugadores': [datos['nombre'] for datos in sala.jugadores.values()],
-            'puede_iniciar': sala.puede_iniciar(),
+            'puede_iniciar': puede_iniciar_actualizado, 
+            'estado': sala.estado, 
             'log_eventos': sala.log_eventos[-10:] # Últimos eventos
         }, room=id_sala)
     else:
-        # Esto podría pasar si justo en ese momento alguien más llenó la sala
         emit('error', {'mensaje': 'Error al unirse a la sala (posiblemente llena).'})
 
 @socketio.on('salir_sala')

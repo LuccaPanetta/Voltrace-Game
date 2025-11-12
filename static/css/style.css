@@ -2134,3 +2134,7 @@ progress#user-xp-bar::-moz-progress-bar {
   pointer-events: none;
   z-index: 999; /* Detrás de la ficha principal */
 }
+
+.btn-close {
+    cursor: pointer;
+}
