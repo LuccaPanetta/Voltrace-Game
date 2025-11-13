@@ -244,7 +244,6 @@ import { initArsenal, loadArsenalData } from './modules/arsenal.js';
     }
     
     // Ocultar el 'loading' y terminar la inicialización
-    setLoading(false, loadingElement);
     console.log("Aplicación inicializada (main.js).");
 
 })();

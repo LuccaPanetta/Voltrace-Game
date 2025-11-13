@@ -357,7 +357,8 @@ function updateTablero(nuevoTablero) {
                         const ficha = document.createElement("div");
                         ficha.className = "ficha-jugador";
                         ficha.setAttribute("data-username", j.nombre);
-                        ficha.textContent = j.avatar_emoji || escapeHTML(j.nombre[0].toUpperCase());
+                        const avatar = j.avatar_emoji || '👤'; 
+                        ficha.textContent = avatar;
                         ficha.style.backgroundColor = mapaColores[j.nombre] || "#888";
                         if (_state.currentUser && j.nombre === _state.currentUser.username) {
                             ficha.classList.add("mi-ficha");
