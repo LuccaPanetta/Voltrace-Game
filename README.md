@@ -7,6 +7,9 @@
 ![Deployment](https://img.shields.io/badge/Deploy-Render-lightgrey.svg)
 ![Container](https://img.shields.io/badge/Docker-ready-blue.svg)
 
+### ¡Probá VoltRace ahora mismo!
+### [https://voltrace-game.onrender.com/](https://voltrace-game.onrender.com/)
+
 **VoltRace** es una implementación web moderna del clásico juego de mesa, diseñada para múltiples jugadores en tiempo real. Cuenta con un sistema completo de usuarios (con reseteo de contraseña por email), persistencia en base de datos PostgreSQL, logros, perks (mejoras), un sistema de progresión de "Maestría de Kit" con Títulos y Animaciones cosméticas, funciones sociales y un servidor de producción listo para *deploy* con Docker.
 
 ## 📋 Índice
@@ -121,3 +124,7 @@ El frontend utiliza **módulos de JavaScript (ES6+)** para organizar la lógica,
 -   **Render** - Plataforma de hosting (PaaS) para el servicio web y la base de datos.
 -   **UptimeRobot** - Monitoreo de *uptime*.
 -   **Neon** - Base de datos PostgreSQL *serverless* en la nube.
+
+## ⚖️ Licencia
+
+Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
