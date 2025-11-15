@@ -87,6 +87,7 @@ class SocialSystem:
                 
                 # Notificación interna
                 self.update_user_presence(friend_username, 'online', {'new_friend': username})
+                self.update_user_presence(username, 'online', {'new_friend': friend_username, 'type': 'accepted'})
                 
                 return {'success': True, 'message': f'Ahora eres amigo de {friend_username}.'}
             else:

@@ -426,11 +426,8 @@ async function acceptFriendRequest(senderUsername, buttonElement) {
         const result = await response.json();
         showNotification(result.message, notifContainer, result.success ? "success" : "error");
         if (result.success) {
-            socialCache.isLoaded = false;
-            listItem?.remove(); 
-            if (socialTabFriends?.classList.contains("active")) {
-                loadSocialData(); // Forzar recarga
-            }
+            invalidateSocialCache(); 
+            listItem?.remove();
         } else {
             const actionsDiv = listItem?.querySelector(".social-actions");
             if (actionsDiv) {
