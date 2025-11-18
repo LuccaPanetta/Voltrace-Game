@@ -19,10 +19,14 @@
 
 import json
 import os
+import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 from models import db, User, Achievement, UserAchievement, PrivateMessage
 from sqlalchemy import func, case
+from sqlalchemy.orm import selectinload
+
+logger = logging.getLogger('voltrace')
 
 class SocialSystem:
 
@@ -35,6 +39,7 @@ class SocialSystem:
         target = User.query.filter_by(username=target_username).first()
 
         if not sender or not target:
+            logger.warning(f"SOLICITUD AMISTAD WARN: Remitente '{sender_username}' o Destinatario '{target_username}' no encontrado en DB.")
             return {'success': False, 'message': 'Usuario remitente o destinatario no encontrado.'}
 
         if sender.id == target.id:
@@ -50,7 +55,7 @@ class SocialSystem:
             return {'success': False, 'message': f'{target_username} ya te envió una solicitud. Revísala en la pestaña "Solicitudes".'}
 
         if target.has_sent_request_to(sender):
-            print(f"--- ACEPTACIÓN IMPLÍCITA: {sender_username} envió solicitud a {target_username}, que ya había enviado una. Aceptando...")
+            logger.info(f"ACEPTACIÓN IMPLÍCITA: {sender_username} envió solicitud a {target_username}, coincidiendo con una existente. Aceptando automáticamente.")
             return self.accept_friend_request(username=sender_username, friend_username=target_username)
 
         try:
@@ -64,7 +69,7 @@ class SocialSystem:
 
         except Exception as e:
             db.session.rollback()
-            print(f"Error DB al enviar solicitud: {e}")
+            logger.error(f"ERROR DB al enviar solicitud de {sender_username} a {target_username}: {e}", exc_info=True)
             return {'success': False, 'message': 'Error del servidor al procesar la solicitud.'}
 
     def accept_friend_request(self, username: str, friend_username: str) -> Dict:
@@ -85,8 +90,9 @@ class SocialSystem:
                 sender.friends_count = (sender.friends_count or 0) + 1
                 db.session.commit()
                 
-                # Notificación interna
-                self.update_user_presence(friend_username, 'online', {'new_friend': username})
+                # Notificación interna al EMISOR de la solicitud
+                self.update_user_presence(friend_username, 'online', {'new_friend': username, 'type': 'accepted'})
+                # Notificación interna al RECEPTOR de la solicitud 
                 self.update_user_presence(username, 'online', {'new_friend': friend_username, 'type': 'accepted'})
                 
                 return {'success': True, 'message': f'Ahora eres amigo de {friend_username}.'}
@@ -95,7 +101,7 @@ class SocialSystem:
 
         except Exception as e:
             db.session.rollback()
-            print(f"Error DB al aceptar solicitud: {e}")
+            logger.error(f"ERROR DB al aceptar solicitud entre {username} y {friend_username}: {e}", exc_info=True)
             return {'success': False, 'message': 'Error interno del servidor (DB).'}
 
     def reject_friend_request(self, username: str, friend_username: str) -> Dict:
@@ -121,7 +127,7 @@ class SocialSystem:
 
         except Exception as e:
             db.session.rollback()
-            print(f"Error DB al rechazar solicitud: {e}")
+            logger.error(f"ERROR DB al rechazar solicitud de {username} y {friend_username}: {e}", exc_info=True)
             return {'success': False, 'message': 'Error interno del servidor (DB).'}
 
     def remove_friend(self, username, friend_to_remove):
@@ -150,7 +156,7 @@ class SocialSystem:
 
         except Exception as e:
             db.session.rollback()
-            print(f"Error DB al remover amistad: {e}")
+            logger.error(f"ERROR DB al remover amistad entre {username} y {friend_to_remove}: {e}", exc_info=True)
             return {'success': False, 'message': 'Error interno del servidor (DB).'}
 
     def search_users(self, query: str, current_user: str, limit: int = 10) -> List[Dict]:
@@ -186,23 +192,24 @@ class SocialSystem:
         return output
 
     def get_friends_list(self, username: str) -> Dict:
-        # Obtener el usuario principal 
-        main_user = User.query.filter_by(username=username).first()
+        main_user = User.query.filter_by(username=username).options(
+            selectinload(User.friends),
+            selectinload(User.received_requests), 
+            selectinload(User.sent_requests)
+        ).first()
+
         if not main_user:
             return {'error': 'Usuario no encontrado'}
 
-        # Preparar la lista de amigos
+        # Preparar la lista de amigos 
         friends_list = []
-        
-        # Accede a la relación friends
         for friend_user in main_user.friends:
-            
             # Obtener el estado de presencia 
             status = self._get_user_status(friend_user.username)
             
             friends_list.append({
                 'username': friend_user.username,
-                'level': friend_user.level, # Stats directas del modelo User
+                'level': friend_user.level, 
                 'status': status
             })
 
@@ -211,7 +218,7 @@ class SocialSystem:
             sender_user.username for sender_user in main_user.received_requests
         ]
         
-        # Obtener solicitudes pendientes que el USUARIO ENVIÓ
+        # Obtener solicitudes pendientes que el USUARIO ENVIÓ 
         pending_sent = [
             receiver_user.username for receiver_user in main_user.sent_requests
         ]
@@ -301,7 +308,7 @@ class SocialSystem:
 
         except Exception as e:
             db.session.rollback()
-            print(f"Error DB al enviar mensaje privado: {e}")
+            logger.error(f"ERROR DB al enviar mensaje privado de {sender} a {recipient}: {e}", exc_info=True)
             return {'success': False, 'message': 'Error interno del servidor (DB).'}
 
     def get_conversation(self, user1_username, user2_username):
@@ -353,7 +360,7 @@ class SocialSystem:
             return False
         except Exception as e:
             db.session.rollback()
-            print(f"Error DB al marcar mensajes como leídos: {e}")
+            logger.error(f"ERROR DB al marcar mensajes de {other_user} para {username} como leídos: {e}", exc_info=True)
             return False
 
     def get_unread_message_count(self, username: str) -> Dict[str, int]:

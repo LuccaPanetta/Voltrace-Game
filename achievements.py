@@ -20,6 +20,9 @@
 from datetime import datetime
 from models import db, User, Achievement, UserAchievement
 from sqlalchemy.orm import selectinload
+import logging
+
+logger = logging.getLogger('voltrace')
 
 class AchievementSystem:
     
@@ -89,7 +92,7 @@ class AchievementSystem:
             # Obtener el usuario de la DB
             user = User.query.filter_by(username=username).first()
             if not user:
-                print(f"ERROR ACH: Usuario {username} no encontrado en la DB.")
+                logger.warning(f"ACHIEVEMENT ERROR: Usuario {username} no encontrado en la DB. No se verificaron logros.")
                 return []
 
             # Obtener IDs de logros ya desbloqueados

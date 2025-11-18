@@ -20,6 +20,7 @@
 from random import randint, choice, sample
 import random
 import os
+import logging
 import traceback
 import threading
 from habilidades import Habilidad, crear_habilidades, KITS_VOLTRACE
@@ -37,6 +38,8 @@ from game_config import (
     BONUS_EXPLORADOR, COSTO_PACK_BASICO, COSTO_PACK_INTERMEDIO,
     COSTO_PACK_AVANZADO, MID_GAME_RONDA
 )
+
+logger = logging.getLogger('voltrace')
 
 class JuegoOcaWeb:
 
@@ -67,8 +70,7 @@ class JuegoOcaWeb:
         self.achievement_system = achievement_system
         
         # Log para mostrar la configuración
-        print(f"--- JuegoOcaWeb __init__ --- Jugadores Config: {jugadores_config}")
-        print(f"--- JuegoOcaWeb __init__ --- Turno inicial: {self.turno_actual}")
+        logger.info(f"JuegoOcaWeb iniciado - Jugadores: {len(self.jugadores)} - Turno: {self.turno_actual}")
 
         self._crear_casillas_especiales()
         self._cargar_energia_desde_archivo()
@@ -77,7 +79,7 @@ class JuegoOcaWeb:
     def _crear_casillas_especiales(self):
         from random import sample, choice # Asegurarse de que están importados
     
-        print("--- Creando tablero aleatorio (Casillas Únicas) ---")
+        logger.debug("Creando tablero aleatorio (Casillas Únicas)")
         self.casillas_especiales = {}
         
         # DEFINE EL "POOL" DE CASILLAS POSIBLES
@@ -133,7 +135,7 @@ class JuegoOcaWeb:
         for pos, casilla_data in zip(posiciones_elegidas, casillas_seleccionadas):
             self.casillas_especiales[pos] = casilla_data.copy() 
         
-        print(f"Tablero creado con {len(self.casillas_especiales)} casillas aleatorias únicas.")
+        logger.info(f"Tablero creado con {len(self.casillas_especiales)} casillas aleatorias únicas.")
 
     def _cargar_energia_desde_archivo(self, nombre_archivo="packenergia_75.txt"):
         ruta_archivo = os.path.join(os.path.dirname(__file__), 'data', nombre_archivo)
@@ -166,7 +168,7 @@ class JuegoOcaWeb:
             ]
     
     def _asignar_habilidades_jugadores(self):
-        print("--- Asignando habilidades basadas en KITS seleccionados ---")
+        logger.debug("Asignando habilidades basadas en KITS seleccionados")
         
         # Crear un mapa de todos los objetos Habilidad por nombre
         mapa_habilidades = {}
@@ -192,12 +194,12 @@ class JuegoOcaWeb:
                 if habilidad_obj:
                     jugador.habilidades.append(habilidad_obj)
                 else:
-                    print(f"!!! ADVERTENCIA: Habilidad '{nombre_hab}' del kit '{kit_id}' no encontrada en mapa_habilidades.")
+                    logger.warning(f"ADVERTENCIA: Habilidad '{nombre_hab}' del kit '{kit_id}' no encontrada.")
 
             # Poner todas las habilidades asignadas en cooldown 0
             jugador.habilidades_cooldown = {h.nombre: 0 for h in jugador.habilidades}
             
-            print(f"-> Jugador {jugador.get_nombre()} recibe Kit '{kit_config['nombre']}' con {len(jugador.habilidades)} habilidades.")
+            logger.info(f"Jugador {jugador.get_nombre()} recibe Kit '{kit_config['nombre']}' con {len(jugador.habilidades)} habilidades.")
 
     # ===================================================================
     # --- 2. FLUJO PRINCIPAL DEL JUEGO (EL TURNO) ---
@@ -1002,7 +1004,7 @@ class JuegoOcaWeb:
 
             if not dispatcher:
                 # Log de error importante en el servidor
-                print(f"!!! ERROR Despacho: No se encontró la función '{func_name}' para la habilidad '{habilidad.nombre}'")
+                logger.error(f"ERROR Despacho: No se encontró la función '{func_name}' para la habilidad '{habilidad.nombre}'")
                 return {"exito": False, "mensaje": f"Habilidad '{habilidad.nombre}' no implementada correctamente en el servidor."}
 
             # EJECUTA la función de la habilidad
@@ -1013,8 +1015,7 @@ class JuegoOcaWeb:
             eventos_habilidad = resultado_logica.get('eventos', [])
 
         except Exception as e:
-            print(f"!!! ERROR FATAL al ejecutar lógica de {habilidad.nombre}: {e}")
-            traceback.print_exc() # Imprime el traceback completo en la consola del servidor
+            logger.error(f"ERROR FATAL al ejecutar lógica de {habilidad.nombre}: {e}", exc_info=True)
             self.eventos_turno.append(f"!!! ERROR al usar {habilidad.nombre}: {e}")
             return {"exito": False, "mensaje": f"Error interno del servidor al ejecutar {habilidad.nombre}."}
 

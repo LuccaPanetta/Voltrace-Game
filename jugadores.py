@@ -14,9 +14,11 @@
 # - Serialización de su estado a un diccionario (to_dict).
 #
 # ===================================================================
-
+import logging
 from perks import PERKS_CONFIG
 from game_config import ENERGIA_INICIAL
+
+logger = logging.getLogger('voltrace')
 
 class JugadorWeb:
     def __init__(self, nombre):
@@ -60,7 +62,7 @@ class JugadorWeb:
         #RASTREADORES DE LOGROS
         self.consecutive_sixes = 0
         
-        print(f"JugadorWeb '{nombre}' inicializado.")
+        logger.debug(f"JugadorWeb '{nombre}' inicializado.")
         
     def get_nombre(self):
         return self.nombre
@@ -82,7 +84,7 @@ class JugadorWeb:
         if not estado:
             # Si se está desactivando, limpiar sus efectos
             self.efectos_activos = [] 
-        print(f"DEBUG: {self.nombre} set_activo = {estado}")
+        logger.debug(f"Estado activo de {self.nombre} cambiado a {estado}")
     
     def avanzar(self, posiciones):
         if self.__activo:
@@ -96,7 +98,7 @@ class JugadorWeb:
         # --- BLOQUE DE PROTECCIÓN (ESCUDO) ---
         if cantidad_final < 0:
             if any(efecto.get('tipo') == 'escudo' for efecto in self.efectos_activos):
-                print(f"DEBUG procesar_energia: {self.nombre} bloqueó {cantidad_final}E de daño con Escudo.")
+                logger.debug(f"{self.nombre} bloqueó {cantidad_final}E de daño con Escudo.")
                 
                 if self.juego_actual and hasattr(self.juego_actual, 'eventos_turno'):
                     self.juego_actual.eventos_turno.append(f"🛡️ {self.nombre} bloqueó {abs(cantidad_final)} de daño con Escudo.")
@@ -105,7 +107,7 @@ class JugadorWeb:
         if cantidad_final < 0 and "aislamiento" in self.perks_activos:
             cantidad_original_antes_aislamiento = cantidad_final
             cantidad_final = int(cantidad_final * 0.80) # Reduce el daño en 20%
-            print(f"DEBUG: {self.nombre} activó Aislamiento. Daño reducido de {cantidad_original_antes_aislamiento} a {cantidad_final}.")
+            logger.debug(f"{self.nombre} activó Aislamiento. Daño reducido de {cantidad_original_antes_aislamiento} a {cantidad_final}.")
             
             if self.juego_actual and hasattr(self.juego_actual, 'eventos_turno'):
                 if cantidad_final > cantidad_original_antes_aislamiento: # Si el daño se redujo
@@ -115,7 +117,7 @@ class JugadorWeb:
             efecto_traspaso = next((efecto for efecto in self.efectos_activos if efecto.get('tipo') == 'traspaso_dolor'), None)
             
             if efecto_traspaso:
-                print(f"DEBUG: {self.nombre} tiene Traspaso de Dolor activo.")
+                logger.debug(f"{self.nombre} tiene Traspaso de Dolor activo.")
                 nombre_objetivo = efecto_traspaso.get("objetivo")
                 objetivo = self.juego_actual._encontrar_jugador(nombre_objetivo) if self.juego_actual else None
                 
@@ -141,7 +143,7 @@ class JugadorWeb:
 
         esta_bloqueado = any(efecto.get('tipo') == 'bloqueo_energia' for efecto in self.efectos_activos)
         if esta_bloqueado and cantidad_final > 0:
-            print(f"DEBUG procesar_energia: {self.nombre} intentó ganar {cantidad_final}E pero está bloqueado.")
+            logger.debug(f"{self.nombre} intentó ganar {cantidad_final}E pero está bloqueado.")
             return 0 # No se aplica la ganancia
 
         energia_final_calculada = energia_anterior + cantidad_final
@@ -151,7 +153,7 @@ class JugadorWeb:
            "ultimo_aliento" in self.perks_activos and \
            not getattr(self, '_ultimo_aliento_usado', False):
 
-            print(f"DEBUG: {self.nombre} activó Último Aliento.")
+            logger.info(f"PERK ACTIVADO: {self.nombre} usó Último Aliento.")
             self._ultimo_aliento_usado = True
             self.__puntaje = 50
             energia_cambiada = self.__puntaje - energia_anterior 
@@ -159,13 +161,13 @@ class JugadorWeb:
             rondas_escudo = 3 
             if "escudo_duradero" in self.perks_activos:
                 rondas_escudo += 1
-                print(f"DEBUG: Último Aliento activado CON Escudo Duradero (Total {rondas_escudo} rondas).")
+                logger.debug(f"Último Aliento activado CON Escudo Duradero (Total {rondas_escudo} rondas).")
             
             turnos_escudo = 3 
             if self.juego_actual and self.juego_actual.jugadores:
                 turnos_escudo = len(self.juego_actual.jugadores) * rondas_escudo
             
-            print(f"DEBUG: Último Aliento aplicando Escudo por {turnos_escudo} turnos ({rondas_escudo} rondas).")
+            logger.debug(f"Último Aliento aplicando Escudo por {turnos_escudo} turnos ({rondas_escudo} rondas).")
             self.efectos_activos.append({"tipo": "escudo", "turnos": turnos_escudo})
 
             return int(energia_cambiada) 
@@ -174,7 +176,7 @@ class JugadorWeb:
         energia_cambiada = self.__puntaje - energia_anterior 
 
         if self.__puntaje <= 0 and self.__activo:
-            print(f"DEBUG: {self.nombre} eliminado (Energía: {self.__puntaje}).")
+            logger.info(f"JUGADOR ELIMINADO: {self.nombre} (Energía: {self.__puntaje}).")
             self.__activo = False
 
         return int(energia_cambiada)
@@ -200,16 +202,16 @@ class JugadorWeb:
             self.juego_actual.eventos_turno.append(f"✨ Acumulador: +1 PM extra para {self.get_nombre()}")
             
         self.pm += cantidad_final
-        print(f"DEBUG: {self.get_nombre()} ganó {cantidad_final} PM (Fuente: {fuente}). Total: {self.pm}")
+        logger.debug(f"{self.get_nombre()} ganó {cantidad_final} PM (Fuente: {fuente}). Total: {self.pm}")
 
     def gastar_pm(self, cantidad):
-        print(f"DEBUG gastar_pm: Intentando gastar {cantidad} PM. Actuales: {self.pm}")
+        logger.debug(f"Intentando gastar {cantidad} PM. Actuales: {self.pm}")
         if self.pm >= cantidad: 
             self.pm -= cantidad
-            print(f"DEBUG gastar_pm: Gasto exitoso. PM restantes: {self.pm}")
+            logger.debug(f"Gasto exitoso. PM restantes: {self.pm}")
             return True
         else:
-            print(f"DEBUG gastar_pm: Fondos insuficientes.") 
+            logger.warning(f"Gasto de PM fallido (Fondos insuficientes) para {self.nombre}.") 
             return False
     
     def reducir_cooldowns(self, turnos=1):
@@ -223,15 +225,15 @@ class JugadorWeb:
     def poner_en_cooldown(self, habilidad, tiene_perk_enfriamiento_rapido):
         cooldown_final = habilidad.cooldown_base
 
-        # 1. Aplicar Perk "Enfriamiento Rápido" 
+        # Aplicar Perk "Enfriamiento Rápido" 
         if tiene_perk_enfriamiento_rapido:
             cooldown_final = max(1, cooldown_final - 1) # Reducir en 1, mínimo 1
 
-        # 2. Aplicar Perk "Descuento en Habilidad" 
+        # Aplicar Perk "Descuento en Habilidad" 
         perk_descuento_id = f"descuento_{habilidad.nombre.lower().replace(' ', '_')}"
         if perk_descuento_id in self.perks_activos:
             cooldown_final = max(1, cooldown_final - 1) # Reducir 1 ADICIONAL, mínimo 1
-            print(f"DEBUG: Aplicando Descuento Específico a {habilidad.nombre}") 
+            logger.debug(f"Aplicando Descuento Específico a {habilidad.nombre}")
 
         # Asignar cooldown final calculado
         self.habilidades_cooldown[habilidad.nombre] = cooldown_final
