@@ -16,6 +16,7 @@
 # ===================================================================
 
 from perks import PERKS_CONFIG
+from game_config import ENERGIA_INICIAL
 
 class JugadorWeb:
     def __init__(self, nombre):
@@ -23,7 +24,7 @@ class JugadorWeb:
         self.nombre = nombre
         self.avatar_emoji = '👤'
         self.__posicion = 1 
-        self.__puntaje = 600
+        self.__puntaje = ENERGIA_INICIAL
         self.__activo = True
         self.juego_actual = None
         self.es_caza = False

@@ -28,6 +28,15 @@ from jugadores import JugadorWeb
 from random import randint, choice, sample
 from perks import PERKS_CONFIG, obtener_perks_por_tier
 from jugadores import JugadorWeb
+from game_config import (
+    POSICION_META, ENERGIA_TESORO_MENOR, ENERGIA_TESORO_MAYOR,
+    ENERGIA_TRAMPA, ENERGIA_TRAMPA_PELIGROSA, ENERGIA_PEAJE,
+    ENERGIA_CHATARRERIA_COSTO, VALOR_CURACION, DANO_BOMBA,
+    DANO_FUGA_DOT, DURACION_FUGA, DURACION_ESCUDO_RONDAS,
+    DURACION_BLOQUEO_RONDAS, RECOMPENSA_CAZA_ENERGIA, RECOMPENSA_CAZA_PM,
+    BONUS_EXPLORADOR, COSTO_PACK_BASICO, COSTO_PACK_INTERMEDIO,
+    COSTO_PACK_AVANZADO, MID_GAME_RONDA
+)
 
 class JuegoOcaWeb:
 
@@ -43,7 +52,7 @@ class JuegoOcaWeb:
             jugador.juego_actual = self
             self.jugadores.append(jugador)
             
-        self.posicion_meta = 75
+        self.posicion_meta = POSICION_META
         self.energia_packs = []
         self.perks_ofrecidos = {config['nombre']: set() for config in jugadores_config}
         self.casillas_especiales = {}
@@ -73,14 +82,14 @@ class JuegoOcaWeb:
         
         # DEFINE EL "POOL" DE CASILLAS POSIBLES
         POOL_DE_CASILLAS = [
-            {"tipo": "tesoro", "simbolo": "💰", "valor": 70, "nombre": "Tesoro Menor", "id_unico": "tesoro_menor"},
-            {"tipo": "trampa", "simbolo": "❌", "valor": -60, "nombre": "Trampa de Energía", "id_unico": "trampa_energia"},
+            {"tipo": "tesoro", "simbolo": "💰", "valor": ENERGIA_TESORO_MENOR, "nombre": "Tesoro Menor", "id_unico": "tesoro_menor"},
+            {"tipo": "trampa", "simbolo": "❌", "valor": ENERGIA_TRAMPA, "nombre": "Trampa de Energía", "id_unico": "trampa_energia"},
             {"tipo": "teletransporte", "simbolo": "🌀", "avance": (2, 5), "nombre": "Portal Mágico", "id_unico": "portal_magico"},
             {"tipo": "multiplicador", "simbolo": "✨", "nombre": "Amplificador", "id_unico": "amplificador"}, 
             {"tipo": "intercambio", "simbolo": "🔄", "nombre": "Cámara de Intercambio", "id_unico": "intercambio"},
-            {"tipo": "tesoro", "simbolo": "🤑", "valor": 120, "nombre": "Tesoro Mayor", "id_unico": "tesoro_mayor"}, 
-            {"tipo": "pausa", "simbolo": "💸", "nombre": "Peaje Costoso", "id_unico": "pausa", "valor_energia": -75, "valor_pm": -3}, 
-            {"tipo": "trampa", "simbolo": "☠️", "valor": -150, "nombre": "Trampa Peligrosa", "id_unico": "trampa_peligrosa"}, 
+            {"tipo": "tesoro", "simbolo": "🤑", "valor": ENERGIA_TESORO_MAYOR, "nombre": "Tesoro Mayor", "id_unico": "tesoro_mayor"}, 
+            {"tipo": "pausa", "simbolo": "💸", "nombre": "Peaje Costoso", "id_unico": "pausa", "valor_energia": ENERGIA_PEAJE, "valor_pm": -3}, 
+            {"tipo": "trampa", "simbolo": "☠️", "valor": ENERGIA_TRAMPA_PELIGROSA, "nombre": "Trampa Peligrosa", "id_unico": "trampa_peligrosa"}, 
             {"tipo": "turbo", "simbolo": "⚡", "nombre": "Acelerador", "id_unico": "acelerador"}, 
             {"tipo": "teletransporte", "simbolo": "💠", "avance": (5, 8), "nombre": "Portal Avanzado", "id_unico": "portal_avanzado"}, 
             {"tipo": "vampiro", "simbolo": "🧛", "porcentaje": 15, "nombre": "Drenaje de Energía", "id_unico": "vampiro"}, 
@@ -635,7 +644,7 @@ class JuegoOcaWeb:
                             self._verificar_colision(j, nueva_pos)
             
             elif tipo == "intercambio_recurso": # Chatarrería 
-                energia_cambio = jugador.procesar_energia(-50)
+                energia_cambio = jugador.procesar_energia(ENERGIA_CHATARRERIA_COSTO)
                 jugador.ganar_pm(3, fuente="casilla_chatarreria") # Fuente específica
                 self.eventos_turno.append(f"⚙️ Chatarrería: Pierdes {abs(energia_cambio)} E pero ganas +3 PM.")
         
@@ -881,7 +890,6 @@ class JuegoOcaWeb:
                     self.eventos_turno.append(f"🎯 ¡SE BUSCA! {jugador_lider.get_nombre()} es la Caza de esta ronda. ¡Atácalo por una recompensa!")
             
             # Definir la ronda de "mitad de partida"
-            MID_GAME_RONDA = 15 
             if self.ronda == MID_GAME_RONDA and self.ultimo_en_mid_game is None:
                 try:
                     jugadores_activos = [j for j in self.jugadores if j.esta_activo()]
@@ -1104,7 +1112,11 @@ class JuegoOcaWeb:
             }
 
         # Definir costes y composición de los packs
-        costes = {"basico": 4, "intermedio": 8, "avanzado": 12}
+        costes = {
+            "basico": COSTO_PACK_BASICO,
+            "intermedio": COSTO_PACK_INTERMEDIO,
+            "avanzado": COSTO_PACK_AVANZADO
+        }
         composicion = {
             "basico": {"basico": 2},
             "intermedio": {"medio": 2, "basico": 1},
@@ -1403,7 +1415,7 @@ class JuegoOcaWeb:
              return {"exito": False, "eventos": eventos}
 
         # Aplicar el efecto de bloqueo 
-        rondas_duracion = 2
+        rondas_duracion = DURACION_BLOQUEO_RONDAS
         turnos_duracion = rondas_duracion * len(self.jugadores)
         jugador_objetivo.efectos_activos.append({"tipo": "bloqueo_energia", "turnos": turnos_duracion})
         eventos.append(f"🚫 {jugador_objetivo.get_nombre()} no podrá ganar energía durante {rondas_duracion} rondas.")
@@ -1475,7 +1487,7 @@ class JuegoOcaWeb:
         eventos = []
         pos_j = jugador.get_posicion()
         rango_bomba = 5 if "bomba_fragmentacion" in jugador.perks_activos else 3
-        dano_bomba = 75 # Daño base
+        dano_bomba = DANO_BOMBA # Daño base
         afectados, protegidos = [], []
         reflejo_ocurrido = False
         jugadores_reflejo = []
@@ -1716,8 +1728,8 @@ class JuegoOcaWeb:
             self._remover_efecto(obj, "barrera") # Barrera se consume
             
             # Aplicar efecto al ATACANTE
-            duracion_dot = 3 # Turnos del jugador
-            dano_dot = 25
+            duracion_dot = DURACION_FUGA # Turnos del jugador
+            dano_dot = DANO_FUGA_DOT
             
             # Verificar si el ATACANTE está protegido
             if self._verificar_efecto_activo(jugador, "escudo"):
@@ -1747,7 +1759,7 @@ class JuegoOcaWeb:
     
     def _hab_escudo_total(self, jugador, habilidad, objetivo):
         eventos = []
-        rondas_duracion = 3 # Duración base
+        rondas_duracion = DURACION_ESCUDO_RONDAS # Duración base
         
         if "escudo_duradero" in jugador.perks_activos:
             rondas_duracion += 1
@@ -1760,7 +1772,7 @@ class JuegoOcaWeb:
 
     def _hab_curacion(self, jugador, habilidad, objetivo):
         eventos = []
-        energia_intentada = 150
+        energia_intentada = VALOR_CURACION
         energia_antes = jugador.get_puntaje()
         energia_ganada_real = jugador.procesar_energia(energia_intentada)
         if energia_ganada_real > 0:
@@ -2291,7 +2303,7 @@ class JuegoOcaWeb:
             else:
                 j._puntaje_base_final = 0
 
-        BONUS_CASILLA = 100
+        BONUS_CASILLA = BONUS_EXPLORADOR
         ganador_final = None
         max_score = -float('inf') # Empezar con el score más bajo posible
 
@@ -2548,8 +2560,8 @@ class JuegoOcaWeb:
             return # Sin recompensa
 
         if getattr(objetivo, 'es_caza', False) and not getattr(atacante, 'recompensa_reclamada', False):
-            RECOMPENSA_ENERGIA = 50
-            RECOMPENSA_PM = 2
+            RECOMPENSA_ENERGIA = RECOMPENSA_CAZA_ENERGIA
+            RECOMPENSA_PM = RECOMPENSA_CAZA_PM
             
             # Dar recompensa al atacante
             atacante._JugadorWeb__puntaje += RECOMPENSA_ENERGIA

@@ -38,7 +38,8 @@ from datetime import datetime
 from threading import Timer
 import threading
 import time
-import traceback
+import logging
+from logging.handlers import RotatingFileHandler
 import os
 import math                   
 
@@ -53,6 +54,37 @@ from social import SocialSystem
 from models import User, db, UserKitMaestria
 from habilidades import crear_habilidades, KITS_VOLTRACE
 from perks import PERKS_CONFIG
+from game_config import (
+    DURACION_TURNO_SEGUNDOS, XP_POR_PARTIDA, XP_VICTORIA,
+    XP_MAESTRIA_BASE, XP_MAESTRIA_VICTORIA,
+    COSTO_PACK_BASICO, COSTO_PACK_INTERMEDIO, COSTO_PACK_AVANZADO
+)
+
+# --- Configuración de Logging ---
+if not os.path.exists('logs'):
+    os.mkdir('logs')
+
+# Configuración base
+logger = logging.getLogger('VoltraceApp')
+logger.setLevel(logging.DEBUG)
+
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s')
+
+# Handler 1: Archivo 
+file_handler = RotatingFileHandler('logs/voltrace.log', maxBytes=10*1024*1024, backupCount=5)
+file_handler.setFormatter(formatter)
+file_handler.setLevel(logging.INFO)
+
+# Handler 2: Consola
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+console_handler.setLevel(logging.DEBUG)
+
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
+
+# Ejemplo de uso inicial
+logger.info("=== Servidor Voltrace Iniciando ===")
 
 # --- Configuración de Flask ---
 app = Flask(__name__)
@@ -80,7 +112,7 @@ def send_reset_email(user):
         from_email = os.environ.get('MAIL_DEFAULT_SENDER', 'voltrace.bot@gmail.com')
         
         if not sendgrid_api_key:
-            print("!!! ERROR FATAL: SENDGRID_API_KEY (MAIL_PASSWORD) no está configurada.")
+            logger.error("!!! ERROR FATAL: SENDGRID_API_KEY (MAIL_PASSWORD) no está configurada.")
             return False
 
         # Creamos el contenido del email 
@@ -101,7 +133,7 @@ Si no solicitaste este cambio, simplemente ignorá este email.
         )
         message.tracking_settings = tracking_settings
 
-        print(f"--- DEBUG: Intentando enviar email a {user.email} (vía SendGrid API)...")
+        logger.debug(f"Intentando enviar email a {user.email} (vía SendGrid API)...")
 
         # Inicializamos el cliente y enviamos el email por la API WEB
         sg = SendGridAPIClient(sendgrid_api_key)
@@ -109,19 +141,16 @@ Si no solicitaste este cambio, simplemente ignorá este email.
 
         # Verificamos la respuesta de SendGrid 
         if response.status_code >= 200 and response.status_code < 300:
-            print(f"--- DEBUG: Email enviado exitosamente (Status: {response.status_code}) ---")
+            logger.info(f"Email enviado exitosamente (Status: {response.status_code})")
             return True
         else:
-            # Si SendGrid da un error, lo veremos en los logs de Render
-            print("!!! ERROR FATAL AL ENVIAR EMAIL (Respuesta de SendGrid) !!!")
-            print(f"Status Code: {response.status_code}")
-            print(f"Body: {response.body}")
+            logger.error("!!! ERROR FATAL AL ENVIAR EMAIL (Respuesta de SendGrid) !!!")
+            logger.error(f"Status Code: {response.status_code}")
+            logger.error(f"Body: {response.body}")
             return False
         
     except Exception as e:
-        print("!!! ERROR FATAL AL ENVIAR EMAIL (Excepción de Python) !!!")
-        print(f"Error: {e}")
-        traceback.print_exc() # Imprime el traceback completo
+        logger.error(f"Error fatal al enviar email: {e}", exc_info=True)
         return False
     
 # --- Configuración de la Base de Datos (SQLAlchemy) ---
@@ -130,7 +159,7 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL:
     # Si estamos en producción
-    print("INFO: Usando base de datos de producción (PostgreSQL).")
+    logger.info("Usando base de datos de producción (PostgreSQL).")
     if DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
@@ -140,7 +169,7 @@ if DATABASE_URL:
         'pool_timeout': 20,     # Tiempo de espera para obtener una conexión
     }
 else:
-    print("ADVERTENCIA: DATABASE_URL no encontrada. Usando 'voltrace.db' (SQLite) local.")
+    logger.warning("ADVERTENCIA: DATABASE_URL no encontrada. Usando 'voltrace.db' (SQLite) local.")
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'voltrace.db')
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'connect_args': {'check_same_thread': False}}
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -188,14 +217,14 @@ def update_xp_and_level(user, xp_to_add):
         return level_up
     except Exception as e:
         db.session.rollback()
-        print(f"!!! ERROR al actualizar XP/Nivel para {user.username}: {e}")
+        logger.error(f"Error al actualizar XP/Nivel para {user.username}: {e}", exc_info=True)
         return False
 
 def _procesar_creacion_sala_db_async(app, sid, username):
     with app.app_context():
         with db_lock:
             try:
-                print(f"--- THREAD: Procesando XP/Logros de creación de sala para: {username}")
+                logger.debug(f"THREAD: Procesando XP/Logros de creación de sala para: {username}")
                 user = User.query.filter_by(username=username).first()
                 if user:
                     user.rooms_created = getattr(user, 'rooms_created', 0) + 1 
@@ -215,10 +244,9 @@ def _procesar_creacion_sala_db_async(app, sid, username):
                         socketio.emit('achievements_unlocked', {
                             'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_list]
                         }, to=sid)
-                print(f"--- THREAD: Fin de procesamiento de creación de sala para: {username}")
+                logger.debug(f"THREAD: Fin de procesamiento de creación de sala para: {username}")
             except Exception as e:
-                print(f"!!! ERROR FATAL en _procesar_creacion_sala_db_async: {e}")
-                traceback.print_exc()
+                logger.error(f"!!! ERROR FATAL en _procesar_creacion_sala_db_async: {e}", exc_info=True)
 
 def _procesar_habilidad_db_async(app, sid, username, event_data=None):
     with app.app_context():
@@ -227,7 +255,7 @@ def _procesar_habilidad_db_async(app, sid, username, event_data=None):
                 if event_data is None:
                     event_data = {} # Asegurar que sea un dict
                     
-                print(f"--- THREAD: Procesando XP/Logros de habilidad para: {username}. Event data: {event_data}")
+                logger.debug(f"Thread Habilidad: Procesando XP para {username}")
                 user_db = User.query.filter_by(username=username).first()
                 if user_db:
                     # Actualizar XP y Nivel
@@ -250,10 +278,9 @@ def _procesar_habilidad_db_async(app, sid, username, event_data=None):
                         'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_list]
                     }, to=sid)
                 
-                print(f"--- THREAD: Fin de procesamiento para: {username}")
+                logger.debug(f"THREAD: Fin de procesamiento para: {username}")
             except Exception as e:
-                print(f"!!! ERROR FATAL en _procesar_habilidad_db_async: {e}")
-                traceback.print_exc()
+                logger.error(f"!!! ERROR FATAL en _procesar_habilidad_db_async: {e}", exc_info=True)
 
 def _procesar_chat_db_async(app, sid, username, id_sala):
     with app.app_context():
@@ -272,8 +299,7 @@ def _procesar_chat_db_async(app, sid, username, id_sala):
                         jugador_juego.game_messages_sent_this_match = getattr(jugador_juego, 'game_messages_sent_this_match', 0) + 1
                 
             except Exception as e:
-                print(f"!!! ERROR en _procesar_chat_db_async: {e}")
-                traceback.print_exc()
+                logger.error(f"!!! ERROR en _procesar_chat_db_async: {e}", exc_info=True)
 
 def _procesar_pm_db_async(app, sid, sender_username):
     with app.app_context():
@@ -291,8 +317,7 @@ def _procesar_pm_db_async(app, sid, sender_username):
                     }, to=sid)
                 
             except Exception as e:
-                print(f"!!! ERROR en _procesar_pm_db_async: {e}")
-                traceback.print_exc()
+                logger.error(f"!!! ERROR en _procesar_pm_db_async: {e}", exc_info=True)
 
 # --- Configurar SocketIO ---
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -304,7 +329,7 @@ social_system = SocialSystem()
 # --- Creación de Tablas de DB (si no existen) ---
 with app.app_context():
     db.create_all()
-    print("Base de datos inicializada y tablas creadas (si no existían).")
+    logger.info("Base de datos inicializada y tablas creadas (si no existían).")
     try:
         from models import Achievement # Importar el modelo
         
@@ -325,19 +350,18 @@ with app.app_context():
                 )
                 db.session.add(new_ach)
                 new_achievements_added += 1
-                print(f"Sincronizando DB: Añadiendo logro '{internal_id}'...")
+                logger.info(f"Sincronizando DB: Añadiendo logro '{internal_id}'...")
         
         # Guardar los cambios
         if new_achievements_added > 0:
             db.session.commit()
-            print(f"¡Sincronización de Logros completa! Se añadieron {new_achievements_added} nuevos logros a la DB.")
+            logger.info(f"¡Sincronización de Logros completa! Se añadieron {new_achievements_added} nuevos logros a la DB.")
         else:
-            print("Sincronización de Logros: La DB ya está actualizada.")
+            logger.info("Sincronización de Logros: La DB ya está actualizada.")
             
     except Exception as e:
         db.session.rollback()
-        print(f"!!! ERROR al sincronizar la tabla de Logros: {e}")
-        traceback.print_exc()
+        logger.error(f"!!! ERROR al sincronizar la tabla de Logros: {e}", exc_info=True)
 
 # --- Variables Globales del Servidor ---
 salas_activas = {}
@@ -438,9 +462,9 @@ def index():
             _procesar_login_diario(user)
 
         except Exception as e:
-            print(f"Error al cargar current_user autenticado: {e}")
+            logger.error(f"Error al cargar current_user autenticado: {e}", exc_info=True)
             user_data = None
-            session.clear() 
+            session.clear()
 
     # Convertir user_data a JSON para inyectar en el template
     user_data_json = json.dumps(user_data) 
@@ -498,7 +522,7 @@ def register():
         
     except Exception as e:
         db.session.rollback()
-        print(f"Error en registro: {e}")
+        logger.error(f"Error en registro: {e}", exc_info=True)
         return jsonify({"success": False, "message": "Error en el servidor al crear usuario."}), 500
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -584,10 +608,9 @@ def forgot_password():
             return redirect(url_for('login')) 
         else:
             # Si el usuario NO existe, flashear el error y redirigir DE VUELTA a la misma página
-            print(f"--- DEBUG: Intento de reseteo para email NO ENCONTRADO: {email} ---")
+            logger.debug(f"Intento de reseteo para email NO ENCONTRADO: {email}")
             flash('No existe una cuenta asociada a ese email.', 'warning')
-            return redirect(url_for('forgot_password')) 
-
+            return redirect(url_for('forgot_password'))
     return render_template('forgot_password.html')
 
 @app.route('/api/set_avatar', methods=['POST'])
@@ -603,11 +626,11 @@ def set_avatar():
         user = current_user
         user.avatar_emoji = new_emoji
         db.session.commit()
-        print(f"Usuario {user.username} actualizó su avatar a: {new_emoji}")
+        logger.info(f"Usuario {user.username} actualizó su avatar a: {new_emoji}")
         return jsonify({"success": True, "avatar_emoji": new_emoji})
     except Exception as e:
-        db.session.rollback()
-        print(f"Error al guardar avatar: {e}")
+        db.session.rollback()	
+        logger.error(f"Error al guardar avatar para {user.username}: {e}", exc_info=True)	
         return jsonify({"success": False, "message": "Error del servidor."}), 500
     
 @app.route("/reset-password/<token>", methods=['GET', 'POST'])
@@ -665,7 +688,7 @@ def profile(username):
         # Obtener el progreso de logros del usuario
         achievement_progress = achievement_system.get_user_achievement_progress(username)
     except Exception as e:
-        print(f"ERROR al calcular progreso de logros para {username}: {e}")
+        logger.error(f"ERROR al calcular progreso de logros para {username}: {e}", exc_info=True)
         achievement_progress = {'error': 'No se pudo calcular el progreso de logros'}
 
     return jsonify({
@@ -689,10 +712,10 @@ def leaderboard():
                 "games_won": j.games_won,
             } for j in top_jugadores
         ]
-        print(f"DEBUG /leaderboard: {ranking_data}") 
+        logger.debug(f"Ruta /leaderboard: {ranking_data}") 
         return jsonify(ranking_data)
     except Exception as e:
-        print(f"Error al obtener leaderboard: {e}")
+        logger.error(f"Error al obtener leaderboard: {e}", exc_info=True)
         return jsonify([]) # Devolver lista vacía en caso de error
 
 @app.route('/achievements')
@@ -721,22 +744,22 @@ def get_unread_counts():
         counts = social_system.get_unread_message_count(current_user.username)
         return jsonify({"success": True, "counts": counts})
     except Exception as e:
-        print(f"!!! ERROR en /social/unread_counts: {e}")
+        logger.error(f"!!! ERROR en /social/unread_counts: {e}", exc_info=True)
         return jsonify({"success": False, "message": "Error al obtener conteos."}), 500
 
 @app.route('/social/solicitud/send/<sender_username>/<target_username>', methods=['POST'])
 def send_friend_request(sender_username, target_username):
-    print(f"\n--- RUTA: send_friend_request --- De: {sender_username}, Para: {target_username}")
+    logger.debug(f"Ruta: send_friend_request - De: {sender_username}, Para: {target_username}")
     result = social_system.send_friend_request(sender_username, target_username)
-    print(f"Resultado de social_system.send_friend_request: {result}")
+    logger.debug(f"Resultado de social_system.send_friend_request: {result}")
 
     # Notificar al objetivo si está conectado
     if result['success']:
-        print(f"Buscando SID para notificar a: {target_username}")
+        logger.debug(f"Buscando SID para notificar a: {target_username}")
         presence_info = social_system.presence_data.get(target_username, {})
-        print(f"Datos de presencia encontrados para {target_username}: {presence_info}")
+        logger.debug(f"Datos de presencia encontrados para {target_username}: {presence_info}")
         target_sid = presence_info.get('extra_data', {}).get('sid')
-        print(f"SID encontrado: {target_sid}")
+        logger.debug(f"SID encontrado: {target_sid}")
 
         if target_sid:
             try:
@@ -744,9 +767,9 @@ def send_friend_request(sender_username, target_username):
                 socketio.emit('new_friend_request', {'from_user': sender_username}, room=target_sid)
                 print("--- Emisión completada ---")
             except Exception as e:
-                print(f"!!! ERROR al emitir notificación: {e}")
+                logger.error(f"!!! ERROR al emitir notificación de amistad: {e}", exc_info=True)
         else:
-            print(f"--- ADVERTENCIA: No se encontró SID activo para {target_username}. No se envió notificación en tiempo real. ---")
+            logger.warning(f"Notificación fallida: No se encontró SID para {target_username}")
 
     return jsonify(result)
 
@@ -837,7 +860,7 @@ def get_all_abilities():
                 })
         return jsonify(habilidades_json_ready)
     except Exception as e:
-        print(f"!!! ERROR en /api/get_all_abilities: {e}")
+        logger.error(f"!!! ERROR en /api/get_all_abilities: {e}", exc_info=True)
         return jsonify({"error": "No se pudieron cargar las habilidades"}), 500
 
 @app.route('/api/get_all_perks')
@@ -845,7 +868,7 @@ def get_all_perks():
     try:
         return jsonify(PERKS_CONFIG)
     except Exception as e:
-        print(f"!!! ERROR en /api/get_all_perks: {e}")
+        logger.error(f"!!! ERROR en /api/get_all_perks: {e}", exc_info=True)
         return jsonify({"error": "No se pudieron cargar los perks"}), 500
     
 # ===================================================================
@@ -855,7 +878,7 @@ def get_all_perks():
 @socketio.on('connect')
 def on_connect():
     # Se ejecuta cuando un cliente establece una conexión WebSocket
-    print(f"Cliente conectado: {request.sid}")
+    logger.info(f"Cliente conectado: {request.sid}")
     emit('conectado', {'mensaje': 'Conexión exitosa'}) # Enviar confirmación al cliente
 
 @socketio.on('authenticate')
@@ -867,7 +890,7 @@ def authenticate(data):
         emit('authenticated', {'username': username}) # Confirmar autenticación al cliente
         # Actualizar presencia en el sistema social a 'online'
         social_system.update_user_presence(username, 'online', {'sid': request.sid})
-        print(f"--- SOCKET AUTHENTICATED --- User: {username}, SID: {request.sid}")
+        logger.info(f"--- SOCKET AUTHENTICATED --- User: {username}, SID: {request.sid}")
 
         try:
             friends_list = social_system.get_friends_list_server(username)
@@ -879,19 +902,19 @@ def authenticate(data):
                         'status': 'online'
                     }, room=friend_sid)
         except Exception as e:
-            print(f"!!! ERROR al notificar conexión a amigos: {e}")
+            logger.error(f"!!! ERROR al notificar conexión a amigos: {e}", exc_info=True)
 
 @socketio.on('disconnect')
 def on_disconnect():
     # Se ejecuta cuando un cliente se desconecta
-    print(f"Cliente desconectado: {request.sid}")
+    logger.info(f"Cliente desconectado: {request.sid}")
 
     # Obtener username y limpiar de sesiones activas
     sesion_info = sessions_activas.pop(request.sid, {})
     username_desconectado = sesion_info.get('username')
 
     if not username_desconectado:
-        print("Desconexión de un SID no autenticado.")
+        logger.warning("Desconexión de un SID no autenticado.")
         return
 
     # Actualizar presencia social a 'offline'
@@ -907,7 +930,7 @@ def on_disconnect():
                     'status': 'offline'
                 }, room=friend_sid)
     except Exception as e:
-        print(f"!!! ERROR al notificar desconexión a amigos: {e}")
+        logger.error(f"!!! ERROR al notificar desconexión a amigos: {e}", exc_info=True)
 
     # Buscar en qué sala estaba el jugador
     id_sala_afectada = None
@@ -920,10 +943,10 @@ def on_disconnect():
 
     # Si estaba en una sala, finalizar la desconexión inmediatamente
     if sala_afectada:
-        print(f"--- DESCONEXIÓN INMEDIATA --- Jugador: {username_desconectado} en Sala: {id_sala_afectada}.")
+        logger.info(f"--- DESCONEXIÓN INMEDIATA --- Jugador: {username_desconectado} en Sala: {id_sala_afectada}.")
         _finalizar_desconexion(request.sid, id_sala_afectada, username_desconectado)
     else:
-        print(f"Jugador {username_desconectado} desconectado (no estaba en una sala).")
+        logger.info(f"Jugador {username_desconectado} desconectado (no estaba en una sala).")
 
 @socketio.on('crear_sala')
 def crear_sala(data):
@@ -934,7 +957,7 @@ def crear_sala(data):
 
     username = sessions_activas[request.sid]['username']
     id_sala = str(uuid.uuid4())[:8] # Generar ID corto único
-    print(f"--- SALA CREADA --- ID: {id_sala} por: {username}")
+    logger.info(f"SALA CREADA - ID: {id_sala} por: {username}")
     salas_activas[id_sala] = SalaJuego(id_sala) # Crear instancia de la sala
 
     join_room(id_sala) # Unir al creador a la room de SocketIO
@@ -1042,11 +1065,11 @@ def salir_sala(data):
 
         # Confirmar al jugador que salió
         emit('sala_abandonada', {'success': True, 'message': 'Has salido de la sala.'})
-        print(f"Jugador {nombre_jugador} (Socket: {sid}) salió voluntariamente de la sala {id_sala}")
+        logger.info(f"Jugador {nombre_jugador} (Socket: {sid}) salió voluntariamente de la sala {id_sala}")
 
         # Si la sala queda vacía después de que alguien sale, eliminarla
         if len(sala.jugadores) == 0:
-                print(f"Sala {id_sala} vacía tras salida voluntaria. Eliminando...")
+                logger.info(f"Sala {id_sala} vacía tras salida voluntaria. Eliminando...")
                 if id_sala in salas_activas:
                     del salas_activas[id_sala]
     else:
@@ -1062,7 +1085,7 @@ def obtener_estado_sala(data):
     else:
         id_sala = id_sala_data 
 
-    print(f"\n--- RECIBIDO EVENTO: lanzar_dado --- Sala: {id_sala}, SID: {request.sid}")
+    logger.debug(f"Evento 'lanzar_dado' recibido - Sala: {id_sala}, SID: {request.sid}")
 
     if id_sala in salas_activas:
         sala = salas_activas[id_sala]
@@ -1089,7 +1112,7 @@ def guardar_kit(data):
     # Autenticar el socket
     sesion_del_socket = sessions_activas.get(sid)
     if not sesion_del_socket or 'username' not in sesion_del_socket:
-        print(f"--- ERROR guardar_kit: SID {sid} no autenticado.")
+        logger.warning(f"--- ERROR guardar_kit: SID {sid} no autenticado.")
         emit('error', {'mensaje': 'No autenticado en el socket.'})
         return
     
@@ -1097,7 +1120,7 @@ def guardar_kit(data):
 
     # Validar el Kit
     if kit_id not in KITS_VOLTRACE:
-        print(f"Cliente {sid} (User: {username}) intentó guardar un kit inválido: {kit_id}")
+        logger.warning(f"Cliente {sid} (User: {username}) intentó guardar un kit inválido: {kit_id}")
         emit('error', {'mensaje': 'Kit no válido.'})
         return
 
@@ -1108,31 +1131,31 @@ def guardar_kit(data):
             # Guardar en la Base de Datos
             setattr(user, 'kit_id', kit_id)
             db.session.commit()
-            print(f"Cliente {sid} (User: {username}) guardó el kit: {kit_id} en la DB.")
+            logger.info(f"Cliente {sid} (User: {username}) guardó el kit: {kit_id} en la DB.")
             
             # Confirmar al cliente
             emit('kit_actual', {'kit_id': kit_id})
         else:
-            print(f"--- ERROR guardar_kit: No se encontró al usuario {username} en la DB.")
+            logger.warning(f"--- ERROR guardar_kit: No se encontró al usuario {username} en la DB.")
             emit('error', {'mensaje': 'Usuario no encontrado en DB.'})
             
     except Exception as e:
         db.session.rollback()
-        print(f"!!! ERROR al guardar kit en DB: {e}")
+        logger.error(f"!!! ERROR al guardar kit en DB: {e}", exc_info=True)
         emit('error', {'mensaje': 'Error del servidor al guardar kit.'})
 
 @socketio.on('iniciar_juego')
 def iniciar_juego_manual(data):
     # Handler para el botón "Iniciar Juego" en la sala de espera
     id_sala = data['id_sala']
-    print(f"\n--- RECIBIDO EVENTO: iniciar_juego (manual) --- Sala: {id_sala}, SID: {request.sid}")
+    logger.debug(f"RECIBIDO EVENTO: iniciar_juego (manual) - Sala: {id_sala}, SID: {request.sid}")
     # Verificar si el que lo pide es el creador o si tiene permisos
     if id_sala in salas_activas:
-        print(f"Llamando a iniciar_juego_sala para {id_sala}...")
+        logger.debug(f"Llamando a iniciar_juego_sala para {id_sala}...")
         # Llama a la función interna que realmente inicia el juego
         iniciar_juego_sala(id_sala)
     else:
-        print(f"ERROR: Sala {id_sala} no encontrada al intentar iniciar juego.")
+        logger.warning(f"ERROR: Sala {id_sala} no encontrada al intentar iniciar juego.")
         emit('error', {'mensaje': 'La sala ya no existe.'})
 
 @socketio.on('lanzar_dado')
@@ -1140,7 +1163,7 @@ def lanzar_dado(data):
     # Maneja la acción de lanzar el dado
     try:
         id_sala = data['id_sala']
-        print(f"\n--- PASO 1: RECIBIDO 'lanzar_dado' --- Sala: {id_sala}, SID: {request.sid}")
+        logger.debug(f"PASO 1: RECIBIDO 'lanzar_dado' - Sala: {id_sala}, SID: {request.sid}")
         
         # Si el jugador actúa, cancelar el timer de inactividad
         _cancelar_temporizador_turno(id_sala)
@@ -1159,7 +1182,7 @@ def lanzar_dado(data):
         nombre_jugador_emitente = sala.jugadores.get(request.sid, {}).get('nombre', 'DESCONOCIDO')
 
         if nombre_jugador_actual != nombre_jugador_emitente:
-            print("--- ACCIÓN RECHAZADA: No es su turno (lanzar dado) ---")
+            logger.warning("ACCIÓN RECHAZADA: No es su turno (lanzar dado)")
             emit('error', {'mensaje': 'No es tu turno'})
             return
 
@@ -1180,11 +1203,10 @@ def lanzar_dado(data):
                         'achievements': [achievement_system.get_achievement_info(ach_id) for ach_id in unlocked_list]
                     }, to=request.sid) # Notificar solo al jugador
         except Exception as e:
-            print(f"!!! ERROR al procesar logro 'lucky_seven': {e}")
-            traceback.print_exc()
+            logger.error(f"!!! ERROR al procesar logro 'lucky_seven': {e}", exc_info=True)
 
         if resultado.get('pausado'):
-            print(f"--- TURNO PAUSADO --- Sala: {id_sala}. Enviando estado completo.")
+            logger.debug(f"TURNO PAUSADO - Sala: {id_sala}. Enviando estado completo.")
             colores_map = getattr(sala, 'colores_map', {})
             socketio.emit('paso_2_resultado_casilla', { 
                 'estado_juego': {
@@ -1212,8 +1234,7 @@ def lanzar_dado(data):
         }, room=id_sala)
 
     except Exception as e:
-        print(f"!!! ERROR GRAVE en 'lanzar_dado' (PASO 1): {e}")
-        traceback.print_exc()
+        logger.error(f"!!! ERROR GRAVE en 'lanzar_dado' (PASO 1): {e}", exc_info=True)
         emit('error', {'mensaje': f'Error fatal del servidor (Paso 1): {e}'})
 
 @socketio.on('paso_2_terminar_movimiento')
@@ -1221,7 +1242,7 @@ def terminar_movimiento(data):
     # Maneja la señal del cliente de que la animación de movimiento terminó 
     try:
         id_sala = data['id_sala']
-        print(f"\n--- PASO 2: RECIBIDO 'terminar_movimiento' --- Sala: {id_sala}, SID: {request.sid}")
+        logger.debug(f"PASO 2: RECIBIDO 'terminar_movimiento' - Sala: {id_sala}, SID: {request.sid}")
         if id_sala not in salas_activas:
             emit('error', {'mensaje': 'Sala no encontrada (Paso 2)'})
             return
@@ -1240,11 +1261,11 @@ def terminar_movimiento(data):
             nombre_jugador_a_procesar = nombre_jugador_que_termino
         
         if not nombre_jugador_a_procesar:
-            print("--- ERROR PASO 2: No se pudo determinar el jugador (ni por servidor ni por cliente).")
+            logger.error("ERROR PASO 2: No se pudo determinar el jugador (ni por servidor ni por cliente).")
             emit('error', {'mensaje': 'Error interno: Jugador no encontrado (Paso 2)'})
             return
             
-        print(f"Procesando casilla para: {nombre_jugador_a_procesar}")
+        logger.debug(f"Procesando casilla para: {nombre_jugador_a_procesar}")
         
         # Esta función ahora solo avanza el turno si fue un dado
         resultado = sala.juego.paso_2_procesar_casilla_y_avanzar(nombre_jugador_a_procesar)
@@ -1300,11 +1321,10 @@ def terminar_movimiento(data):
                     # No hacemos 'break' por si un evento activa ambos (improbable, pero seguro)
 
         except Exception as e:
-            print(f"!!! ERROR al procesar logros de 'paso_2_terminar_movimiento': {e}")
-            traceback.print_exc()
+            logger.error(f"!!! ERROR al procesar logros de 'paso_2_terminar_movimiento': {e}", exc_info=True)
         
         if sala.juego.ha_terminado():
-            print(f"--- JUEGO TERMINADO (PASO 2) --- Sala: {id_sala}")
+            logger.info(f"--- JUEGO TERMINADO (PASO 2) --- Sala: {id_sala}")
             _cancelar_temporizador_turno(id_sala)
             sala.estado = 'terminado'
 
@@ -1314,7 +1334,7 @@ def terminar_movimiento(data):
             stats_finales_dict = sala.juego.obtener_estadisticas_finales()
 
             # Emitir el modal de fin de juego INMEDIATAMENTE
-            print("--- Emitiendo 'juego_terminado' al cliente AHORA.")
+            logger.debug("Emitiendo 'juego_terminado' al cliente AHORA.")
             socketio.emit('juego_terminado', {
                 'ganador': stats_finales_dict.get('ganador'),
                 'estadisticas_finales': stats_finales_dict.get('lista_final')
@@ -1327,7 +1347,7 @@ def terminar_movimiento(data):
             juego_obj_copia = sala.juego 
 
             # Iniciar el hilo para procesar DB (lento) en segundo plano
-            print("--- Iniciando hilo para procesar estadísticas de DB en segundo plano...")
+            logger.debug("Iniciando hilo para procesar estadísticas de DB en segundo plano...")
             stats_thread = threading.Thread(
                 target=_procesar_estadisticas_fin_juego_async,
                 args=(
@@ -1362,8 +1382,7 @@ def terminar_movimiento(data):
         if nuevo_jugador_turno:
             _iniciar_temporizador_turno(id_sala, nuevo_jugador_turno)
     except Exception as e:
-        print(f"!!! ERROR GRAVE en 'terminar_movimiento' (PASO 2): {e}")
-        traceback.print_exc()
+        logger.error(f"!!! ERROR GRAVE en 'terminar_movimiento' (PASO 2): {e}", exc_info=True)
         emit('error', {'mensaje': f'Error fatal del servidor (Paso 2): {e}'})
 
 @socketio.on('usar_habilidad')
@@ -1377,7 +1396,7 @@ def usar_habilidad(data):
     indice_habilidad = data['indice_habilidad']
     objetivo = data.get('objetivo')
     sid = request.sid # Guardamos el SID
-    print(f"\n--- RECIBIDO EVENTO: usar_habilidad --- Sala: {id_sala}, SID: {sid}, Habilidad idx: {indice_habilidad}")
+    logger.debug(f"RECIBIDO EVENTO: usar_habilidad - Sala: {id_sala}, SID: {sid}, Habilidad idx: {indice_habilidad}")
     _cancelar_temporizador_turno(id_sala)
 
     if id_sala not in salas_activas:
@@ -1396,12 +1415,12 @@ def usar_habilidad(data):
     print(f"Verificando turno (habilidad): Esperado='{nombre_jugador_actual}', Emitente='{nombre_jugador_emitente}'")
 
     if nombre_jugador_actual != nombre_jugador_emitente:
-        print(f"--- ACCIÓN RECHAZADA: No es su turno (usar habilidad) ---")
+        logger.warning(f"Acción rechazada (Turno inválido): Usuario intentó jugar fuera de turno")
         emit('error', {'mensaje': 'No es tu turno para usar habilidad.'})
         return
 
     # Ejecutar la lógica de la habilidad en JuegoOcaWeb
-    print("--- TURNO VÁLIDO: Llamando a sala.juego.usar_habilidad_jugador ---")
+    logger.debug("TURNO VÁLIDO: Llamando a sala.juego.usar_habilidad_jugador")
     try:
         resultado = sala.juego.usar_habilidad_jugador(nombre_jugador_emitente, indice_habilidad, objetivo)
         
@@ -1435,8 +1454,7 @@ def usar_habilidad(data):
                                 }, to=sid_protegido)
                         break # Encontramos el evento
         except Exception as e:
-            print(f"!!! ERROR al procesar logros de 'usar_habilidad': {e}")
-            traceback.print_exc()
+            logger.error(f"!!! ERROR al procesar logros de 'usar_habilidad': {e}", exc_info=True)
 
         if resultado['exito']:
             
@@ -1458,7 +1476,7 @@ def usar_habilidad(data):
                 # Buscar el SID actual del defensor que reflejó
                 sid_defensor = social_system.presence_data.get(jugador_que_reflejo, {}).get('extra_data', {}).get('sid')
                 if sid_defensor and sid_defensor in sessions_activas:
-                    print(f"--- REFLEJO DETECTADO: Iniciando hilo de logros para DEFENSOR: {jugador_que_reflejo} ---")
+                    logger.debug(f"REFLEJO DETECTADO: Iniciando hilo de logros para DEFENSOR: {jugador_que_reflejo}")
                     threading.Thread(
                         target=_procesar_habilidad_db_async,
                         args=(
@@ -1475,7 +1493,7 @@ def usar_habilidad(data):
                 for nombre_defensor in jugadores_que_reflejaron:
                     sid_defensor = social_system.presence_data.get(nombre_defensor, {}).get('extra_data', {}).get('sid')
                     if sid_defensor and sid_defensor in sessions_activas:
-                        print(f"--- REFLEJO (BOMBA) DETECTADO: Iniciando hilo de logros para DEFENSOR: {nombre_defensor} ---")
+                        logger.debug(f"REFLEJO (BOMBA) DETECTADO: Iniciando hilo de logros para DEFENSOR: {nombre_defensor}")
                         threading.Thread(
                             target=_procesar_habilidad_db_async,
                             args=(
@@ -1497,7 +1515,7 @@ def usar_habilidad(data):
                 
                 # CASO 1: Movimiento Simple (Cohete, Rebote)
                 if resultado.get('es_movimiento'):
-                    print("--- Habilidad de Movimiento (Paso 1) detectada. Emitiendo 'paso_1_resultado_movimiento'.")
+                    logger.debug("Habilidad de Movimiento (Paso 1) detectada. Emitiendo 'paso_1_resultado_movimiento'.")
                     socketio.emit('paso_1_resultado_movimiento', {
                         'jugador': nombre_jugador_emitente,
                         'resultado': { **resultado['resultado_movimiento'], 'eventos': resultado.get('eventos', []) },
@@ -1506,7 +1524,7 @@ def usar_habilidad(data):
                 
                 # CASO 2: Movimiento Doble (Intercambio Forzado)
                 elif resultado.get('es_movimiento_doble'):
-                    print("--- Habilidad de Movimiento Doble (Paso 1) detectada. Emitiendo 'paso_1' para ambos.")
+                    logger.debug("Habilidad de Movimiento Doble (Paso 1) detectada. Emitiendo 'paso_1' para ambos.")
                     socketio.emit('paso_1_resultado_movimiento', {
                         'jugador': nombre_jugador_emitente,
                         'resultado': { **resultado['resultado_movimiento_jugador'], 'eventos': resultado.get('eventos', []) },
@@ -1521,7 +1539,7 @@ def usar_habilidad(data):
 
                 # CASO 3: Movimiento de Otro (Retroceso)
                 elif resultado.get('es_movimiento_otro'):
-                    print("--- Habilidad de Movimiento de Otro (Paso 1) detectada. Emitiendo 'paso_1'.")
+                    logger.debug("Habilidad de Movimiento de Otro (Paso 1) detectada. Emitiendo 'paso_1'.")
                     mov_obj = resultado['resultado_movimiento']
                     socketio.emit('paso_1_resultado_movimiento', {
                         'jugador': mov_obj['jugador_movido'],
@@ -1531,7 +1549,7 @@ def usar_habilidad(data):
 
                 # CASO 4: Movimiento Múltiple (Caos)
                 elif resultado.get('es_movimiento_multiple'):
-                    print("--- Habilidad de Movimiento Múltiple (Paso 1) detectada. Emitiendo 'paso_1' para todos.")
+                    logger.debug("Habilidad de Movimiento Múltiple (Paso 1) detectada. Emitiendo 'paso_1' para todos.")
                     eventos_principales = resultado.get('eventos', [])
                     for i, mov in enumerate(resultado.get('movimientos', [])):
                         eventos_a_enviar = eventos_principales if i == 0 else []
@@ -1543,7 +1561,7 @@ def usar_habilidad(data):
 
             # --- CASO B: HABILIDAD DE NO-MOVIMIENTO ---
             else:
-                print("--- Habilidad estándar (No-Mov) detectada. Procesando DB en hilo.")
+                logger.debug("Habilidad estándar (No-Mov) detectada. Procesando DB en hilo.")
                 
                 # ENVIAR RESPUESTA DEL JUEGO INMEDIATAMENTE 
                 colores_map = getattr(sala, 'colores_map', {})
@@ -1551,7 +1569,7 @@ def usar_habilidad(data):
 
                 if celda_actualizada:
                     # CASO B1: Habilidad que SÍ cambia el tablero 
-                    print("--- (Habilidad No-Mov) Celda actualizada detectada. Enviando FULL state.")
+                    logger.debug("(Habilidad No-Mov) Celda actualizada detectada. Enviando FULL state.")
                     estado_juego_full = {
                         'jugadores': sala.juego.obtener_estado_jugadores(),
                         'tablero': sala.juego.obtener_estado_tablero(), 
@@ -1570,7 +1588,7 @@ def usar_habilidad(data):
                 
                 else:
                     # CASO B2: Habilidad que NO cambia el tablero (Escudo, Curar, Bomba, etc.)
-                    print("--- (Habilidad No-Mov) Sin cambio de celda. Enviando PARTIAL state.")
+                    logger.debug("(Habilidad No-Mov) Sin cambio de celda. Enviando PARTIAL state.")
                     estado_juego_parcial = {
                         'jugadores': sala.juego.obtener_estado_jugadores(),
                         'turno_actual': sala.juego.obtener_turno_actual(), 
@@ -1598,8 +1616,7 @@ def usar_habilidad(data):
             _iniciar_temporizador_turno(id_sala, nombre_jugador_emitente)
     
     except Exception as e:
-            print(f"!!! ERROR GRAVE en 'usar_habilidad': {e}")
-            traceback.print_exc()
+            logger.error(f"!!! ERROR GRAVE en 'usar_habilidad': {e}", exc_info=True)
             emit('error', {'mensaje': f'Error fatal del servidor al usar habilidad: {e}'})
 
 @socketio.on('comprar_perk')
@@ -1643,14 +1660,13 @@ def comprar_perk(data):
                 print("--- Emisión de 'oferta_perk' completada ---")
 
             except Exception as e:
-                print(f"!!! ERROR dentro de comprar_pack_perk o al emitir: {e}")
-                traceback.print_exc()
+                logger.error(f"!!! ERROR dentro de comprar_pack_perk o al emitir: {e}", exc_info=True)
                 emit('error', {'mensaje': f'Error interno al procesar compra: {e}'})
         else:
-            print("--- COMPRAR PERK ERROR: No es el turno del jugador o juego no activo ---")
+            logger.warning("COMPRAR PERK ERROR: No es el turno del jugador o juego no activo.")
             emit('error', {'mensaje': 'No es tu turno o el juego no está activo para comprar perks.'})
     else:
-        print(f"--- COMPRAR PERK ERROR: Sala {id_sala} no encontrada o SID {sid} no está en la sala ---")
+        logger.warning(f"COMPRAR PERK ERROR: Sala {id_sala} no encontrada o SID {sid} no está en la sala.")
         emit('error', {'mensaje': 'Sala no encontrada o no estás en ella.'})
 
 @socketio.on('seleccionar_perk')
@@ -1709,8 +1725,7 @@ def seleccionar_perk(data):
                 _iniciar_temporizador_turno(id_sala, nombre_jugador)
 
             except Exception as e:
-                print(f"!!! ERROR dentro de activar_perk_seleccionado o al emitir: {e}")
-                traceback.print_exc()
+                logger.error(f"!!! ERROR dentro de activar_perk_seleccionado o al emitir: {e}", exc_info=True)
                 emit('error', {'mensaje': f'Error interno al activar perk: {e}'})
         else:
             print("--- SELECCIONAR PERK ERROR: No es el turno del jugador o juego no activo ---")
@@ -1763,8 +1778,7 @@ def cancelar_oferta_perk(data):
             _iniciar_temporizador_turno(id_sala, nombre_jugador)
 
         except Exception as e:
-            print(f"!!! ERROR en 'cancelar_oferta_perk': {e}")
-            traceback.print_exc()
+            logger.error(f"!!! ERROR en 'cancelar_oferta_perk': {e}", exc_info=True)
 
 @socketio.on('solicitar_precios_perks')
 def solicitar_precios_perks(data):
@@ -1805,7 +1819,11 @@ def solicitar_precios_perks(data):
         }, to=sid)
         return # Salir de la función, no enviar precios
 
-    costes = {"basico": 4, "intermedio": 8, "avanzado": 12} 
+    costes = {
+        "basico": COSTO_PACK_BASICO,
+        "intermedio": COSTO_PACK_INTERMEDIO,
+        "avanzado": COSTO_PACK_AVANZADO
+    }
 
     try:
         # Comprobar si el evento global está activo
@@ -1823,7 +1841,7 @@ def solicitar_precios_perks(data):
         emit('precios_perks_actualizados', costes, to=sid)
 
     except Exception as e:
-        print(f"!!! ERROR al solicitar precios de perks: {e}")
+        logger.error(f"!!! ERROR al solicitar precios de perks: {e}", exc_info=True)
         emit('error', {'mensaje': 'Error al obtener precios de perks.'})
 
 # ===================================================================
@@ -1874,8 +1892,7 @@ def arsenal_cargar_maestria():
         })
 
     except Exception as e:
-        print(f"!!! ERROR en 'arsenal:cargar_maestria': {e}")
-        traceback.print_exc()
+        logger.error(f"!!! ERROR en 'arsenal:cargar_maestria': {e}", exc_info=True)
         emit('error', {'mensaje': 'Error del servidor al cargar maestría.'})
 
 @socketio.on('arsenal:equip_title')
@@ -1953,8 +1970,7 @@ def arsenal_equip_title(data):
         
     except Exception as e:
         db.session.rollback()
-        print(f"!!! ERROR en 'arsenal:equip_title': {e}")
-        traceback.print_exc()
+        logger.error(f"!!! ERROR en 'arsenal:equip_title': {e}", exc_info=True)
         emit('error', {'mensaje': 'Error del servidor al equipar título.'})
 
 @socketio.on('enviar_mensaje')
@@ -2016,7 +2032,7 @@ def handle_private_message(data):
     target = data.get('target')
     message = data.get('message')
     sid = request.sid # Guardar el SID
-    print(f"\n--- RECIBIDO EVENTO: private_message --- De: {sender}, Para: {target}")
+    logger.debug(f"RECIBIDO EVENTO: private_message - De: {sender}, Para: {target}")
 
     if not sender or not target or not message:
         print("--- PM ERROR: Faltan datos ---")
@@ -2037,12 +2053,12 @@ def handle_private_message(data):
                 socketio.emit('new_private_message', result['message_data'], room=target_sid)
                 print("--- Emisión a destinatario de PM completada ---")
             except Exception as e:
-                print(f"!!! ERROR al emitir PM a destinatario: {e}")
+                logger.error(f"!!! ERROR al emitir PM a destinatario: {e}", exc_info=True)
         else:
-            print(f"--- ADVERTENCIA PM: Destinatario {target} no conectado. ---")
+            logger.warning(f"ADVERTENCIA PM: Destinatario {target} no conectado.")
 
         # B. Enviar confirmación al remitente
-        print(f"Enviando confirmación 'message_sent_confirm' a {sender} (SID: {sid})")
+        logger.debug(f"Enviando confirmación 'message_sent_confirm' a {sender} (SID: {sid})")
         emit('message_sent_confirm', result['message_data'])
 
         # Iniciar el hilo para el trabajo de DB 
@@ -2056,7 +2072,7 @@ def handle_private_message(data):
         ).start()
         
     else:
-        print(f"--- PM ERROR (social_system): {result['message']} ---")
+        logger.warning(f"PM ERROR (social_system): {result['message']}")
         emit('error', {'mensaje': result['message']})
 
 @socketio.on('invite_to_room')
@@ -2084,7 +2100,7 @@ def handle_invite_to_room(data):
                 socketio.emit('room_invite', result['invitation_data'], room=recipient_sid)
                 print("--- Emisión de 'room_invite' completada ---")
             except Exception as e:
-                print(f"!!! ERROR al emitir 'room_invite': {e}")
+                logger.error(f"!!! ERROR al emitir 'room_invite': {e}", exc_info=True)
         else:
             print(f"--- INVITE WARNING: Destinatario {recipient} no conectado. ---")
 
@@ -2158,7 +2174,7 @@ def solicitar_revancha(data):
         }, room=id_sala_original)
         print(f"Emitiendo 'revancha_actualizada' a sala {id_sala_original}")
     except Exception as e:
-        print(f"!!! ERROR al emitir 'revancha_actualizada': {e}")
+        logger.error(f"!!! ERROR al emitir 'revancha_actualizada': {e}", exc_info=True)
 
     # Iniciar timer si se alcanza el mínimo y aún no ha empezado
     if len(info_revancha['solicitudes']) >= MIN_JUGADORES_REVANCHA and info_revancha['timer'] is None:
@@ -2240,7 +2256,7 @@ def abandonar_revancha(data):
                     'lista_participantes': lista_participantes
                 }, room=id_sala_original)
             except Exception as e:
-                print(f"!!! ERROR al emitir 'revancha_actualizada' (por abandono): {e}")
+                logger.error(f"!!! ERROR al emitir 'revancha_actualizada' (por abandono): {e}", exc_info=True)
     
 @socketio.on('pedir_top_5')
 def manejar_pedir_top_5():
@@ -2306,7 +2322,7 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
                         'lista_participantes': lista_participantes
                     }, room=id_sala)
                 except Exception as e:
-                    print(f"!!! ERROR al emitir 'revancha_actualizada' (por desconexión): {e}")
+                    logger.error(f"!!! ERROR al emitir 'revancha_actualizada' (por desconexión): {e}", exc_info=True)
 
     sala = salas_activas.get(id_sala)
     if not sala:
@@ -2412,7 +2428,7 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
                     try:
                         sala.juego._avanzar_turno()
                     except Exception as e:
-                         print(f"!!! ERROR al forzar _avanzar_turno en desconexión: {e}")
+                         logger.error(f"!!! ERROR al forzar _avanzar_turno en desconexión: {e}", exc_info=True)
                 
                 colores_map = getattr(sala, 'colores_map', {})
                 nuevo_turno_actual = sala.juego.obtener_turno_actual() # Obtener el nuevo turno
@@ -2607,7 +2623,7 @@ def iniciar_timer_revancha(id_sala_original):
             revanchas_pendientes[id_sala_original]['timer'] = timer
 
 # --- Funciones de Timer ---
-TURNO_TIMEOUT_SEGUNDOS = 90 # 90 segundos para que un jugador actúe
+TURNO_TIMEOUT_SEGUNDOS = DURACION_TURNO_SEGUNDOS # 90 segundos para que un jugador actúe
 
 def _cancelar_temporizador_turno(id_sala):
     if id_sala in salas_activas:
@@ -2677,7 +2693,7 @@ def limpiar_salas_inactivas():
         with app.app_context(): # Necesario para acceder a 'salas_activas' de forma segura
             ahora = datetime.now()
             salas_a_eliminar = []
-            print(f"\n--- Ejecutando Limpieza de Salas Inactivas ({ahora.strftime('%H:%M')}) ---")
+            logger.debug(f"Ejecutando Limpieza de Salas Inactivas ({ahora.strftime('%H:%M')})")
             for id_sala, sala in list(salas_activas.items()): # Usar list() para poder modificar el dict mientras se itera
                 tiempo_desde_creacion = ahora - sala.creado_en
                 # Criterios de eliminación: Vacía o muy antigua (ej. > 2 horas)
@@ -2719,12 +2735,12 @@ def _procesar_estadisticas_fin_juego_async(app, jugadores_items, ganador_nombre,
                     
                     if user_db:
                         user_db.games_played += 1
-                        xp_ganada = 50 
+                        xp_ganada = XP_POR_PARTIDA
                         
                         current_consecutive_wins = 0 
                         if is_winner: 
                             user_db.games_won += 1
-                            xp_ganada += 25 
+                            xp_ganada += XP_VICTORIA
                             user_db.consecutive_wins = getattr(user_db, 'consecutive_wins', 0) + 1
                             current_consecutive_wins = user_db.consecutive_wins
                         else:
@@ -2734,7 +2750,7 @@ def _procesar_estadisticas_fin_juego_async(app, jugadores_items, ganador_nombre,
                         if user_db.level >= 5:
                             try:
                                 kit_usado = jugador_data.get('kit_id', 'tactico')
-                                xp_maestria_ganada = 100 if is_winner else 50 
+                                xp_maestria_ganada = XP_MAESTRIA_VICTORIA if is_winner else XP_MAESTRIA_BASE
                                 
                                 maestria = UserKitMaestria.query.filter_by(
                                     user_id=user_db.id,
@@ -2765,7 +2781,7 @@ def _procesar_estadisticas_fin_juego_async(app, jugadores_items, ganador_nombre,
 
                             except Exception as e:
                                 db.session.rollback() 
-                                print(f"!!! ERROR al procesar Maestría de Kit: {e}")
+                                logger.error(f"!!! ERROR al procesar Maestría de Kit: {e}", exc_info=True)
 
                         level_up = update_xp_and_level(user_db, xp_ganada) 
                         
@@ -2815,8 +2831,7 @@ def _procesar_estadisticas_fin_juego_async(app, jugadores_items, ganador_nombre,
                 
                 print("--- THREAD: Procesamiento de estadísticas COMPLETO.")
             except Exception as e:
-                print(f"!!! ERROR FATAL en hilo _procesar_estadisticas_fin_juego: {e}")
-                traceback.print_exc()
+                logger.error(f"!!! ERROR FATAL en hilo _procesar_estadisticas_fin_juego: {e}", exc_info=True)
 
 def _procesar_abandono_db_async(app, username, juego_obj, sala_jugadores_count):
     with app.app_context():
@@ -2854,8 +2869,7 @@ def _procesar_abandono_db_async(app, username, juego_obj, sala_jugadores_count):
                     print(f"--- THREAD (WARN): No se encontró {username} en DB o juego para stats de abandono.")
             except Exception as e:
                 db.session.rollback()
-                print(f"!!! ERROR en _procesar_abandono_db_async: {e}")
-                traceback.print_exc()
+                logger.error(f"!!! ERROR en _procesar_abandono_db_async: {e}", exc_info=True)
 
 def get_friends_list_server_safe(username):
     user = User.query.filter_by(username=username).first()
@@ -2907,8 +2921,7 @@ def _procesar_login_diario(user_obj):
 
     except Exception as e:
         db.session.rollback()
-        print(f"!!! ERROR al procesar login diario para {user_obj.username}: {e}")
-        traceback.print_exc()
+        logger.error(f"!!! ERROR al procesar login diario para {user_obj.username}: {e}", exc_info=True)
 
 # Iniciar el hilo de limpieza en segundo plano
 hilo_limpieza = threading.Thread(target=limpiar_salas_inactivas, daemon=True)

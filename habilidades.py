@@ -8,11 +8,20 @@
 # Contiene:
 # - Clase Habilidad: La plantilla base para cada habilidad (nombre, tipo,
 #   descripción, símbolo, cooldown_base, energia_coste).
-# - fun_crear_habilidades: Función que retorna un diccionario
+# - crear_habilidades: Función que retorna un diccionario
 #   organizado por categorías (ofensiva, defensiva, etc.)
-#   con todas las instancias de Habilidad.
+#   con todas las instancias de Habilidad, usando constantes de configuración.
 #
 # ===================================================================
+
+from game_config import (
+    COSTO_SABOTAJE, COSTO_BOMBA, COSTO_ROBO, COSTO_TSUNAMI, COSTO_FUGA,
+    COSTO_ESCUDO, COSTO_CURACION, COSTO_INVISIBILIDAD, COSTO_BARRERA,
+    COSTO_FASE, COSTO_TRASPASO, COSTO_COHETE, COSTO_INTERCAMBIO,
+    COSTO_RETROCESO, COSTO_REBOTE, COSTO_DADO_PERFECTO, COSTO_MINA,
+    COSTO_DOBLE_TURNO, COSTO_CAOS, COSTO_BLOQUEO, COSTO_SOBRECARGA,
+    COSTO_TIRON, COSTO_CONTROL_TOTAL
+)
 
 class Habilidad:
     def __init__(self, nombre, tipo, descripcion, simbolo, cooldown_base, energia_coste): 
@@ -27,46 +36,41 @@ class Habilidad:
 def crear_habilidades():
     return {
         "ofensiva": [
-            Habilidad("Sabotaje", "ofensiva", "Haz que un jugador pierda su próximo turno", "⚔️", 6, 90), 
-            Habilidad("Bomba Energética", "ofensiva", "Jugadores en ±3 posiciones pierden 75 energía", "💥", 5, 60),
-            Habilidad("Robo", "ofensiva", "Roba 50-150 energía del jugador con más puntos", "🎭", 6, 65),
-            Habilidad("Tsunami", "ofensiva", "Empuja a todos los jugadores 3 casillas atrás", "🌊", 5, 50),
-            Habilidad("Fuga de Energía", "ofensiva", "El oponente pierde 25 E al inicio de sus próximos 3 turnos.", "🩸", 5, 35)
+            Habilidad("Sabotaje", "ofensiva", "Haz que un jugador pierda su próximo turno", "⚔️", 6, COSTO_SABOTAJE), 
+            Habilidad("Bomba Energética", "ofensiva", "Jugadores en ±3 posiciones pierden energía", "💥", 5, COSTO_BOMBA),
+            Habilidad("Robo", "ofensiva", "Roba energía del jugador con más puntos", "🎭", 6, COSTO_ROBO),
+            Habilidad("Tsunami", "ofensiva", "Empuja a todos los jugadores hacia atrás", "🌊", 5, COSTO_TSUNAMI),
+            Habilidad("Fuga de Energía", "ofensiva", "El oponente pierde energía al inicio de sus próximos turnos.", "🩸", 5, COSTO_FUGA)
         ],
         "defensiva": [
-            Habilidad("Escudo Total", "defensiva", "Inmune a todo tipo de daño por 3 rondas", "🛡️", 7, 80),
-            Habilidad("Curación", "defensiva", "Recupera 150 de energía instantáneamente", "🏥", 6, 70), 
-            Habilidad("Invisibilidad", "defensiva", "No te afectan las habilidades de los oponentes por 2 turnos", "👻", 5, 50),
-            Habilidad("Barrera", "defensiva", "Refleja el próximo ataque que recibas por 2 turnos", "🔮", 5, 45),
-            Habilidad("Transferencia de Fase", "defensiva", "Intangible e inmune a casillas negativas en tu próximo movimiento de dado", "💨", 4, 25),
-            Habilidad("Traspaso de Dolor", "defensiva", "El 50% del daño recibido en tus próximos 2 turno es redirigido a tu objetivo Vinculado.", "💔", 4, 35),
+            Habilidad("Escudo Total", "defensiva", "Inmune a todo tipo de daño por varias rondas", "🛡️", 7, COSTO_ESCUDO),
+            Habilidad("Curación", "defensiva", "Recupera energía instantáneamente", "🏥", 6, COSTO_CURACION), 
+            Habilidad("Invisibilidad", "defensiva", "No te afectan las habilidades de los oponentes por 2 turnos", "👻", 5, COSTO_INVISIBILIDAD),
+            Habilidad("Barrera", "defensiva", "Refleja el próximo ataque que recibas por 2 turnos", "🔮", 5, COSTO_BARRERA),
+            Habilidad("Transferencia de Fase", "defensiva", "Intangible e inmune a casillas negativas en tu próximo movimiento de dado", "💨", 4, COSTO_FASE),
+            Habilidad("Traspaso de Dolor", "defensiva", "El 50% del daño recibido en tus próximos turnos es redirigido a tu objetivo Vinculado.", "💔", 4, COSTO_TRASPASO),
         ],
         "movimiento": [
-            Habilidad("Cohete", "movimiento", "Avanza inmediatamente 3-7 casillas", "🚀", 5, 40),
-            Habilidad("Intercambio Forzado", "movimiento", "Intercambias posición con cualquier jugador", "🔄", 6, 75),
-            Habilidad("Retroceso", "movimiento", "Haz que un jugador retroceda 5 casillas", "⏪", 4, 40),
-            Habilidad("Rebote Controlado", "movimiento", "Retrocede 2 casillas, luego avanza 9 casillas", "↩️", 5, 45),
+            Habilidad("Cohete", "movimiento", "Avanza inmediatamente varias casillas", "🚀", 5, COSTO_COHETE),
+            Habilidad("Intercambio Forzado", "movimiento", "Intercambias posición con cualquier jugador", "🔄", 6, COSTO_INTERCAMBIO),
+            Habilidad("Retroceso", "movimiento", "Haz que un jugador retroceda", "⏪", 4, COSTO_RETROCESO),
+            Habilidad("Rebote Controlado", "movimiento", "Retrocede 2 casillas, luego avanza 9 casillas", "↩️", 5, COSTO_REBOTE),
         ],
         "control": [
-            Habilidad("Dado Perfecto", "control", "Eliges exactamente cuánto avanzar (1-6)", "🎯", 5, 40), 
-            Habilidad("Mina de Energía", "control", "Permite al jugador colocar una trampa en la casilla exacta donde se encuentra actualmente.", "💣", 4, 35),
-            Habilidad("Doble Turno", "control", "Tirás el doble de dados", "⚡", 7, 100), 
-            Habilidad("Caos", "control", "Todos los jugadores se mueven aleatoriamente", "🎪", 6, 50), 
-            Habilidad("Bloqueo Energético", "control", "Impide que un oponente gane energía por 2 rondas", "🚫", 5, 55),
-            Habilidad("Sobrecarga Inestable", "control", "Apuesta tu energía. Próximo turno: 33% pierdes 25E, 33% ganas 75E, 33% ganas 150E.", "🎲", 4, 50),
-            Habilidad("Hilos Espectrales", "control", "Aplica 'Vínculo' a un jugador (4 turnos) en un rango de 10 casillas.", "🔗", 0, 0),
-            Habilidad("Tirón de Cadenas", "control", "Tira del jugador Vinculado 5 casillas hacia ti.", "⛓️", 2, 30),
-            Habilidad("Control Total", "control", "Eliges el dado (1-6) y movimiento del jugador Vinculado en su próximo turno.", "🎮", 7, 90),
+            Habilidad("Dado Perfecto", "control", "Eliges exactamente cuánto avanzar (1-6)", "🎯", 5, COSTO_DADO_PERFECTO), 
+            Habilidad("Mina de Energía", "control", "Coloca una trampa en tu casilla actual.", "💣", 4, COSTO_MINA),
+            Habilidad("Doble Turno", "control", "Tirás el doble de dados", "⚡", 7, COSTO_DOBLE_TURNO), 
+            Habilidad("Caos", "control", "Todos los jugadores se mueven aleatoriamente", "🎪", 6, COSTO_CAOS), 
+            Habilidad("Bloqueo Energético", "control", "Impide que un oponente gane energía por varias rondas", "🚫", 5, COSTO_BLOQUEO),
+            Habilidad("Sobrecarga Inestable", "control", "Apuesta tu energía con resultados aleatorios.", "🎲", 4, COSTO_SOBRECARGA),
+            Habilidad("Hilos Espectrales", "control", "Aplica 'Vínculo' a un jugador en un rango de 10 casillas.", "🔗", 0, 0),
+            Habilidad("Tirón de Cadenas", "control", "Tira del jugador Vinculado hacia ti.", "⛓️", 2, COSTO_TIRON),
+            Habilidad("Control Total", "control", "Eliges el dado y movimiento del jugador Vinculado.", "🎮", 7, COSTO_CONTROL_TOTAL),
         ],
     }
 
 # ===================================================================
-# --- 5. DEFINICIÓN DE KITS DE HABILIDADES ---
-# ===================================================================
-#
-# Define los 5 kits únicos del juego.
-# La lógica del juego leerá esto para asignar habilidades.
-#
+# --- DEFINICIÓN DE KITS DE HABILIDADES ---
 # ===================================================================
 
 KITS_VOLTRACE = {
