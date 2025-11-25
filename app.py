@@ -763,9 +763,9 @@ def send_friend_request(sender_username, target_username):
 
         if target_sid:
             try:
-                print(f"Intentando emitir 'new_friend_request' a SID: {target_sid}")
+                logger.debug(f"Intentando emitir 'new_friend_request' a SID: {target_sid}")
                 socketio.emit('new_friend_request', {'from_user': sender_username}, room=target_sid)
-                print("--- Emisión completada ---")
+                logger.debug("Emisión de solicitud de amistad completada")
             except Exception as e:
                 logger.error(f"!!! ERROR al emitir notificación de amistad: {e}", exc_info=True)
         else:
@@ -1192,7 +1192,7 @@ def lanzar_dado(data):
         try:
             seises_consecutivos = resultado.get('consecutive_sixes', 0)
             if seises_consecutivos >= 3:
-                print(f"--- LOGRO DETECTADO: 'lucky_seven' para {nombre_jugador_emitente} ---")
+                logger.info(f"LOGRO DETECTADO: 'lucky_seven' para {nombre_jugador_emitente}")
                 unlocked_list = achievement_system.check_achievement(
                     nombre_jugador_emitente,
                     'dice_rolled',
@@ -1299,7 +1299,7 @@ def terminar_movimiento(data):
                 
                 # Si encontramos un evento de logro, procesarlo
                 if nombre_salvado and evento_logro:
-                    print(f"--- LOGRO DETECTADO: '{evento_logro}' para {nombre_salvado} ---")
+                    logger.info(f"LOGRO DETECTADO: '{evento_logro}' para {nombre_salvado}")
                     
                     unlocked_list = achievement_system.check_achievement(
                         nombre_salvado, 
@@ -1412,7 +1412,7 @@ def usar_habilidad(data):
     nombre_jugador_emitente = sessions_activas.get(sid, {}).get('username') # Usar sessions_activas es más fiable
     jugador_actual_obj = sala.juego.obtener_jugador_actual()
     nombre_jugador_actual = jugador_actual_obj.get_nombre() if jugador_actual_obj else None
-    print(f"Verificando turno (habilidad): Esperado='{nombre_jugador_actual}', Emitente='{nombre_jugador_emitente}'")
+    logger.debug(f"Verificando turno (habilidad): Esperado='{nombre_jugador_actual}', Emitente='{nombre_jugador_emitente}'")
 
     if nombre_jugador_actual != nombre_jugador_emitente:
         logger.warning(f"Acción rechazada (Turno inválido): Usuario intentó jugar fuera de turno")
@@ -1433,7 +1433,7 @@ def usar_habilidad(data):
                     if len(partes) >= 2:
                         # Extraer el nombre del jugador
                         nombre_protegido = partes[1] 
-                        print(f"--- LOGRO DETECTADO: 'fantasma' para {nombre_protegido} ---")
+                        logger.info(f"LOGRO DETECTADO: 'fantasma' para {nombre_protegido}")
                         
                         unlocked_list = achievement_system.check_achievement(
                             nombre_protegido, 
@@ -1629,7 +1629,7 @@ def comprar_perk(data):
         id_sala = id_sala_data
     tipo_pack = data.get('tipo_pack')
     sid = request.sid
-    print(f"\n--- RECIBIDO EVENTO: comprar_perk --- SID: {sid}, Sala: {id_sala}, Pack: {tipo_pack}")
+    logger.debug(f"RECIBIDO EVENTO: comprar_perk - SID: {sid}, Sala: {id_sala}, Pack: {tipo_pack}")
 
     _cancelar_temporizador_turno(id_sala)
 
@@ -1640,24 +1640,24 @@ def comprar_perk(data):
     if id_sala in salas_activas and sid in salas_activas[id_sala].jugadores:
         sala = salas_activas[id_sala]
         nombre_jugador = sala.jugadores[sid]['nombre']
-        print(f"Jugador: {nombre_jugador}")
+        # logger.debug(f"Jugador: {nombre_jugador}")
 
         # Verificar si es el turno del jugador y el juego está activo
         turno_actual_juego = sala.juego.obtener_turno_actual() if sala.juego else None
         es_turno_valido = (sala.juego and sala.estado == 'jugando' and turno_actual_juego == nombre_jugador)
-        print(f"Verificando turno (comprar perk): Turno actual='{turno_actual_juego}', Jugador='{nombre_jugador}', Es válido? {es_turno_valido}")
+        logger.debug(f"Verificando turno (comprar perk): Turno actual='{turno_actual_juego}', Jugador='{nombre_jugador}', Es válido? {es_turno_valido}")
 
         if es_turno_valido:
-            print("Turno válido. Llamando a sala.juego.comprar_pack_perk...")
+            logger.debug("Turno válido. Llamando a sala.juego.comprar_pack_perk...")
             try:
                 # Llamar a la función en JuegoOcaWeb para obtener la oferta
                 resultado_oferta = sala.juego.comprar_pack_perk(nombre_jugador, tipo_pack)
-                print(f"Resultado de comprar_pack_perk: {resultado_oferta}")
+                logger.debug(f"Resultado de comprar_pack_perk: {resultado_oferta}")
 
                 # Emitir la oferta SOLO al jugador que compró
-                print(f"Intentando emitir 'oferta_perk' a SID: {sid}...")
+                logger.debug(f"Intentando emitir 'oferta_perk' a SID: {sid}...")
                 emit('oferta_perk', resultado_oferta)
-                print("--- Emisión de 'oferta_perk' completada ---")
+                logger.debug("Emisión de 'oferta_perk' completada")
 
             except Exception as e:
                 logger.error(f"!!! ERROR dentro de comprar_pack_perk o al emitir: {e}", exc_info=True)
@@ -1680,7 +1680,7 @@ def seleccionar_perk(data):
     perk_id = data.get('perk_id')
     coste_pack = data.get('coste') # Coste del pack original para verificación/devolución
     sid = request.sid
-    print(f"\n--- RECIBIDO EVENTO: seleccionar_perk --- SID: {sid}, Sala: {id_sala}, Perk ID: {perk_id}")
+    logger.debug(f"RECIBIDO EVENTO: seleccionar_perk - SID: {sid}, Sala: {id_sala}, Perk ID: {perk_id}")
 
     _cancelar_temporizador_turno(id_sala)
 
@@ -1694,16 +1694,16 @@ def seleccionar_perk(data):
 
         # Verificar turno de nuevo
         if sala.juego and sala.estado == 'jugando' and sala.juego.obtener_turno_actual() == nombre_jugador:
-            print("Turno válido. Llamando a sala.juego.activar_perk_seleccionado...")
+            logger.debug("Turno válido. Llamando a sala.juego.activar_perk_seleccionado...")
             try:
                 # Llamar a la función en JuegoOcaWeb para activar el perk seleccionado
                 resultado_activacion = sala.juego.activar_perk_seleccionado(nombre_jugador, perk_id, coste_pack)
-                print(f"Resultado de activar_perk_seleccionado: {resultado_activacion}")
+                logger.debug(f"Resultado de activar_perk_seleccionado: {resultado_activacion}")
 
                 # Enviar confirmación (éxito o fallo) SOLO al jugador que seleccionó
-                print(f"Intentando emitir 'perk_activado' a SID: {sid}...")
+                logger.debug(f"Intentando emitir 'perk_activado' a SID: {sid}...")
                 emit('perk_activado', resultado_activacion)
-                print("--- Emisión de 'perk_activado' completada ---")
+                logger.debug("Emisión de 'perk_activado' completada")
 
                 # Si la activación fue exitosa, enviar estado actualizado a TODOS en la sala
                 if resultado_activacion.get('exito'):
@@ -1717,7 +1717,7 @@ def seleccionar_perk(data):
                         'colores_jugadores': colores_map,
                         'evento_global_activo': sala.juego.evento_global_activo
                     }
-                    print(f"Activación exitosa. Emitiendo 'estado_juego_actualizado' a sala {id_sala}")
+                    logger.debug(f"Activación exitosa. Emitiendo 'estado_juego_actualizado' a sala {id_sala}")
                     socketio.emit('estado_juego_actualizado', {
                             'estado_juego': estado_juego,
                             'eventos_recientes': sala.juego.eventos_turno[-5:] 
@@ -1728,17 +1728,17 @@ def seleccionar_perk(data):
                 logger.error(f"!!! ERROR dentro de activar_perk_seleccionado o al emitir: {e}", exc_info=True)
                 emit('error', {'mensaje': f'Error interno al activar perk: {e}'})
         else:
-            print("--- SELECCIONAR PERK ERROR: No es el turno del jugador o juego no activo ---")
+            logger.warning("SELECCIONAR PERK ERROR: No es el turno del jugador o juego no activo")
             emit('error', {'mensaje': 'No es tu turno para seleccionar perks.'})
     else:
-        print(f"--- SELECCIONAR PERK ERROR: Sala {id_sala} no encontrada o SID {sid} no está en la sala ---")
+        logger.warning(f"SELECCIONAR PERK ERROR: Sala {id_sala} no encontrada o SID {sid} no está en la sala")
         emit('error', {'mensaje': 'Sala no encontrada o no estás en ella.'})
 
 @socketio.on('cancelar_oferta_perk')
 def cancelar_oferta_perk(data):
     id_sala = data.get('id_sala')
     sid = request.sid
-    print(f"\n--- RECIBIDO EVENTO: cancelar_oferta_perk --- SID: {sid}, Sala: {id_sala}")
+    logger.debug(f"RECIBIDO EVENTO: cancelar_oferta_perk - SID: {sid}, Sala: {id_sala}")
     
     if not id_sala or id_sala not in salas_activas or sid not in salas_activas[id_sala].jugadores:
         return 
@@ -1751,7 +1751,7 @@ def cancelar_oferta_perk(data):
             resultado = sala.juego._cancelar_oferta_perk(nombre_jugador)
             
             if resultado.get('exito'):
-                print(f"--- Oferta de Perk cancelada para {nombre_jugador} ---")
+                logger.debug(f"Oferta de Perk cancelada para {nombre_jugador}")
                 # Notificar al jugador de sus PM actualizados
                 emit('perk_activado', { 
                     "exito": True, 
@@ -1784,7 +1784,7 @@ def cancelar_oferta_perk(data):
 def solicitar_precios_perks(data):
     id_sala = data.get('id_sala')
     sid = request.sid
-    print(f"\n--- RECIBIDO EVENTO: solicitar_precios_perks --- SID: {sid}, Sala: {id_sala}")
+    logger.debug(f"RECIBIDO EVENTO: solicitar_precios_perks - SID: {sid}, Sala: {id_sala}")
 
     if not id_sala or id_sala not in salas_activas:
         emit('error', {'mensaje': 'Sala no encontrada al pedir precios.'})
@@ -1807,7 +1807,7 @@ def solicitar_precios_perks(data):
     # Comprobar si el jugador ya tiene una oferta activa
     if hasattr(jugador, 'oferta_perk_activa') and jugador.oferta_perk_activa:
         oferta_activa = jugador.oferta_perk_activa
-        print(f"--- Reenviando oferta de perk pendiente para {username} ---")
+        logger.debug(f"Reenviando oferta de perk pendiente para {username}")
         
         # Reenviar el evento 'oferta_perk' 
         emit('oferta_perk', {
@@ -1828,14 +1828,14 @@ def solicitar_precios_perks(data):
     try:
         # Comprobar si el evento global está activo
         if sala.juego and sala.juego.evento_global_activo == "Mercado Negro":
-            print(f"--- Evento 'Mercado Negro' ACTIVO. Enviando precios con descuento. ---")
+            logger.debug("Evento 'Mercado Negro' ACTIVO. Enviando precios con descuento.")
             costes = {
                 "basico": max(1, costes["basico"] // 2),
                 "intermedio": max(1, costes["intermedio"] // 2),
                 "avanzado": max(1, costes["avanzado"] // 2)
             }
         else:
-             print(f"--- Evento 'Mercado Negro' INACTIVO. Enviando precios normales. ---")
+             logger.debug("Evento 'Mercado Negro' INACTIVO. Enviando precios normales.")
 
         # Enviar los precios actualizados SOLO al jugador que preguntó
         emit('precios_perks_actualizados', costes, to=sid)
@@ -1856,7 +1856,7 @@ def arsenal_cargar_maestria():
         return
         
     username = sessions_activas[sid]['username']
-    print(f"--- RECIBIDO EVENTO: arsenal:cargar_maestria --- Usuario: {username}")
+    logger.debug(f"RECIBIDO EVENTO: arsenal:cargar_maestria - Usuario: {username}")
 
     try:
         user = User.query.filter_by(username=username).first()
@@ -2022,7 +2022,7 @@ def mark_chat_as_read(data):
         return # No se puede procesar
 
     # Llama a la función existente en social_system
-    print(f"--- CHAT: Marcando mensajes de {sender_username} para {username} como leídos... ---")
+    logger.debug(f"CHAT: Marcando mensajes de {sender_username} para {username} como leídos...")
     social_system.mark_messages_as_read(username, sender_username)
 
 @socketio.on('private_message')
@@ -2035,23 +2035,23 @@ def handle_private_message(data):
     logger.debug(f"RECIBIDO EVENTO: private_message - De: {sender}, Para: {target}")
 
     if not sender or not target or not message:
-        print("--- PM ERROR: Faltan datos ---")
+        logger.warning("PM ERROR: Faltan datos para enviar mensaje privado.")
         emit('error', {'mensaje': 'Faltan datos para enviar mensaje privado.'})
         return
 
     # Guardar el mensaje
     result = social_system.send_private_message(sender, target, message)
-    print(f"Resultado de social_system.send_private_message: {result}")
+    logger.debug(f"Resultado de social_system.send_private_message: {result}")
 
     if result['success']: 
         # A. Notificar al destinatario si está conectado
         presence_info = social_system.presence_data.get(target, {})
         target_sid = presence_info.get('extra_data', {}).get('sid')
-        print(f"Intentando notificar a {target} (SID: {target_sid})")
+        logger.debug(f"Intentando notificar a {target} (SID: {target_sid})")
         if target_sid:
             try:
                 socketio.emit('new_private_message', result['message_data'], room=target_sid)
-                print("--- Emisión a destinatario de PM completada ---")
+                logger.debug("Emisión a destinatario de PM completada")
             except Exception as e:
                 logger.error(f"!!! ERROR al emitir PM a destinatario: {e}", exc_info=True)
         else:
@@ -2081,7 +2081,7 @@ def handle_invite_to_room(data):
     sender = sessions_activas.get(request.sid, {}).get('username')
     recipient = data.get('recipient')
     room_id = data.get('room_id')
-    print(f"\n--- RECIBIDO EVENTO: invite_to_room --- De: {sender}, Para: {recipient}, Sala: {room_id}")
+    logger.info(f"RECIBIDO EVENTO: invite_to_room - De: {sender}, Para: {recipient}, Sala: {room_id}")
 
     if not sender or not recipient or not room_id:
         emit('error', {'mensaje': 'Datos de invitación incompletos.'})
@@ -2089,25 +2089,25 @@ def handle_invite_to_room(data):
 
     # Llama al sistema social para validar y crear la invitación
     result = social_system.send_room_invitation(sender, recipient, room_id)
-    print(f"Resultado de social_system.send_room_invitation: {result}")
+    logger.debug(f"Resultado de social_system.send_room_invitation: {result}")
 
     if result['success']:
         # Intentar notificar al destinatario si está conectado
         recipient_sid = social_system.presence_data.get(recipient, {}).get('extra_data', {}).get('sid')
-        print(f"Intentando notificar invitación a {recipient} (SID: {recipient_sid})")
+        logger.debug(f"Intentando notificar invitación a {recipient} (SID: {recipient_sid})")
         if recipient_sid:
             try:
                 socketio.emit('room_invite', result['invitation_data'], room=recipient_sid)
-                print("--- Emisión de 'room_invite' completada ---")
+                logger.debug("Emisión de 'room_invite' completada")
             except Exception as e:
                 logger.error(f"!!! ERROR al emitir 'room_invite': {e}", exc_info=True)
         else:
-            print(f"--- INVITE WARNING: Destinatario {recipient} no conectado. ---")
+            logger.warning(f"INVITE WARNING: Destinatario {recipient} no conectado.")
 
         # Confirmar al remitente que la invitación fue enviada
         emit('invite_sent_confirm', {'to': recipient, 'room_id': room_id})
     else:
-        print(f"--- INVITE FALLIDO (social_system): {result['message']} ---")
+        logger.warning(f"INVITE FALLIDO (social_system): {result['message']}")
         emit('error', {'mensaje': result['message']})
 
 @socketio.on('presence_heartbeat')
@@ -2140,7 +2140,7 @@ def solicitar_revancha(data):
         return
 
     username = sessions_activas[sid]['username']
-    print(f"--- SOLICITUD REVANCHA --- Usuario: {username}, Sala Original (procesada): {id_sala_original}")
+    logger.info(f"SOLICITUD REVANCHA - Usuario: {username}, Sala Original: {id_sala_original}")
 
     # Si es la primera solicitud para esta sala, inicializar la estructura
     if id_sala_original not in revanchas_pendientes:
@@ -2161,7 +2161,7 @@ def solicitar_revancha(data):
     # Añadir la solicitud del jugador actual
     info_revancha = revanchas_pendientes[id_sala_original]
     info_revancha['solicitudes'].add(username)
-    print(f"Revancha Sala {id_sala_original}: {len(info_revancha['solicitudes'])} solicitudes de {len(info_revancha['participantes'])} participantes.")
+    logger.info(f"Revancha Sala {id_sala_original}: {len(info_revancha['solicitudes'])}/{len(info_revancha['participantes'])} solicitudes.")
 
     # Notificar a TODOS en la sala sobre el estado actualizado de la revancha
     try:
@@ -2172,7 +2172,7 @@ def solicitar_revancha(data):
             'lista_solicitudes': lista_solicitudes,
             'lista_participantes': lista_participantes
         }, room=id_sala_original)
-        print(f"Emitiendo 'revancha_actualizada' a sala {id_sala_original}")
+        logger.debug(f"Emitiendo 'revancha_actualizada' a sala {id_sala_original}")
     except Exception as e:
         logger.error(f"!!! ERROR al emitir 'revancha_actualizada': {e}", exc_info=True)
 
@@ -2184,7 +2184,7 @@ def solicitar_revancha(data):
     if len(info_revancha['solicitudes']) == len(info_revancha['participantes']):
             if info_revancha['timer']:
                 info_revancha['timer'].cancel() # Cancelar timer si estaba corriendo
-                print(f"Timer de revancha para sala {id_sala_original} cancelado (todos respondieron).")
+                logger.debug(f"Timer de revancha para sala {id_sala_original} cancelado (todos respondieron).")
             _crear_nueva_sala_revancha(id_sala_original) # Crear la nueva sala ahora
 
 @socketio.on('cancelar_revancha')
@@ -2196,7 +2196,7 @@ def cancelar_revancha(data):
     if id_sala_original in revanchas_pendientes and username:
         if username in revanchas_pendientes[id_sala_original]['solicitudes']:
             revanchas_pendientes[id_sala_original]['solicitudes'].remove(username)
-            print(f"Revancha Sala {id_sala_original}: Solicitud de {username} cancelada.")
+            logger.info(f"Revancha Sala {id_sala_original}: Solicitud de {username} cancelada.")
             # Aquí podrías notificar a otros si lo deseas, pero usualmente no es necesario
 
 @socketio.on('abandonar_revancha')
@@ -2218,7 +2218,7 @@ def abandonar_revancha(data):
     
     if participante_encontrado:
         info_revancha['participantes'].remove(participante_encontrado)
-        print(f"--- REVANCHA ABANDONADA ---: {username} salió de la cola de revancha de {id_sala_original}.")
+        logger.info(f"REVANCHA ABANDONADA: {username} salió de la cola de revancha de {id_sala_original}.")
 
         # Si él estaba en la lista de solicitudes, removerlo también
         if username in info_revancha['solicitudes']:
@@ -2226,12 +2226,12 @@ def abandonar_revancha(data):
         
         # Si todos los que *quedan* han aceptado
         if len(info_revancha['solicitudes']) == len(info_revancha['participantes']) and len(info_revancha['solicitudes']) >= MIN_JUGADORES_REVANCHA:
-            print(f"--- Revancha (por abandono) ---: Todos los restantes ({len(info_revancha['solicitudes'])}) aceptaron. Iniciando.")
+            logger.info(f"Revancha (por abandono): Todos los restantes ({len(info_revancha['solicitudes'])}) aceptaron. Iniciando.")
             _crear_nueva_sala_revancha(id_sala_original)
 
         # Si ahora es imposible alcanzar el mínimo
         elif len(info_revancha['participantes']) < MIN_JUGADORES_REVANCHA:
-            print(f"--- Revancha (por abandono) ---: Imposible alcanzar el mínimo. Cancelando.")
+            logger.warning("Revancha (por abandono): Imposible alcanzar el mínimo. Cancelando.")
             # Notificar a los que SÍ se quedaron esperando
             for p_data in info_revancha['participantes']:
                 p_sid_original = p_data.get('sid')
@@ -2273,15 +2273,15 @@ def manejar_pedir_top_5():
         ]
         emit('actualizar_top_5', ranking_data) # Enviar solo al que pidió
     except Exception as e:
-        print(f"Error al obtener top 5: {e}")
+        logger.error(f"Error al obtener top 5: {e}", exc_info=True)
         emit('actualizar_top_5', []) # Enviar lista vacía en caso de error
 
 # ===================================================================
-# --- 7. LÓGICA INTERNA DEL SERVIDOR (Funciones Helper) y EJECUCIÓN ---
+# --- 7. LÓGICA INTERNA DEL SERVIDOR y EJECUCIÓN ---
 # ===================================================================
 
 def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
-    print(f"--- Finalizando desconexión de {username_desconectado} (SID: {sid_original}) de sala {id_sala}")
+    logger.info(f"Finalizando desconexión de {username_desconectado} (SID: {sid_original}) de sala {id_sala}")
 
     # Si un jugador se desconecta, hay que sacarlo de la cola de revancha
     if id_sala in revanchas_pendientes:
@@ -2295,17 +2295,17 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
         
         if participante_encontrado:
             info_revancha['participantes'].remove(participante_encontrado)
-            print(f"--- REVANCHA (Desconexión) ---: {username_desconectado} salió de la cola de revancha de {id_sala}.")
+            logger.info(f"REVANCHA (Desconexión): {username_desconectado} salió de la cola de revancha de {id_sala}.")
 
             if username_desconectado in info_revancha['solicitudes']:
                 info_revancha['solicitudes'].remove(username_desconectado)
             
             # Recalcular
             if len(info_revancha['solicitudes']) == len(info_revancha['participantes']) and len(info_revancha['solicitudes']) >= MIN_JUGADORES_REVANCHA:
-                print(f"--- Revancha (por desconexión) ---: Todos los restantes ({len(info_revancha['solicitudes'])}) aceptaron. Iniciando.")
+                logger.info(f"Revancha (por desconexión): Todos los restantes ({len(info_revancha['solicitudes'])}) aceptaron. Iniciando.")
                 _crear_nueva_sala_revancha(id_sala)
             elif len(info_revancha['participantes']) < MIN_JUGADORES_REVANCHA:
-                print(f"--- Revancha (por desconexión) ---: Imposible alcanzar el mínimo. Cancelando.")
+                logger.warning("Revancha (por desconexión): Imposible alcanzar el mínimo. Cancelando.")
                 for p_data in info_revancha['participantes']:
                     p_sid_original = p_data.get('sid')
                     if p_sid_original:
@@ -2326,13 +2326,13 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
 
     sala = salas_activas.get(id_sala)
     if not sala:
-        print(f"Desconexión final: Sala {id_sala} ya no existe.")
+        logger.debug(f"Desconexión final: Sala {id_sala} ya no existe.")
         return
 
     jugador_data = sala.jugadores.get(sid_original)
 
     if jugador_data and jugador_data.get('nombre') == username_desconectado:
-        print(f"Confirmado. Eliminando a {username_desconectado} de la sala {id_sala}.")
+        logger.info(f"Confirmado. Eliminando a {username_desconectado} de la sala {id_sala}.")
 
         # Remover jugador de la estructura de la sala
         sala.remover_jugador(sid_original)
@@ -2348,15 +2348,15 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
 
         # Marcarlo como inactivo en la LÓGICA DEL JUEGO 
         if sala.estado == 'jugando' and sala.juego:
-            print(f"Marcando a {username_desconectado} como inactivo en la lógica del juego...")
+            logger.debug(f"Marcando a {username_desconectado} como inactivo en la lógica del juego...")
 
             # Debemos saber de quién era el turno ANTES de marcarlo inactivo
             turno_antes_de_desconexion = sala.juego.obtener_turno_actual()
-            print(f"El turno ANTES de la desconexión era de: {turno_antes_de_desconexion}")
+            logger.debug(f"El turno ANTES de la desconexión era de: {turno_antes_de_desconexion}")
             
             sala.juego.marcar_jugador_inactivo(username_desconectado)
             # Mover el procesamiento de estadísticas de abandono a un hilo
-            print(f"Iniciando hilo para procesar abandono de {username_desconectado}...")
+            logger.debug(f"Iniciando hilo para procesar abandono de {username_desconectado}...")
             threading.Thread(
                 target=_procesar_abandono_db_async,
                 args=(
@@ -2369,7 +2369,7 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
 
             # Comprobar si el juego termina
             if sala.juego.ha_terminado():
-                print(f"--- JUEGO TERMINADO POR DESCONEXIÓN --- Sala: {id_sala}")
+                logger.info(f"JUEGO TERMINADO POR DESCONEXIÓN - Sala: {id_sala}")
                 
                 # Cancelar cualquier timer de turno al terminar el juego
                 _cancelar_temporizador_turno(id_sala)
@@ -2386,7 +2386,7 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
                 juego_obj_copia = sala.juego # El objeto juego ya no se modificará
 
                 # Iniciar el hilo para procesar DB en segundo plano
-                print("--- Iniciando hilo para procesar estadísticas de fin de juego (por desconexión)...")
+                logger.debug("Iniciando hilo para procesar estadísticas de fin de juego (por desconexión)...")
                 stats_thread = threading.Thread(
                     target=_procesar_estadisticas_fin_juego_async,
                     args=(
@@ -2418,10 +2418,10 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
 
             # Si el juego continúa
             else:
-                print(f"El juego continúa. Verificando si el turno debe avanzar...")
+                logger.debug("El juego continúa. Verificando si el turno debe avanzar...")
 
                 if turno_antes_de_desconexion == username_desconectado:
-                    print(f"¡Era el turno de {username_desconectado}! Forzando avance de turno limpio.")
+                    logger.info(f"¡Era el turno de {username_desconectado}! Forzando avance de turno limpio.")
                     
                     _cancelar_temporizador_turno(id_sala)
                 
@@ -2458,23 +2458,23 @@ def _finalizar_desconexion(sid_original, id_sala, username_desconectado):
 
         # Si la sala queda vacía, eliminarla
         if len(sala.jugadores) == 0:
-            print(f"Sala {id_sala} vacía tras desconexión. Eliminando...")
+            logger.info(f"Sala {id_sala} vacía tras desconexión. Eliminando...")
             if id_sala in salas_activas:
                 del salas_activas[id_sala]
     else:
-        print(f"Desconexión final: {username_desconectado} ya no estaba en la sala {id_sala}.")
+        logger.debug(f"Desconexión final: {username_desconectado} ya no estaba en la sala {id_sala}.")
 
 def iniciar_juego_sala(id_sala):
     # Función interna para iniciar el juego en una sala específica
     if id_sala not in salas_activas:
-        print(f"ERROR en iniciar_juego_sala: Sala {id_sala} no encontrada.")
+        logger.error(f"ERROR en iniciar_juego_sala: Sala {id_sala} no encontrada.")
         return
 
     sala = salas_activas[id_sala]
-    print(f"--- INTENTANDO INICIAR JUEGO EN SALA {id_sala} --- Estado actual: {sala.estado}")
+    logger.info(f"INTENTANDO INICIAR JUEGO EN SALA {id_sala} - Estado actual: {sala.estado}")
 
     if sala.estado != 'esperando':
-        print(f"ADVERTENCIA: Intento de iniciar sala {id_sala} que ya está en estado '{sala.estado}'. Ignorando.")
+        logger.warning(f"Intento de iniciar sala {id_sala} que ya está en estado '{sala.estado}'. Ignorando.")
         return
 
     # Asignar colores a los jugadores
@@ -2486,11 +2486,11 @@ def iniciar_juego_sala(id_sala):
         if nombre not in colores_map:
             colores_map[nombre] = COLORES_JUGADORES[i % len(COLORES_JUGADORES)]
             i += 1
-    print(f"MAPA DE COLORES CREADO PARA SALA {id_sala}: {colores_map}")
+    logger.debug(f"MAPA DE COLORES CREADO PARA SALA {id_sala}: {colores_map}")
     sala.colores_map = colores_map # Guardar mapa en la sala
 
     if sala.iniciar_juego(achievement_system): # Cambia estado a 'jugando' y crea sala.juego
-        print(f"sala.iniciar_juego() tuvo ÉXITO. Estado ahora: {sala.estado}")
+        logger.info(f"sala.iniciar_juego() tuvo ÉXITO. Estado ahora: {sala.estado}")
 
         # Preparar el estado inicial del juego para enviar a los clientes
         estado_juego = {
@@ -2502,7 +2502,7 @@ def iniciar_juego_sala(id_sala):
             'colores_jugadores': colores_map,
             'evento_global_activo': sala.juego.evento_global_activo 
         }
-        print(f"--- ESTADO INICIAL A ENVIAR --- Turno: {estado_juego.get('turno_actual')}, Estado: {estado_juego.get('estado')}")
+        logger.debug(f"ESTADO INICIAL A ENVIAR - Turno: {estado_juego.get('turno_actual')}, Estado: {estado_juego.get('estado')}")
 
         # Actualizar presencia de todos los jugadores a "in_game"
         for sid, data in sala.jugadores.items():
@@ -2511,28 +2511,28 @@ def iniciar_juego_sala(id_sala):
                 social_system.update_user_presence(username, 'in_game', {'room_id': id_sala, 'sid': sid})
 
         # Emitir el estado inicial a TODOS los jugadores en la sala
-        print(f"EMITIENDO 'juego_iniciado' a sala {id_sala}")
+        logger.debug(f"EMITIENDO 'juego_iniciado' a sala {id_sala}")
         socketio.emit('juego_iniciado', estado_juego, room=id_sala)
         
         primer_jugador_turno = estado_juego.get('turno_actual')
         if primer_jugador_turno:
             _iniciar_temporizador_turno(id_sala, primer_jugador_turno)
     else:
-        print(f"ERROR: sala.iniciar_juego() devolvió False. Jugadores: {len(sala.jugadores)}, Estado: {sala.estado}")
+        logger.error(f"ERROR: sala.iniciar_juego() devolvió False. Jugadores: {len(sala.jugadores)}, Estado: {sala.estado}")
 
 def _crear_nueva_sala_revancha(id_sala_original):
     # Intentar obtener Y eliminar la info de revancha atómicamente.
     info_revancha = revanchas_pendientes.pop(id_sala_original, None)
     
     if not info_revancha:
-        print(f"INFO: La revancha para sala {id_sala_original} ya fue procesada o cancelada. Ignorando llamada duplicada.")
+        logger.info(f"La revancha para sala {id_sala_original} ya fue procesada o cancelada. Ignorando llamada duplicada.")
         return
     
     if info_revancha.get('timer'):
         info_revancha['timer'].cancel()
 
     nueva_id_sala = str(uuid.uuid4())[:8] # Nuevo ID para la sala de revancha
-    print(f"--- CREANDO SALA DE REVANCHA --- Nueva ID: {nueva_id_sala}")
+    logger.info(f"CREANDO SALA DE REVANCHA - Nueva ID: {nueva_id_sala}")
     salas_activas[nueva_id_sala] = SalaJuego(nueva_id_sala)
     nueva_sala = salas_activas[nueva_id_sala]
 
@@ -2554,7 +2554,7 @@ def _crear_nueva_sala_revancha(id_sala_original):
                 jugadores_a_unir.append({'sid': p_sid_actual, 'nombre': p_username, 'data_original': p_data})
             else:
                 jugadores_rechazados.append({'sid': p_sid_actual, 'nombre': p_username, 'data_original': p_data})
-                print(f"WARN (Revancha): Jugador {p_username} solicitó pero su estado es '{estado_actual}'. No será unido.")
+                logger.warning(f"REVANCHA WARN: Jugador {p_username} solicitó pero su estado es '{estado_actual}'. No será unido.")
         
         else:
             # Si el jugador estaba en la lista de participantes pero no en la de solicitudes
@@ -2563,7 +2563,7 @@ def _crear_nueva_sala_revancha(id_sala_original):
 
     # Verificar mínimo de jugadores
     if len(jugadores_a_unir) < MIN_JUGADORES_REVANCHA:
-            print(f"REVANCHA CANCELADA (Sala {id_sala_original}): Solo {len(jugadores_a_unir)} jugadores estaban disponibles.")
+            logger.warning(f"REVANCHA CANCELADA (Sala {id_sala_original}): Solo {len(jugadores_a_unir)} jugadores estaban disponibles.")
             
             # Notificar también a los colgados si el mínimo no se alcanzó
             participantes_a_notificar_cancelacion = jugadores_a_unir + jugadores_rechazados + jugadores_colgados
@@ -2602,16 +2602,16 @@ def _crear_nueva_sala_revancha(id_sala_original):
     if id_sala_original in salas_activas:
         del salas_activas[id_sala_original]
         
-    print(f"Sala de revancha {nueva_id_sala} creada y {len(jugadores_a_unir)} jugadores unidos.")
+    logger.info(f"Sala de revancha {nueva_id_sala} creada y {len(jugadores_a_unir)} jugadores unidos.")
 
 def iniciar_timer_revancha(id_sala_original):
     # Inicia el temporizador para la revancha
-    print(f"TIMER DE REVANCHA INICIADO para sala {id_sala_original}. Esperando {TIEMPO_MAXIMO_REVANCHA} segundos.")
+    logger.debug(f"TIMER DE REVANCHA INICIADO para sala {id_sala_original}. Esperando {TIEMPO_MAXIMO_REVANCHA} segundos.")
 
     # Función que se ejecutará cuando el timer expire
     def timer_callback():
         with app.app_context(): # Necesario para operaciones de DB o SocketIO dentro del timer
-            print(f"TIMER DE REVANCHA EXPIRADO para sala {id_sala_original}. Intentando crear sala...")
+            logger.debug(f"TIMER DE REVANCHA EXPIRADO para sala {id_sala_original}. Intentando crear sala...")
             _crear_nueva_sala_revancha(id_sala_original)
 
     # Crear y empezar el timer usando threading.Timer
@@ -2631,20 +2631,20 @@ def _cancelar_temporizador_turno(id_sala):
         if sala.turn_timer:
             sala.turn_timer.cancel()
             sala.turn_timer = None
-            print(f"--- TIMER CANCELADO --- Sala: {id_sala}")
+            logger.debug(f"TIMER CANCELADO - Sala: {id_sala}")
 
 def _expulsar_por_inactividad(id_sala, nombre_jugador_expulsado, turno_ronda_expulsion):
     with app.app_context(): # Necesario para usar socketio y db dentro del hilo del timer
-        print(f"--- TIMER EXPIRADO --- Sala: {id_sala}, Jugador: {nombre_jugador_expulsado}")
+        logger.info(f"TIMER EXPIRADO - Sala: {id_sala}, Jugador: {nombre_jugador_expulsado}")
         sala = salas_activas.get(id_sala)
         if not sala or not sala.juego or sala.estado != 'jugando':
-            print(f"Timer expirado: Sala {id_sala} no encontrada o juego no activo. Ignorando.")
+            logger.debug(f"Timer expirado: Sala {id_sala} no encontrada o juego no activo. Ignorando.")
             return
 
         jugador_actual_juego = sala.juego.obtener_turno_actual()
         ronda_actual_juego = sala.juego.ronda
         if jugador_actual_juego != nombre_jugador_expulsado or ronda_actual_juego != turno_ronda_expulsion:
-            print(f"Timer expirado: El turno ya avanzó. Esperado: {nombre_jugador_expulsado} (R{turno_ronda_expulsion}), Actual: {jugador_actual_juego} (R{ronda_actual_juego}). Ignorando.")
+            logger.debug(f"Timer expirado: El turno ya avanzó. Esperado: {nombre_jugador_expulsado} (R{turno_ronda_expulsion}), Actual: {jugador_actual_juego} (R{ronda_actual_juego}). Ignorando.")
             return
 
         # Encontrar el SID del jugador a expulsar
@@ -2655,7 +2655,7 @@ def _expulsar_por_inactividad(id_sala, nombre_jugador_expulsado, turno_ronda_exp
                 break
         
         if not sid_a_expulsar:
-            print(f"Timer expirado: No se encontró SID para {nombre_jugador_expulsado}.")
+            logger.warning(f"Timer expirado: No se encontró SID para {nombre_jugador_expulsado}.")
             return
 
         # Notificar a todos en la sala
@@ -2673,7 +2673,7 @@ def _iniciar_temporizador_turno(id_sala, nombre_jugador_turno):
     if not sala or not sala.juego:
         return
 
-    print(f"--- TIMER INICIADO --- Sala: {id_sala}, Jugador: {nombre_jugador_turno}, Duración: {TURNO_TIMEOUT_SEGUNDOS}s")
+    logger.debug(f"TIMER INICIADO - Sala: {id_sala}, Jugador: {nombre_jugador_turno}, Duración: {TURNO_TIMEOUT_SEGUNDOS}s")
     
     # Guardamos la ronda actual para el safety check
     ronda_actual = sala.juego.ronda 
@@ -2701,7 +2701,7 @@ def limpiar_salas_inactivas():
                     salas_a_eliminar.append(id_sala)
 
             if salas_a_eliminar:
-                print(f"Eliminando {len(salas_a_eliminar)} salas inactivas: {salas_a_eliminar}")
+                logger.info(f"Eliminando {len(salas_a_eliminar)} salas inactivas: {salas_a_eliminar}")
                 for id_sala in salas_a_eliminar:
                     if id_sala in salas_activas:
                         del salas_activas[id_sala]
@@ -2711,23 +2711,23 @@ def limpiar_salas_inactivas():
                                 revanchas_pendientes[id_sala]['timer'].cancel()
                             del revanchas_pendientes[id_sala]
             else:
-                print("No se encontraron salas inactivas para eliminar.")
+                logger.debug("No se encontraron salas inactivas para eliminar.")
 
 def _procesar_estadisticas_fin_juego_async(app, jugadores_items, ganador_nombre, ronda, player_count_db, juego_obj):
     with app.app_context():
         with db_lock:
-            print(f"--- THREAD: Iniciando procesamiento de estadísticas para {len(jugadores_items)} jugadores...")
+            logger.debug(f"THREAD: Iniciando procesamiento de estadísticas para {len(jugadores_items)} jugadores...")
             try:
                 for sid, jugador_data in jugadores_items:
                     
                     username = jugador_data.get('nombre')
                     if not username:
-                        print(f"ADVERTENCIA: No se encontró nombre en jugador_data. Omitiendo stats.")
+                        logger.warning("ADVERTENCIA: No se encontró nombre en jugador_data. Omitiendo stats.")
                         continue # Saltar a este jugador
                     
                     jugador_juego = juego_obj._encontrar_jugador(username)
                     if not jugador_juego:
-                        print(f"ADVERTENCIA: No se encontró a {username} en el objeto juego. Omitiendo stats.")
+                        logger.warning(f"ADVERTENCIA: No se encontró a {username} en el objeto juego. Omitiendo stats.")
                         continue
                     
                     is_winner = username == ganador_nombre
@@ -2771,13 +2771,13 @@ def _procesar_estadisticas_fin_juego_async(app, jugadores_items, ganador_nombre,
                                 
                                 if maestria.xp >= MAESTRIA_XP_NV10 and maestria.cosmetic_unlocked == False:
                                     maestria.cosmetic_unlocked = True
-                                    print(f"--- COSMÉTICO DESBLOQUEADO: {kit_usado} para {user_db.username}")
+                                    logger.info(f"COSMÉTICO DESBLOQUEADO: {kit_usado} para {user_db.username}")
                                     # Comprobar si el SID sigue activo ANTES de emitir
                                     if sid in sessions_activas:
                                         socketio.emit('cosmetic_unlocked', {'kit_id': kit_usado}, to=sid)
 
                                 db.session.add(maestria)
-                                print(f"--- MAESTRÍA: {xp_maestria_ganada} XP añadidos a {user_db.username} para kit {kit_usado}. Total: {maestria.xp}")
+                                logger.info(f"MAESTRÍA: {xp_maestria_ganada} XP añadidos a {user_db.username} para kit {kit_usado}. Total: {maestria.xp}")
 
                             except Exception as e:
                                 db.session.rollback() 
@@ -2829,7 +2829,7 @@ def _procesar_estadisticas_fin_juego_async(app, jugadores_items, ganador_nombre,
                     if sid in sessions_activas:
                         social_system.update_user_presence(username, 'online', {'sid': sid})
                 
-                print("--- THREAD: Procesamiento de estadísticas COMPLETO.")
+                logger.debug("THREAD: Procesamiento de estadísticas COMPLETO.")
             except Exception as e:
                 logger.error(f"!!! ERROR FATAL en hilo _procesar_estadisticas_fin_juego: {e}", exc_info=True)
 
@@ -2837,7 +2837,7 @@ def _procesar_abandono_db_async(app, username, juego_obj, sala_jugadores_count):
     with app.app_context():
         with db_lock:
             try:
-                print(f"--- THREAD: Actualizando estadísticas de abandono para {username}...")
+                logger.debug(f"THREAD: Actualizando estadísticas de abandono para {username}...")
                 user_db = User.query.filter_by(username=username).first()
                 jugador_juego = juego_obj._encontrar_jugador(username) 
 
@@ -2864,9 +2864,9 @@ def _procesar_abandono_db_async(app, username, juego_obj, sala_jugadores_count):
                         'energy_packs_collected': getattr(jugador_juego, 'energy_packs_collected', 0)
                     }
                     achievement_system.check_achievement(username, 'game_finished', event_data)
-                    print(f"--- THREAD: Estadísticas de abandono para {username} actualizadas.")
+                    logger.debug(f"THREAD: Estadísticas de abandono para {username} actualizadas.")
                 else:
-                    print(f"--- THREAD (WARN): No se encontró {username} en DB o juego para stats de abandono.")
+                    logger.warning(f"THREAD (WARN): No se encontró {username} en DB o juego para stats de abandono.")
             except Exception as e:
                 db.session.rollback()
                 logger.error(f"!!! ERROR en _procesar_abandono_db_async: {e}", exc_info=True)
@@ -2892,7 +2892,7 @@ def _procesar_login_diario(user_obj):
         last_login_day = getattr(user_obj, 'last_login_date', None)
 
         if last_login_day != today:
-            print(f"--- LOGIN DIARIO DETECTADO --- Usuario: {user_obj.username}. Último login: {last_login_day}, Hoy: {today}")
+            logger.info(f"LOGIN DIARIO DETECTADO - Usuario: {user_obj.username}. Último login: {last_login_day}, Hoy: {today}")
             
             # Actualizar el contador y la fecha en la DB
             user_obj.last_login_date = today
@@ -2917,7 +2917,7 @@ def _procesar_login_diario(user_obj):
                     }, to=sid)
         else:
             # Si ya se logueó hoy, no hacer nada
-            print(f"--- Login repetido hoy para {user_obj.username}. No se cuenta como nuevo día. ---")
+            logger.debug(f"Login repetido hoy para {user_obj.username}. No se cuenta como nuevo día.")
 
     except Exception as e:
         db.session.rollback()
@@ -2926,5 +2926,5 @@ def _procesar_login_diario(user_obj):
 # Iniciar el hilo de limpieza en segundo plano
 hilo_limpieza = threading.Thread(target=limpiar_salas_inactivas, daemon=True)
 hilo_limpieza.start()
-print("Hilo de limpieza de salas iniciado.")
+logger.info("Hilo de limpieza de salas iniciado.")
 

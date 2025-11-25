@@ -375,10 +375,10 @@ class JuegoOcaWeb:
         
         # Avanzar Turno SOLO SI FUE POR UN DADO
         if not self.fin_juego and fue_por_dado:
-            print(f"DEBUG: Fin de Paso 2 (Dado). Avanzando turno.")
+            logger.debug("Fin de Paso 2 (Dado). Avanzando turno.")
             self._avanzar_turno()
         elif not self.fin_juego:
-            print(f"DEBUG: Fin de Paso 2 (Habilidad). No se avanza el turno.")
+            logger.debug("Fin de Paso 2 (Habilidad). No se avanza el turno.")
         
         return {"exito": True, "eventos": self.eventos_turno}
 
@@ -387,7 +387,7 @@ class JuegoOcaWeb:
 
         reduccion_cooldown = 1
         
-        print(f"DEBUG Procesar Inicio Turno para: {jugador.get_nombre()}") 
+        logger.debug(f"Procesar Inicio Turno para: {jugador.get_nombre()}") 
 
         # Aplicar la reducción de cooldowns
         jugador.reducir_cooldowns(turnos=reduccion_cooldown)
@@ -425,11 +425,11 @@ class JuegoOcaWeb:
             else:
                  eventos.append(f"🔋 Recarga Constante no se aplica (jugador inactivo).")
 
-        print(f"DEBUG Verificando efectos para {jugador.get_nombre()}: {jugador.efectos_activos}") 
+        logger.debug(f"Verificando efectos para {jugador.get_nombre()}: {jugador.efectos_activos}") 
         if self._verificar_efecto_activo(jugador, "sobrecarga_pendiente"):
-            print(f"DEBUG ¡Efecto 'sobrecarga_pendiente' DETECTADO para {jugador.get_nombre()}!") 
+            logger.debug(f"¡Efecto 'sobrecarga_pendiente' DETECTADO para {jugador.get_nombre()}!") 
             resultado_sobrecarga = random.choice([-25, 75, 150]) 
-            print(f"DEBUG Resultado Sobrecarga: {resultado_sobrecarga}") 
+            logger.debug(f"Resultado Sobrecarga: {resultado_sobrecarga}") 
 
             energia_cambio = jugador.procesar_energia(resultado_sobrecarga)
 
@@ -441,9 +441,9 @@ class JuegoOcaWeb:
                 eventos.append(f"🎲 Resultado Sobrecarga: ¡Perdiste {abs(resultado_sobrecarga)} Energía!")
 
             self._remover_efecto(jugador, "sobrecarga_pendiente")
-            print(f"DEBUG Efecto 'sobrecarga_pendiente' removido para {jugador.get_nombre()}.") 
+            logger.debug(f"Efecto 'sobrecarga_pendiente' removido para {jugador.get_nombre()}.") 
         else:
-            print(f"DEBUG Efecto 'sobrecarga_pendiente' NO detectado para {jugador.get_nombre()}.") 
+            logger.debug(f"Efecto 'sobrecarga_pendiente' NO detectado para {jugador.get_nombre()}.") 
 
         return eventos
 
@@ -800,7 +800,7 @@ class JuegoOcaWeb:
                                 )
                             ).start()
                         except Exception as e:
-                            print(f"!!! ERROR al verificar logro 'muralla_humana' en hilo: {e}")
+                            logger.error(f"ERROR al verificar logro 'muralla_humana' en hilo: {e}", exc_info=True)
 
                 elif "amortiguacion" in j_afectado.perks_activos:
                     energia_perdida = int(energia_perdida * 0.67) # Pierde 67% aprox
@@ -840,7 +840,7 @@ class JuegoOcaWeb:
         turno_original = self.turno_actual 
         nueva_ronda = False 
 
-        print(f"--- AVANZAR TURNO --- Desde: {self.jugadores[turno_original].get_nombre()} ({turno_original})")
+        logger.debug(f"AVANZAR TURNO - Desde: {self.jugadores[turno_original].get_nombre()} ({turno_original})")
 
         # Bucle para encontrar el siguiente jugador activo
         while intentos < len(self.jugadores):
@@ -851,10 +851,10 @@ class JuegoOcaWeb:
                 nueva_ronda = True
 
             self.turno_actual = nuevo_turno_idx
-            print(f"Probando índice: {self.turno_actual}, Jugador: {self.jugadores[self.turno_actual].get_nombre()}, Activo: {self.jugadores[self.turno_actual].esta_activo()}")
+            # logger.debug(f"Probando índice: {self.turno_actual}...") # Descomentar si necesitas debug intenso
             
             if self.jugadores[self.turno_actual].esta_activo():
-                print(f"--- TURNO AVANZADO A --- Jugador: {self.jugadores[self.turno_actual].get_nombre()} ({self.turno_actual})")
+                logger.info(f"TURNO AVANZADO A: {self.jugadores[self.turno_actual].get_nombre()} ({self.turno_actual})")
                 break # Encontramos al siguiente
             
             intentos += 1
@@ -862,17 +862,17 @@ class JuegoOcaWeb:
         # Manejo de Log 
         if intentos >= len(self.jugadores):
              if self.jugadores[self.turno_actual].esta_activo():
-                 print("--- AVANZAR TURNO --- Solo queda 1 jugador activo.")
+                 logger.info("AVANZAR TURNO: Solo queda 1 jugador activo.")
                  # Si solo queda 1 jugador, la ronda también avanza
                  nueva_ronda = True 
              else:
-                 print("--- ERROR AL AVANZAR TURNO --- No se encontró jugador activo.")
+                 logger.error("ERROR AL AVANZAR TURNO: No se encontró jugador activo.")
                  return # Salir si no hay jugadores
 
         # Lógica de Ronda 
         if nueva_ronda and self.jugadores[self.turno_actual].esta_activo(): 
             self.ronda += 1
-            print(f"--- NUEVA RONDA --- Ronda: {self.ronda}")
+            logger.info(f"--- NUEVA RONDA: {self.ronda} ---")
 
             for j in self.jugadores:
                 j.es_caza = False
@@ -899,9 +899,9 @@ class JuegoOcaWeb:
                         # Encontrar al jugador activo con la posición más baja
                         jugador_ultimo = min(jugadores_activos, key=lambda x: x.get_posicion())
                         self.ultimo_en_mid_game = jugador_ultimo.get_nombre()
-                        print(f"--- LOGRO (Comeback King): {self.ultimo_en_mid_game} registrado como último en ronda {MID_GAME_RONDA} ---")
+                        logger.info(f"LOGRO (Comeback King): {self.ultimo_en_mid_game} registrado como último en ronda {MID_GAME_RONDA}")
                 except Exception as e:
-                    print(f"Error al registrar 'comeback_king': {e}")
+                    logger.error(f"Error al registrar 'comeback_king': {e}", exc_info=True)
 
             # Reducir duración del evento activo 
             if self.evento_global_activo:
@@ -935,7 +935,7 @@ class JuegoOcaWeb:
         self.evento_global_activo = evento_elegido["nombre"]
         self.evento_global_duracion = evento_elegido["duracion"]
         
-        print(f"--- EVENTO GLOBAL ACTIVADO --- {self.evento_global_activo} por {self.evento_global_duracion} rondas")
+        logger.info(f"EVENTO GLOBAL ACTIVADO: {self.evento_global_activo} por {self.evento_global_duracion} rondas")
         
         mensaje_evento = f"🌎 ¡EVENTO GLOBAL: {self.evento_global_activo.upper()}!"
         if self.evento_global_activo == "Sobrecarga":
@@ -2016,9 +2016,9 @@ class JuegoOcaWeb:
                 todos_cerca_meta = all(j.get_posicion() >= POSICION_MINIMA_LOGRO for j in jugadores_activos)
                 if todos_cerca_meta:
                     caos_cerca_meta = True
-                    print(f"--- LOGRO DETECTADO (Potencial): 'el_caotico' se cumple. ---")
+                    logger.info("LOGRO DETECTADO (Potencial): 'el_caotico' se cumple.")
         except Exception as e:
-            print(f"Error al verificar logro 'el_caotico': {e}")
+            logger.error(f"Error al verificar logro 'el_caotico': {e}", exc_info=True)
 
         for j in self.jugadores:
             if j.esta_activo():
@@ -2403,17 +2403,17 @@ class JuegoOcaWeb:
     
     def obtener_turno_actual(self):
         if self.fin_juego or not self.jugadores or self.turno_actual >= len(self.jugadores):
-            print(f"--- OBTENER TURNO: Devolviendo None (fin_juego={self.fin_juego}, num_jugadores={len(self.jugadores)}, turno_idx={self.turno_actual})")
+            logger.debug(f"OBTENER TURNO: Devolviendo None (fin_juego={self.fin_juego}, num_jugadores={len(self.jugadores)})")
             return None
 
         # Asegurarse que el jugador en turno_actual existe y está activo
         jugador_en_turno = self.jugadores[self.turno_actual]
         if not jugador_en_turno.esta_activo():
-            print(f"--- OBTENER TURNO: Jugador {jugador_en_turno.get_nombre()} inactivo, buscando siguiente...")
+            logger.debug(f"OBTENER TURNO: Jugador {jugador_en_turno.get_nombre()} inactivo.")
             return None 
 
         nombre_turno = jugador_en_turno.get_nombre()
-        print(f"--- OBTENER TURNO --- Índice: {self.turno_actual}, Nombre: {nombre_turno}")
+        # logger.debug(f"OBTENER TURNO: {nombre_turno} ({self.turno_actual})") # Descomentar si necesitas mucho detalle
         return nombre_turno
     
     def obtener_estado_jugadores(self):
@@ -2457,7 +2457,7 @@ class JuegoOcaWeb:
             jugador.set_activo(False)
             jugador.efectos_activos = [] # Limpiar efectos
             self.eventos_turno.append(f"🔌 {nombre_jugador} se ha desconectado y queda inactivo.")
-            print(f"--- JUGADOR INACTIVO --- Nombre: {nombre_jugador}")
+            logger.info(f"JUGADOR INACTIVO: {nombre_jugador}")
             return True
         return False
         
@@ -2521,7 +2521,7 @@ class JuegoOcaWeb:
                             )
                         ).start()
                     except Exception as e:
-                        print(f"!!! ERROR al verificar logro 'fantasma' (Anticipación): {e}")
+                        logger.error(f"ERROR al verificar logro 'fantasma' (Anticipación): {e}", exc_info=True)
                 
                 return False # No puede ser afectado
 
@@ -2541,7 +2541,7 @@ class JuegoOcaWeb:
                         )
                     ).start()
                 except Exception as e:
-                    print(f"!!! ERROR al verificar logro 'fantasma' (Invisibilidad): {e}")
+                    logger.error(f"ERROR al verificar logro 'fantasma' (Invisibilidad): {e}", exc_info=True)
 
             return False # No puede ser afectado
 
