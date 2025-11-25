@@ -2905,7 +2905,8 @@ def _procesar_login_diario(user_obj):
             unlocked_list = achievement_system.check_achievement(
                 user_obj.username, 
                 'login', 
-                {'login_days': current_days_count}
+                {'login_days': current_days_count},
+                user_obj=user_obj
             )
 
             if unlocked_list:

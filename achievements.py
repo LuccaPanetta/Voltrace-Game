@@ -84,15 +84,21 @@ class AchievementSystem:
             "precision_laser": {"name": "Precisión Láser", "description": "Usar la habilidad 'Dado Perfecto' 3 veces en una sola partida", "xp_reward": 175, "icon": "🎯", "category": "precision", "trigger": "game_finished", "target_value": 3} # Requiere trackeo por partida
         }
     
-    def check_achievement(self, username, event_type, event_data=None):
+    def check_achievement(self, username, event_type, event_data=None, user_obj=None):
         with self.db_lock:
             unlocked_achievements = []
             newly_unlocked_ids = []
+            
+            if user_obj:
+                user = user_obj
+            else:
+                user = User.query.options(
+                    selectinload(User.unlocked_achievements_assoc)
+                    .selectinload(UserAchievement.achievement)
+                ).filter_by(username=username).first()
 
-            # Obtener el usuario de la DB
-            user = User.query.filter_by(username=username).first()
             if not user:
-                logger.warning(f"ACHIEVEMENT ERROR: Usuario {username} no encontrado en la DB. No se verificaron logros.")
+                logger.warning(f"ACHIEVEMENT ERROR: Usuario {username} no encontrado. No se verificaron logros.")
                 return []
 
             # Obtener IDs de logros ya desbloqueados
