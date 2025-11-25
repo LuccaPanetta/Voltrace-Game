@@ -192,11 +192,7 @@ class SocialSystem:
         return output
 
     def get_friends_list(self, username: str) -> Dict:
-        main_user = User.query.filter_by(username=username).options(
-            selectinload(User.friends),
-            selectinload(User.received_requests), 
-            selectinload(User.sent_requests)
-        ).first()
+        main_user = User.query.filter_by(username=username).first()
 
         if not main_user:
             return {'error': 'Usuario no encontrado'}
