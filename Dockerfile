@@ -1,25 +1,41 @@
-# 1. Usar una imagen base oficial de Python
-FROM python:3.10-slim
+FROM python:3.10-slim as builder
 
-# 2. Establecer el directorio de trabajo dentro del contenedor
 WORKDIR /app
 
-# Instalar CURL para que funcione el Healthcheck
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y gcc libpq-dev
 
-# 3. Copiar el archivo de requisitos e instalar dependencias
+# Crear un entorno virtual (venv) para aislar las librerías
+RUN python -m venv /opt/venv
+
+# Activar el entorno virtual en el PATH
+ENV PATH="/opt/venv/bin:$PATH"
+
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# 4. Copiar TODO el resto del código del proyecto al contenedor
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Instalar SOLO las librerías de sistema necesarias para correr
+RUN apt-get update && apt-get install -y \
+    curl \
+    libpq5 \
+    && rm -rf /var/lib/apt/lists/* # ^^^ Esto borra la caché de apt para ahorrar espacio
+
+# Copiar el entorno virtual con las librerías instaladas desde la etapa 'builder'
+COPY --from=builder /opt/venv /opt/venv
+
+# Activar el entorno virtual
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copiar el código de la aplicación
 COPY . .
 
-# 5. Exponer el puerto
+# Configuración de ejecución
 EXPOSE 5000
-
-# 6. El comando para iniciar la aplicación
 CMD ["gunicorn", "--worker-class", "eventlet", "-w", "1", "--bind", "0.0.0.0:5000", "app:app"]
 
-# 7. HEALTHCHECK
+# Healthcheck 
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:5000/ || exit 1
