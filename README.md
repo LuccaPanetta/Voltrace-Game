@@ -3,9 +3,9 @@
 ![Versión de Python](https://img.shields.io/badge/python-3.10-blue.svg)
 ![Framework](https://img.shields.io/badge/Flask-2.x-black.svg)
 ![Real-time](https://img.shields.io/badge/Socket.IO-brightgreen.svg)
-![Coverage](https://img.shields.io/badge/Tests-Passing-success)
+[![VoltRace CI (Tests)](https://github.com/LuccaPanetta/Voltrace-Game/actions/workflows/python-app.yml/badge.svg)](https://github.com/LuccaPanetta/Voltrace-Game/actions/workflows/python-app.yml)
+[![Code Quality (Lint)](https://github.com/LuccaPanetta/Voltrace-Game/actions/workflows/lint.yml/badge.svg)](https://github.com/LuccaPanetta/Voltrace-Game/actions/workflows/lint.yml)
 ![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)
-![CI/CD](https://img.shields.io/badge/GitHub%20Actions-Active-blue)
 
 ### 🚀 ¡Juega ahora en Producción!
 ### [https://voltrace-game.onrender.com/](https://voltrace-game.onrender.com/)
@@ -28,7 +28,7 @@ El proyecto cuenta con una cobertura de pruebas exhaustiva dividida en 4 capas c
 * **E2E Testing (Frontend):** Pruebas de extremo a extremo con **Playwright** que navegan en la aplicación de producción, validando flujos críticos de UX (Registro, Login, Navegación) como un usuario real.
 
 ### 2. ⚡ Rendimiento y Base de Datos
-* **Optimización N+1:** Implementación de `selectinload` y estrategias de carga eficiente en SQLAlchemy para reducir drásticamente las consultas a la base de datos en el módulo social.
+* **Optimización N+1:** Implementación de estrategias de carga eficiente en SQLAlchemy para reducir drásticamente las consultas a la base de datos en el módulo social.
 * **Gestión de Concurrencia:** Uso de `db_lock` y contextos de aplicación seguros para manejar operaciones de base de datos dentro de hilos asíncronos de Socket.IO.
 
 ### 3. 🔍 Observabilidad y Logging
@@ -39,6 +39,23 @@ El proyecto cuenta con una cobertura de pruebas exhaustiva dividida en 4 capas c
 * **GitHub Actions:** Pipeline de Integración Continua que ejecuta:
     * **Linter:** Verificación de estilo con `Black` y `Flake8`.
     * **Tests:** Ejecución automática de la suite de pruebas en cada push.
+
+---
+
+## 📖 Características del Juego
+
+### 🎮 Gameplay
+-   **2-4 jugadores** en tiempo real.
+-   **Sistema de Energía:** Mecánica de supervivencia donde la energía es vida y moneda.
+-   **5 Kits de Habilidades:** Clases únicas (Táctico, Ingeniero, Espectro, etc.) con habilidades activas.
+-   **Perks Dinámicos:** Compra de mejoras pasivas durante la partida usando Puntos de Mejora (PM).
+-   **Eventos Globales:** Eventos aleatorios (Apagón, Sobrecarga) que alteran las reglas cada 5 rondas.
+
+### 🤝 Social y Meta-Juego
+-   **Sistema de Amigos y Chat Privado** persistente.
+-   **Maestría de Kit:** Progresión tipo RPG para cada clase.
+-   **Cosméticos:** Desbloqueo de Títulos y Animaciones especiales.
+-   **Leaderboard** global y estadísticas detalladas.
 
 ---
 
@@ -53,12 +70,12 @@ El proyecto cuenta con una cobertura de pruebas exhaustiva dividida en 4 capas c
 ### Frontend
 -   **JavaScript (ES6 Modules)**: Arquitectura modular para lógica de cliente.
 -   **Socket.IO Client**: Sincronización de estado en tiempo real.
+-   **Playwright**: Automatización de navegadores para testing visual.
 
-### QA & Herramientas
--   **Pytest**: Framework de testing principal.
--   **Playwright**: Automatización de navegadores.
+### Herramientas
 -   **Docker**: Containerización.
--   **Black & Flake8**: Calidad de código.
+-   **Black & Flake8**: Calidad de código y Linting.
+-   **Pytest**: Framework de testing.
 
 ---
 
