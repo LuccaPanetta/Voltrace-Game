@@ -4,15 +4,17 @@ import time
 
 BASE_URL = "https://voltrace-game.onrender.com"
 
+
 def test_titulo_pagina(page: Page):
     page.goto(BASE_URL)
     expect(page).to_have_title("VoltRace Online")
+
 
 def test_flujo_completo_registro_login(page: Page):
     semilla = int(time.time())
     usuario = f"Bot{semilla}"
     email = f"bot{semilla}@test.com"
-    password = "password123" 
+    password = "password123"
 
     print(f"\n🌍 Iniciando prueba E2E con: {usuario}")
 
@@ -45,6 +47,7 @@ def test_flujo_completo_registro_login(page: Page):
     expect(page.get_by_text(usuario)).to_be_visible()
     print("✅ Login exitoso.")
 
+
 def test_login_fallido_visual(page: Page):
     page.goto(BASE_URL)
 
@@ -60,8 +63,9 @@ def test_login_fallido_visual(page: Page):
     page.get_by_role("button", name="Entrar").click()
 
     mensaje_error = page.locator("text=Email o contraseña incorrectos")
-    
+
     expect(mensaje_error).to_be_visible(timeout=20000)
+
 
 def test_flujo_crear_sala_visual(page: Page):
     semilla = int(time.time())
@@ -72,7 +76,7 @@ def test_flujo_crear_sala_visual(page: Page):
     page.goto(BASE_URL)
     page.locator("text=Registrarse").click()
     expect(page.get_by_role("heading", name="Crear Cuenta")).to_be_visible()
-    
+
     page.locator("#register-username").fill(usuario)
     page.locator("#register-email").fill(email)
     page.locator("#register-password").fill(password)
@@ -88,6 +92,6 @@ def test_flujo_crear_sala_visual(page: Page):
     # Cambio de Pantalla
     titulo_sala = page.locator("h2", has_text="Sala:")
     expect(titulo_sala).to_be_visible(timeout=15000)
-    
+
     # Verificar que el botón "Iniciar Juego" esté presente
     expect(page.get_by_role("button", name="Iniciar Juego")).to_be_visible()
