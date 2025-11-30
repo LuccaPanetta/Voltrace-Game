@@ -1220,8 +1220,10 @@ def crear_sala(data):
     join_room(id_sala)  # Unir al creador a la room de SocketIO
 
     # Leer el kit guardado en la sesión del usuario
-    kit_seleccionado = data.get("kit_id", "tactico")
-    avatar_guardado = data.get("avatar_emoji", "👤")
+    kit_seleccionado = data.get('kit_id', 'tactico')
+    
+    user_db = User.query.filter_by(username=username).first()
+    avatar_guardado = user_db.avatar_emoji if user_db else '👤'
 
     # Pasarlo al agregar_jugador
     if salas_activas[id_sala].agregar_jugador(
@@ -1271,7 +1273,8 @@ def unirse_sala(data):
         return
 
     kit_seleccionado = data.get("kit_id", "tactico")
-    avatar_guardado = data.get("avatar_emoji", "👤")
+    user_db = User.query.filter_by(username=username).first()
+    avatar_guardado = user_db.avatar_emoji if user_db else '👤'
 
     if sala.agregar_jugador(request.sid, username, kit_seleccionado, avatar_guardado):
         join_room(id_sala)
