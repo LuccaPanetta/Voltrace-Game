@@ -16,7 +16,7 @@
 # ===================================================================
 import logging
 from perks import PERKS_CONFIG
-from game_config import ENERGIA_INICIAL
+from game_config import ENERGIA_INICIAL, POSICION_META 
 
 logger = logging.getLogger("voltrace")
 
@@ -233,7 +233,7 @@ class JugadorWeb:
 
     def teletransportar_a(self, posicion):
         if self.__activo:
-            self.__posicion = max(1, min(posicion, 75))
+            self.__posicion = max(1, min(posicion, POSICION_META))
 
     def get_pm(self):
         return self.pm
