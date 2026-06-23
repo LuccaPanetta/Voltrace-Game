@@ -58,8 +58,8 @@ import os
 from dotenv import load_dotenv
 
 # Esto le dice a Flask que busque el .env en la carpeta anterior
-basedir_env = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-load_dotenv(os.path.join(basedir_env, '.env'))
+basedir_env = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+load_dotenv(os.path.join(basedir_env, ".env"))
 
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import (
@@ -121,11 +121,7 @@ logger.addHandler(console_handler)
 logger.info("=== Servidor Voltrace Iniciando ===")
 
 # --- Configuración de Flask ---
-app = Flask(
-    __name__, 
-    template_folder='templates', 
-    static_folder='static'
-)
+app = Flask(__name__, template_folder="templates", static_folder="static")
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY")
 
 # --- Configuración de Flask-Mail ---
@@ -208,7 +204,7 @@ Si no solicitaste este cambio, simplemente ignorá este email.
 
 # --- Configuración de la Base de Datos (SQLAlchemy) ---
 db_lock = threading.Lock()
-basedir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+basedir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if DATABASE_URL:
     # Si estamos en producción
@@ -3880,6 +3876,6 @@ logger.info("Hilo de limpieza de salas iniciado.")
 # ===================================================================
 # --- 8. ARRANQUE DEL SERVIDOR ---
 # ===================================================================
-if __name__ == '__main__':
+if __name__ == "__main__":
     logger.info("Iniciando servidor SocketIO en el puerto 5000...")
     socketio.run(app, host="0.0.0.0", port=5000, debug=True)
