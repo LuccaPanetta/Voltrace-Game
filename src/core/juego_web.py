@@ -23,13 +23,11 @@ import os
 import logging
 import traceback
 import threading
-from habilidades import Habilidad, crear_habilidades, KITS_VOLTRACE
-from perks import PERKS_CONFIG, obtener_perks_por_tier
-from jugadores import JugadorWeb
-from random import randint, choice, sample
-from perks import PERKS_CONFIG, obtener_perks_por_tier
-from jugadores import JugadorWeb
-from game_config import (
+
+from src.core.habilidades import Habilidad, crear_habilidades, KITS_VOLTRACE
+from src.core.perks import PERKS_CONFIG, obtener_perks_por_tier
+from src.core.jugadores import JugadorWeb
+from src.core.game_config import (
     POSICION_META,
     ENERGIA_TESORO_MENOR,
     ENERGIA_TESORO_MAYOR,

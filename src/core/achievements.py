@@ -18,7 +18,7 @@
 # ===================================================================
 
 from datetime import datetime
-from models import db, User, Achievement, UserAchievement
+from src.models import db, User, Achievement, UserAchievement
 from sqlalchemy.orm import selectinload
 import logging
 

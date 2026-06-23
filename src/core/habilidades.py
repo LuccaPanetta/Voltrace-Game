@@ -14,7 +14,7 @@
 #
 # ===================================================================
 
-from game_config import (
+from src.core.game_config import (
     COSTO_SABOTAJE,
     COSTO_BOMBA,
     COSTO_ROBO,

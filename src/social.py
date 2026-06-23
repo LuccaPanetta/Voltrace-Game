@@ -22,7 +22,7 @@ import os
 import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
-from models import db, User, Achievement, UserAchievement, PrivateMessage
+from src.models import db, User, Achievement, UserAchievement, PrivateMessage
 from sqlalchemy import func, case
 from sqlalchemy.orm import selectinload
 

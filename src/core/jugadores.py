@@ -15,8 +15,8 @@
 #
 # ===================================================================
 import logging
-from perks import PERKS_CONFIG
-from game_config import ENERGIA_INICIAL, POSICION_META
+from src.core.perks import PERKS_CONFIG
+from src.core.game_config import ENERGIA_INICIAL, POSICION_META
 
 logger = logging.getLogger("voltrace")
 

@@ -1,0 +1,10 @@
+# Variables de entorno secretas
+.env
+
+# Entornos virtuales y caché de Python
+.venv/
+__pycache__/
+.pytest_cache/
+
+# Base de datos local
+voltrace.db

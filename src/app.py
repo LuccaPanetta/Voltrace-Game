@@ -54,6 +54,13 @@ from logging.handlers import RotatingFileHandler
 import os
 import math
 
+import os
+from dotenv import load_dotenv
+
+# Esto le dice a Flask que busque el .env en la carpeta anterior
+basedir_env = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+load_dotenv(os.path.join(basedir_env, '.env'))
+
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import (
     LoginManager,
@@ -66,13 +73,13 @@ from flask_login import (
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # Importaciones de nuestros módulos locales
-from juego_web import JuegoOcaWeb
-from achievements import AchievementSystem
-from social import SocialSystem
-from models import User, db, UserKitMaestria
-from habilidades import crear_habilidades, KITS_VOLTRACE
-from perks import PERKS_CONFIG
-from game_config import (
+from src.core.juego_web import JuegoOcaWeb
+from src.core.achievements import AchievementSystem
+from src.social import SocialSystem
+from src.models import db, User, UserKitMaestria
+from src.core.habilidades import crear_habilidades, KITS_VOLTRACE
+from src.core.perks import PERKS_CONFIG
+from src.core.game_config import (
     DURACION_TURNO_SEGUNDOS,
     XP_POR_PARTIDA,
     XP_VICTORIA,
@@ -114,7 +121,11 @@ logger.addHandler(console_handler)
 logger.info("=== Servidor Voltrace Iniciando ===")
 
 # --- Configuración de Flask ---
-app = Flask(__name__)
+app = Flask(
+    __name__, 
+    template_folder='templates', 
+    static_folder='static'
+)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY")
 
 # --- Configuración de Flask-Mail ---
@@ -197,7 +208,7 @@ Si no solicitaste este cambio, simplemente ignorá este email.
 
 # --- Configuración de la Base de Datos (SQLAlchemy) ---
 db_lock = threading.Lock()
-basedir = os.path.abspath(os.path.dirname(__file__))
+basedir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if DATABASE_URL:
     # Si estamos en producción
@@ -451,7 +462,7 @@ with app.app_context():
     db.create_all()
     logger.info("Base de datos inicializada y tablas creadas (si no existían).")
     try:
-        from models import Achievement  # Importar el modelo
+        from src.models import Achievement  # Importar el modelo
 
         # Obtener todos los IDs de logros que YA están en la DB
         existing_ids = {ach.internal_id for ach in Achievement.query.all()}
@@ -3865,3 +3876,10 @@ def _procesar_login_diario(user_obj):
 hilo_limpieza = threading.Thread(target=limpiar_salas_inactivas, daemon=True)
 hilo_limpieza.start()
 logger.info("Hilo de limpieza de salas iniciado.")
+
+# ===================================================================
+# --- 8. ARRANQUE DEL SERVIDOR ---
+# ===================================================================
+if __name__ == '__main__':
+    logger.info("Iniciando servidor SocketIO en el puerto 5000...")
+    socketio.run(app, host="0.0.0.0", port=5000, debug=True)

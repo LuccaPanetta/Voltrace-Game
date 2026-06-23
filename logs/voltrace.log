@@ -539,3 +539,57 @@ RuntimeError: The session is unavailable because no secret key was set.  Set the
 2025-11-28 19:33:48,815 - INFO - [app.py:332] - Base de datos inicializada y tablas creadas (si no existían).
 2025-11-28 19:33:48,859 - INFO - [app.py:360] - Sincronización de Logros: La DB ya está actualizada.
 2025-11-28 19:33:48,887 - INFO - [app.py:2930] - Hilo de limpieza de salas iniciado.
+2026-06-23 16:30:28,274 - INFO - [app.py:114] - === Servidor Voltrace Iniciando ===
+2026-06-23 16:30:28,277 - WARNING - [app.py:218] - ADVERTENCIA: DATABASE_URL no encontrada. Usando 'voltrace.db' (SQLite) local.
+2026-06-23 16:30:28,409 - INFO - [app.py:456] - Base de datos inicializada y tablas creadas (si no existían).
+2026-06-23 16:30:28,411 - ERROR - [app.py:490] - !!! ERROR al sincronizar la tabla de Logros: No module named 'models'
+Traceback (most recent call last):
+  File "C:\Users\Lucca\Desktop\Projectos\VoltRace\src\app.py", line 458, in <module>
+    from models import Achievement  # Importar el modelo
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'models'
+2026-06-23 16:30:28,426 - INFO - [app.py:3871] - Hilo de limpieza de salas iniciado.
+2026-06-23 16:32:36,921 - INFO - [app.py:114] - === Servidor Voltrace Iniciando ===
+2026-06-23 16:32:36,923 - WARNING - [app.py:218] - ADVERTENCIA: DATABASE_URL no encontrada. Usando 'voltrace.db' (SQLite) local.
+2026-06-23 16:32:36,969 - INFO - [app.py:456] - Base de datos inicializada y tablas creadas (si no existían).
+2026-06-23 16:32:37,013 - INFO - [app.py:486] - Sincronización de Logros: La DB ya está actualizada.
+2026-06-23 16:32:37,032 - INFO - [app.py:3871] - Hilo de limpieza de salas iniciado.
+2026-06-23 16:39:37,613 - INFO - [app.py:114] - === Servidor Voltrace Iniciando ===
+2026-06-23 16:39:37,615 - WARNING - [app.py:218] - ADVERTENCIA: DATABASE_URL no encontrada. Usando 'voltrace.db' (SQLite) local.
+2026-06-23 16:39:37,650 - INFO - [app.py:456] - Base de datos inicializada y tablas creadas (si no existían).
+2026-06-23 16:39:37,681 - INFO - [app.py:486] - Sincronización de Logros: La DB ya está actualizada.
+2026-06-23 16:39:37,696 - INFO - [app.py:3871] - Hilo de limpieza de salas iniciado.
+2026-06-23 16:39:37,697 - INFO - [app.py:3877] - Iniciando servidor SocketIO en el puerto 5000...
+2026-06-23 16:39:39,037 - INFO - [app.py:114] - === Servidor Voltrace Iniciando ===
+2026-06-23 16:39:39,038 - WARNING - [app.py:218] - ADVERTENCIA: DATABASE_URL no encontrada. Usando 'voltrace.db' (SQLite) local.
+2026-06-23 16:39:39,070 - INFO - [app.py:456] - Base de datos inicializada y tablas creadas (si no existían).
+2026-06-23 16:39:39,099 - INFO - [app.py:486] - Sincronización de Logros: La DB ya está actualizada.
+2026-06-23 16:39:39,115 - INFO - [app.py:3871] - Hilo de limpieza de salas iniciado.
+2026-06-23 16:39:39,116 - INFO - [app.py:3877] - Iniciando servidor SocketIO en el puerto 5000...
+2026-06-23 16:39:44,769 - INFO - [app.py:1119] - Cliente conectado: 7wP91N0_9pVXLrD9AAAB
+2026-06-23 16:40:06,472 - INFO - [app.py:1161] - Cliente desconectado: 7wP91N0_9pVXLrD9AAAB
+2026-06-23 16:40:06,472 - WARNING - [app.py:1168] - Desconexión de un SID no autenticado.
+2026-06-23 16:40:53,611 - INFO - [app.py:1119] - Cliente conectado: 6b_OL-FD0JACFHtgAAAD
+2026-06-23 16:50:23,390 - INFO - [app.py:121] - === Servidor Voltrace Iniciando ===
+2026-06-23 16:50:23,391 - INFO - [app.py:215] - Usando base de datos de producción (PostgreSQL).
+2026-06-23 16:51:42,851 - INFO - [app.py:121] - === Servidor Voltrace Iniciando ===
+2026-06-23 16:51:42,853 - INFO - [app.py:215] - Usando base de datos de producción (PostgreSQL).
+2026-06-23 16:53:03,214 - INFO - [app.py:121] - === Servidor Voltrace Iniciando ===
+2026-06-23 16:53:03,215 - INFO - [app.py:215] - Usando base de datos de producción (PostgreSQL).
+2026-06-23 16:53:05,095 - INFO - [app.py:463] - Base de datos inicializada y tablas creadas (si no existían).
+2026-06-23 16:53:05,260 - INFO - [app.py:493] - Sincronización de Logros: La DB ya está actualizada.
+2026-06-23 16:53:05,320 - INFO - [app.py:3878] - Hilo de limpieza de salas iniciado.
+2026-06-23 16:53:05,320 - INFO - [app.py:3884] - Iniciando servidor SocketIO en el puerto 5000...
+2026-06-23 16:53:06,508 - INFO - [app.py:121] - === Servidor Voltrace Iniciando ===
+2026-06-23 16:53:06,510 - INFO - [app.py:215] - Usando base de datos de producción (PostgreSQL).
+2026-06-23 16:53:07,699 - INFO - [app.py:463] - Base de datos inicializada y tablas creadas (si no existían).
+2026-06-23 16:53:07,853 - INFO - [app.py:493] - Sincronización de Logros: La DB ya está actualizada.
+2026-06-23 16:53:07,910 - INFO - [app.py:3878] - Hilo de limpieza de salas iniciado.
+2026-06-23 16:53:07,910 - INFO - [app.py:3884] - Iniciando servidor SocketIO en el puerto 5000...
+2026-06-23 16:55:50,831 - INFO - [app.py:1126] - Cliente conectado: amtUiVvGYMwseVZIAAAB
+2026-06-23 16:55:55,267 - INFO - [app.py:1141] - --- SOCKET AUTHENTICATED --- User: Pane, SID: amtUiVvGYMwseVZIAAAB
+2026-06-23 16:56:14,279 - INFO - [app.py:1228] - SALA CREADA - ID: cab14d39 por: Pane
+2026-06-23 16:56:17,662 - INFO - [app.py:1356] - Jugador Pane (Socket: amtUiVvGYMwseVZIAAAB) salió voluntariamente de la sala cab14d39
+2026-06-23 16:56:17,662 - INFO - [app.py:1362] - Sala cab14d39 vacía tras salida voluntaria. Eliminando...
+2026-06-23 16:59:33,253 - INFO - [app.py:1168] - Cliente desconectado: amtUiVvGYMwseVZIAAAB
+2026-06-23 16:59:33,771 - INFO - [app.py:1214] - Jugador Pane desconectado (no estaba en una sala).
