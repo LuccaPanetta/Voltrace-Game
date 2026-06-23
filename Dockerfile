@@ -34,7 +34,7 @@ COPY . .
 
 # Configuración de ejecución
 EXPOSE 5000
-CMD ["gunicorn", "--worker-class", "eventlet", "-w", "1", "--bind", "0.0.0.0:5000", "app:app"]
+CMD ["gunicorn", "src.app:app", "--worker-class", "eventlet", "-w", "1", "-b", "0.0.0.0:5000"]
 
 # Healthcheck 
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
