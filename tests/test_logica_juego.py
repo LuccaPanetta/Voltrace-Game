@@ -4,9 +4,9 @@ import os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from juego_web import JuegoOcaWeb
-from jugadores import JugadorWeb
-from game_config import ENERGIA_INICIAL, POSICION_META
+from src.core.juego_web import JuegoOcaWeb
+from src.core.jugadores import JugadorWeb
+from src.core.game_config import ENERGIA_INICIAL, POSICION_META
 
 
 # --- FIXTURES ---

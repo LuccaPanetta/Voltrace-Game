@@ -4,10 +4,11 @@ import os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from juego_web import JuegoOcaWeb
-from app import app, socketio, db, User
-from habilidades import Habilidad
-from game_config import POSICION_META
+from src.core.juego_web import JuegoOcaWeb
+from src.app import app, socketio
+from src.models import db, User
+from src.core.habilidades import Habilidad
+from src.core.game_config import POSICION_META
 
 
 @pytest.fixture

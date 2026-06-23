@@ -5,7 +5,8 @@ import json
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app import app, db, User
+from src.app import app, socketio, social_system
+from src.models import db, User
 
 
 @pytest.fixture

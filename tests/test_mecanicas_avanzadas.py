@@ -4,9 +4,9 @@ import os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from juego_web import JuegoOcaWeb
-from game_config import ENERGIA_TRAMPA, ENERGIA_INICIAL, POSICION_META
-from habilidades import Habilidad
+from src.core.juego_web import JuegoOcaWeb
+from src.core.game_config import ENERGIA_TRAMPA, ENERGIA_INICIAL, POSICION_META
+from src.core.habilidades import Habilidad
 
 
 @pytest.fixture

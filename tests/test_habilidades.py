@@ -5,8 +5,8 @@ import os
 # Asegurar imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from juego_web import JuegoOcaWeb
-from game_config import COSTO_SABOTAJE, DANO_BOMBA
+from src.core.juego_web import JuegoOcaWeb
+from src.core.game_config import COSTO_SABOTAJE, DANO_BOMBA
 
 
 @pytest.fixture
@@ -74,7 +74,7 @@ def test_bomba_energetica_area(juego_combate):
 
 
 def test_intercambio_forzado(juego_combate):
-    from habilidades import Habilidad, COSTO_INTERCAMBIO
+    from src.core.habilidades import Habilidad, COSTO_INTERCAMBIO
 
     intercambio = Habilidad(
         "Intercambio Forzado", "movimiento", "desc", "🔄", 5, COSTO_INTERCAMBIO
