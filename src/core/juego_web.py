@@ -2199,7 +2199,9 @@ class JuegoOcaWeb:
                 f"💥 Afectados por Bomba: {', '.join(afectados)} (-{dano_bomba} E)"
             )
         if protegidos:
-            eventos.append(f"🛡️/👻 Protegidos/Esquivaron Bomba: {', '.join(protegidos)}")
+            eventos.append(
+                f"🛡️/👻 Protegidos/Esquivaron Bomba: {', '.join(protegidos)}"
+            )
 
         return {
             "exito": True,
