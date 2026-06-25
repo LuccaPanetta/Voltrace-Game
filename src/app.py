@@ -1,6 +1,8 @@
 import sys
+
 if "flask" not in sys.argv[0].lower():
     import eventlet
+
     eventlet.monkey_patch()
 # ===================================================================
 # APLICACIÓN PRINCIPAL DEL SERVIDOR - VOLTRACE (app.py)
@@ -458,7 +460,7 @@ social_system = SocialSystem()
 
 # --- Creación de Tablas de DB (si no existen) ---
 with app.app_context():
-    #db.create_all()
+    # db.create_all()
     logger.info("Base de datos inicializada y tablas creadas (si no existían).")
     try:
         from src.models import Achievement  # Importar el modelo
