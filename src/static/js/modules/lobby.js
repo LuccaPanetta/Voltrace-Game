@@ -9,7 +9,7 @@ import { loadPerksConfig } from './perks.js';
 // Referencias DOM
 let codigoSalaInput, topPlayersContainer, btnCrearSala, btnUnirseSala;
 let codigoSalaActualDisplay, btnCopiarCodigo, listaJugadoresDisplay, contadorJugadoresDisplay;
-let btnIniciarJuego, btnSalirSala, logEventosDisplay, chatMensajesLobbyDisplay;
+let btnIniciarJuego, btnSalirSala, btnAgregarBot, logEventosDisplay, chatMensajesLobbyDisplay;
 let mensajeLobbyInput, btnEnviarMensajeLobby;
 let tabRules, tabRanking, rulesContent, rankingContent;
 let btnShowGlossary, modalGlossary, btnCerrarGlossary, 
@@ -87,6 +87,7 @@ export function initLobby(socketRef, screensRef, showFuncRef, setLoadingFuncRef,
     contadorJugadoresDisplay = document.getElementById("contador-jugadores");
     btnIniciarJuego = document.getElementById("btn-iniciar-juego");
     btnSalirSala = document.getElementById("btn-salir-sala");
+    btnAgregarBot = document.getElementById("btn-agregar-bot");
     logEventosDisplay = document.getElementById("log-eventos");
     chatMensajesLobbyDisplay = document.getElementById("chat-mensajes");
     mensajeLobbyInput = document.getElementById("mensaje-input");
@@ -96,6 +97,7 @@ export function initLobby(socketRef, screensRef, showFuncRef, setLoadingFuncRef,
     btnCopiarCodigo?.addEventListener("click", handleCopiarCodigo);
     btnIniciarJuego?.addEventListener("click", handleIniciarJuego);
     btnSalirSala?.addEventListener("click", handleSalirSala);
+    btnAgregarBot?.addEventListener("click", handleAgregarBot);
     btnEnviarMensajeLobby?.addEventListener("click", handleEnviarMensajeLobby);
     mensajeLobbyInput?.addEventListener("keypress", (e) => { if (e.key === 'Enter') handleEnviarMensajeLobby(); });
 
@@ -177,6 +179,13 @@ function handleSalirSala() {
     if (confirm("¿Estás seguro de que quieres salir de la sala?")) {
         _setLoadingFunc(true);
         _socket.emit("salir_sala", { id_sala: idSala });
+    }
+}
+function handleAgregarBot() {
+    playSound('ClickMouse', 0.3);
+    const idSala = codigoSalaActualDisplay?.textContent;
+    if (idSala) {
+        _socket.emit("agregar_bot", { id_sala: idSala });
     }
 }
 function handleEnviarMensajeLobby() {

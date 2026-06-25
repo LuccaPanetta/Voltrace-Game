@@ -77,6 +77,8 @@ from flask_login import (
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # Importaciones de nuestros módulos locales
+from src.core.ml_adapter import VoltraceMLAdapter
+from src.core.bot_agent import VoltraceAgent
 from src.core.juego_web import JuegoOcaWeb
 from src.core.achievements import AchievementSystem
 from src.social import SocialSystem
@@ -457,6 +459,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 # --- Inicialización de Sistemas ---
 achievement_system = AchievementSystem(db_lock)
 social_system = SocialSystem()
+agente_ia_global = VoltraceAgent()
 
 # --- Creación de Tablas de DB (si no existen) ---
 with app.app_context():
@@ -1368,6 +1371,54 @@ def salir_sala(data):
         emit(
             "sala_abandonada",
             {"success": False, "message": "No estabas en esa sala o ya no existe."},
+        )
+
+
+@socketio.on("agregar_bot")
+def agregar_bot(data):
+    id_sala = data.get("id_sala")
+
+    if id_sala not in salas_activas:
+        emit("error", {"mensaje": "La sala no existe."})
+        return
+
+    sala = salas_activas[id_sala]
+    if sala.estado != "esperando":
+        emit("error", {"mensaje": "La partida ya comenzó."})
+        return
+
+    if len(sala.jugadores) >= 4:
+        emit("error", {"mensaje": "La sala está llena."})
+        return
+
+    # Generar un nombre único para el bot
+    nombres_bots = [
+        d["nombre"] for d in sala.jugadores.values() if d["nombre"].startswith("Bot_")
+    ]
+    numero_bot = len(nombres_bots) + 1
+    nombre_bot = f"Bot_{numero_bot}"
+
+    # Le asignamos un "SID" falso usando su propio nombre y un kit aleatorio
+    import random
+
+    kits_disponibles = ["tactico", "agresivo", "defensivo", "caos"]
+    kit_bot = random.choice(kits_disponibles)
+
+    if sala.agregar_jugador(nombre_bot, nombre_bot, kit_id=kit_bot, avatar_emoji="🤖"):
+        # Notificar a la sala
+        socketio.emit(
+            "jugador_unido",
+            {
+                "jugador_nombre": nombre_bot,
+                "jugadores": len(sala.jugadores),
+                "lista_jugadores": [
+                    datos["nombre"] for datos in sala.jugadores.values()
+                ],
+                "puede_iniciar": sala.puede_iniciar(),
+                "estado": sala.estado,
+                "log_eventos": sala.log_eventos[-10:],
+            },
+            room=id_sala,
         )
 
 
@@ -3484,20 +3535,94 @@ def _expulsar_por_inactividad(id_sala, nombre_jugador_expulsado, turno_ronda_exp
         _finalizar_desconexion(sid_a_expulsar, id_sala, nombre_jugador_expulsado)
 
 
+def _ejecutar_hilo_bot(app, id_sala, nombre_bot):
+    with app.app_context():
+        socketio.sleep(2.0)
+
+        sala = salas_activas.get(id_sala)
+        if not sala or not sala.juego or sala.estado != "jugando":
+            return
+
+        logger.info(f"Calculando turno de {nombre_bot} en sala {id_sala}...")
+
+        # Ejecuta la acción a través del Agente Global
+        resultado = sala.juego.ejecutar_turno_bot(nombre_bot, agente_ia_global)
+
+        # Verifica si el juego terminó con esta jugada
+        if sala.juego.ha_terminado():
+            sala.estado = "terminado"
+            stats_finales_dict = sala.juego.obtener_estadisticas_finales()
+
+            socketio.emit(
+                "juego_terminado",
+                {
+                    "ganador": stats_finales_dict.get("ganador"),
+                    "estadisticas_finales": stats_finales_dict.get("lista_final"),
+                },
+                room=id_sala,
+            )
+
+            threading.Thread(
+                target=_procesar_estadisticas_fin_juego_async,
+                args=(
+                    app,
+                    list(sala.jugadores.items()),
+                    stats_finales_dict.get("ganador"),
+                    sala.juego.ronda,
+                    len(sala.jugadores),
+                    sala.juego,
+                ),
+            ).start()
+            return
+
+        # Actualiza el estado del tablero a todos los jugadores
+        colores_map = getattr(sala, "colores_map", {})
+        estado_juego_actualizado = {
+            "jugadores": sala.juego.obtener_estado_jugadores(),
+            "tablero": sala.juego.obtener_estado_tablero(),
+            "turno_actual": sala.juego.obtener_turno_actual(),
+            "ronda": sala.juego.ronda,
+            "estado": sala.estado,
+            "colores_jugadores": colores_map,
+            "evento_global_activo": sala.juego.evento_global_activo,
+        }
+
+        socketio.emit(
+            "estado_juego_actualizado",
+            {
+                "estado_juego": estado_juego_actualizado,
+                "eventos_recientes": resultado.get("eventos", []),
+            },
+            room=id_sala,
+        )
+
+        # Inicia el timer o hilo del siguiente jugador
+        nuevo_turno_actual = sala.juego.obtener_turno_actual()
+        if nuevo_turno_actual:
+            _iniciar_temporizador_turno(id_sala, nuevo_turno_actual)
+
+
 def _iniciar_temporizador_turno(id_sala, nombre_jugador_turno):
-    _cancelar_temporizador_turno(
-        id_sala
-    )  # Cancelar cualquier timer anterior por si acaso
+    _cancelar_temporizador_turno(id_sala)
 
     sala = salas_activas.get(id_sala)
     if not sala or not sala.juego:
+        return
+
+    # Desvío para ejecución automática si es un bot
+    if nombre_jugador_turno.startswith("Bot_"):
+        socketio.start_background_task(
+            _ejecutar_hilo_bot,
+            current_app._get_current_object(),
+            id_sala,
+            nombre_jugador_turno,
+        )
         return
 
     logger.debug(
         f"TIMER INICIADO - Sala: {id_sala}, Jugador: {nombre_jugador_turno}, Duración: {TURNO_TIMEOUT_SEGUNDOS}s"
     )
 
-    # Guardamos la ronda actual para el safety check
     ronda_actual = sala.juego.ronda
 
     timer = threading.Timer(

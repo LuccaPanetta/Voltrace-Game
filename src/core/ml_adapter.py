@@ -1,5 +1,5 @@
 # ===================================================================
-# ADAPTADOR PARA MACHINE LEARNING - VOLTRACE (src/core/ml_adapter.py)
+# ADAPTADOR PARA MACHINE LEARNING
 # ===================================================================
 
 

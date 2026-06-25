@@ -24,6 +24,8 @@ import logging
 import traceback
 import threading
 
+from src.core.ml_adapter import VoltraceMLAdapter
+from src.core.bot_agent import VoltraceAgent
 from src.core.habilidades import Habilidad, crear_habilidades, KITS_VOLTRACE
 from src.core.perks import PERKS_CONFIG, obtener_perks_por_tier
 from src.core.jugadores import JugadorWeb
@@ -3426,3 +3428,83 @@ class JuegoOcaWeb:
 
             # Desactivar la marca
             objetivo.es_caza = False
+
+    # ===================================================================
+    # --- 8. INTEGRACIÓN CON MACHINE LEARNING (IA) ---
+    # ===================================================================
+
+    # Ejecuta el turno completo de un bot interactuando con la red neuronal.
+    def ejecutar_turno_bot(self, nombre_bot, agente):
+        adaptador = VoltraceMLAdapter(self)
+        jugador = self._encontrar_jugador(nombre_bot)
+
+        if not jugador or not jugador.esta_activo():
+            return {"exito": False, "mensaje": "Bot inactivo."}
+
+        estado_actual = adaptador.obtener_estado_vectorial(nombre_bot)
+        posicion_inicial = jugador.get_posicion()
+        energia_inicial = jugador.get_puntaje()
+
+        accion = agente.tomar_decision(estado_actual)
+        eventos_totales = []
+        exito_habilidad = True
+
+        # Traductor de acciones: 0 = Tirar dado, 1-4 = Usar habilidad
+        if accion == 0:
+            res_paso_1 = self.paso_1_lanzar_y_mover(nombre_bot)
+            res_paso_2 = self.paso_2_procesar_casilla_y_avanzar(nombre_bot)
+            eventos_totales.extend(
+                res_paso_1.get("eventos", []) + res_paso_2.get("eventos", [])
+            )
+        else:
+            indice_habilidad = accion - 1
+            if indice_habilidad < len(jugador.habilidades):
+                rivales = [
+                    j.get_nombre()
+                    for j in self.jugadores
+                    if j != jugador and j.esta_activo()
+                ]
+                objetivo = rivales[0] if rivales else None
+
+                # Ejecuta la habilidad
+                res_hab = self.usar_habilidad_jugador(
+                    nombre_bot, indice_habilidad, objetivo
+                )
+                exito_habilidad = res_hab.get("exito", False)
+                if res_hab.get("eventos"):
+                    eventos_totales.extend(res_hab["eventos"])
+            else:
+                exito_habilidad = False
+
+            # Fuerza lanzar el dado para finalizar el turno del bot
+            res_paso_1 = self.paso_1_lanzar_y_mover(nombre_bot)
+            res_paso_2 = self.paso_2_procesar_casilla_y_avanzar(nombre_bot)
+            eventos_totales.extend(
+                res_paso_1.get("eventos", []) + res_paso_2.get("eventos", [])
+            )
+
+        # Sistema de Recompensas
+        recompensa = 0
+        posicion_final = jugador.get_posicion()
+        energia_final = jugador.get_puntaje()
+
+        recompensa += (posicion_final - posicion_inicial) * 2
+        if energia_final < energia_inicial:
+            recompensa -= 5
+
+        # Castigo por intentar usar habilidad fallida/en cooldown
+        if accion > 0 and not exito_habilidad:
+            recompensa -= 10
+
+        if self.ha_terminado() and self.determinar_ganador() == jugador:
+            recompensa += 100
+
+        siguiente_estado = adaptador.obtener_estado_vectorial(nombre_bot)
+        finalizado = 1.0 if self.ha_terminado() else 0.0
+
+        agente.recordar_jugada(
+            estado_actual, accion, recompensa, siguiente_estado, finalizado
+        )
+        agente.entrenar_memoria()
+
+        return {"exito": True, "eventos": eventos_totales}

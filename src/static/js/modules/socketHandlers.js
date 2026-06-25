@@ -315,6 +315,28 @@ export function setupSocketHandlers(socketInstance, screenElements, loadingEl, n
         }
         if (data.eventos_recientes) {
             renderEventos(data.eventos_recientes);
+            data.eventos_recientes.forEach(evento => {
+                if (typeof evento !== 'string') return;
+                const lowerEvent = evento.toLowerCase();
+                
+                if (lowerEvent.includes("sacó") || lowerEvent.includes("dado")) {
+                    playSound('Dice', 0.5);
+                }
+                if (lowerEvent.includes("trampa") || lowerEvent.includes("💀")) {
+                    playSound('LandOnTrap', 0.2);
+                    if (_gameAnimations) _gameAnimations.shakeBoard();
+                }
+                if (lowerEvent.includes("tesoro") || lowerEvent.includes("💰") || lowerEvent.includes("💚 +")) {
+                    playSound('LandOnTreasure', 0.2);
+                }
+                if (lowerEvent.includes("colisión") || lowerEvent.includes("💥")) {
+                    playSound('Collision', 0.2);
+                    if (_gameAnimations) _gameAnimations.shakeBoard();
+                }
+                if (lowerEvent.includes("portal") || lowerEvent.includes("intercambio") || lowerEvent.includes("🌀")) {
+                    playSound('Teleport', 0.3);
+                }
+            });
         }
     });
 

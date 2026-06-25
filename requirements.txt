@@ -12,3 +12,6 @@ sendgrid==6.11.0
 python-dotenv
 psycopg2-binary
 Flask-Migrate
+black
+torch
+numpy
