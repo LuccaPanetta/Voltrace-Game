@@ -6,9 +6,9 @@ Flask-SQLAlchemy==3.1.1
 Flask-Login==0.6.3
 Werkzeug==3.0.1
 gunicorn==22.0.0
-eventlet==0.33.3
-psycopg2-binary==2.9.9
+eventlet
 Flask-Mail==0.9.1
 sendgrid==6.11.0
 python-dotenv
 psycopg2-binary
+Flask-Migrate

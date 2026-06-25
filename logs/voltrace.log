@@ -593,3 +593,20 @@ ModuleNotFoundError: No module named 'models'
 2026-06-23 16:56:17,662 - INFO - [app.py:1362] - Sala cab14d39 vacía tras salida voluntaria. Eliminando...
 2026-06-23 16:59:33,253 - INFO - [app.py:1168] - Cliente desconectado: amtUiVvGYMwseVZIAAAB
 2026-06-23 16:59:33,771 - INFO - [app.py:1214] - Jugador Pane desconectado (no estaba en una sala).
+2026-06-25 16:30:19,502 - INFO - [app.py:122] - === Servidor Voltrace Iniciando ===
+2026-06-25 16:30:19,504 - INFO - [app.py:212] - Usando base de datos de producción (PostgreSQL).
+2026-06-25 16:30:25,429 - INFO - [app.py:461] - Base de datos inicializada y tablas creadas (si no existían).
+2026-06-25 16:30:25,612 - INFO - [app.py:491] - Sincronización de Logros: La DB ya está actualizada.
+2026-06-25 16:30:25,675 - INFO - [app.py:3876] - Hilo de limpieza de salas iniciado.
+2026-06-25 16:34:33,089 - INFO - [app.py:123] - === Servidor Voltrace Iniciando ===
+2026-06-25 16:34:33,091 - INFO - [app.py:213] - Usando base de datos de producción (PostgreSQL).
+2026-06-25 16:34:33,209 - INFO - [app.py:462] - Base de datos inicializada y tablas creadas (si no existían).
+2026-06-25 16:34:34,098 - INFO - [app.py:492] - Sincronización de Logros: La DB ya está actualizada.
+2026-06-25 16:34:54,215 - INFO - [app.py:123] - === Servidor Voltrace Iniciando ===
+2026-06-25 16:34:54,216 - INFO - [app.py:213] - Usando base de datos de producción (PostgreSQL).
+2026-06-25 16:34:54,289 - INFO - [app.py:462] - Base de datos inicializada y tablas creadas (si no existían).
+2026-06-25 16:34:55,104 - INFO - [app.py:492] - Sincronización de Logros: La DB ya está actualizada.
+2026-06-25 16:35:00,203 - INFO - [app.py:123] - === Servidor Voltrace Iniciando ===
+2026-06-25 16:35:00,205 - INFO - [app.py:213] - Usando base de datos de producción (PostgreSQL).
+2026-06-25 16:35:00,303 - INFO - [app.py:462] - Base de datos inicializada y tablas creadas (si no existían).
+2026-06-25 16:35:01,151 - INFO - [app.py:492] - Sincronización de Logros: La DB ya está actualizada.

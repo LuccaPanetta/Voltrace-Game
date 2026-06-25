@@ -1,6 +1,7 @@
-import eventlet
-
-eventlet.monkey_patch()
+import sys
+if "flask" not in sys.argv[0].lower():
+    import eventlet
+    eventlet.monkey_patch()
 # ===================================================================
 # APLICACIÓN PRINCIPAL DEL SERVIDOR - VOLTRACE (app.py)
 # ===================================================================
@@ -39,6 +40,7 @@ from flask import (
     redirect,
     current_app,
 )
+from flask_migrate import Migrate
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_mail import Mail, Message
 from sendgrid import SendGridAPIClient
@@ -229,6 +231,7 @@ else:
     }
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)  # Conectar DB a la App
+migrate = Migrate(app, db)
 
 # --- Configuración de Flask-Login ---
 login_manager = LoginManager()
@@ -455,7 +458,7 @@ social_system = SocialSystem()
 
 # --- Creación de Tablas de DB (si no existen) ---
 with app.app_context():
-    db.create_all()
+    #db.create_all()
     logger.info("Base de datos inicializada y tablas creadas (si no existían).")
     try:
         from src.models import Achievement  # Importar el modelo
@@ -3869,9 +3872,10 @@ def _procesar_login_diario(user_obj):
 
 
 # Iniciar el hilo de limpieza en segundo plano
-hilo_limpieza = threading.Thread(target=limpiar_salas_inactivas, daemon=True)
-hilo_limpieza.start()
-logger.info("Hilo de limpieza de salas iniciado.")
+if "flask" not in sys.argv[0].lower():
+    hilo_limpieza = threading.Thread(target=limpiar_salas_inactivas, daemon=True)
+    hilo_limpieza.start()
+    logger.info("Hilo de limpieza de salas iniciado.")
 
 # ===================================================================
 # --- 8. ARRANQUE DEL SERVIDOR ---
